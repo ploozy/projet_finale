@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ course.title }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: #f5f7fa;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: -30px auto 40px;
+            padding: 0 20px;
+        }
+        
+        .content-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        
+        .course-meta {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .meta-badge {
+            background: #e3f2fd;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #1976d2;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+        }
+        
+        .section h3 {
+            color: #34495e;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+        
+        .section p {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 1.05rem;
+        }
+        
+        .section ul, .section ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+        
+        .section li {
+            margin-bottom: 10px;
+            color: #555;
+        }
+        
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+        }
+        
+        .code-inline {
+            background: #f4f4f4;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+        
+        .example-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .example-box strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .cta-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            margin-top: 50px;
+        }
+        
+        .cta-section h2 {
+            margin-bottom: 15px;
+            color: white;
+            border: none;
+            padding: 0;
+        }
+        
+        .cta-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 15px 40px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255,255,255,0.3);
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ course.title }}</h1>
+        <p>{{ course.description }}</p>
+    </div>
+
+    <div class="container">
+        <div class="content-card">
+            <div class="course-meta">
+                <span class="meta-badge">📚 Cours {{ course.id }}</span>
+                <span class="meta-badge">⏱️ {{ course.duration }}</span>
+                <span class="meta-badge">📊 {{ course.level }}</span>
+            </div>
+
+            {% for section in course.content %}
+            <div class="section">
+                <h2>{{ section.section_title }}</h2>
+                
+                {% for item in section.items %}
+                    {% if item.type == 'paragraph' %}
+                        <p>{{ item.text | safe }}</p>
+                    
+                    {% elif item.type == 'heading' %}
+                        <h3>{{ item.text }}</h3>
+                    
+                    {% elif item.type == 'code' %}
+                        <div class="code-block">{{ item.code }}</div>
+                    
+                    {% elif item.type == 'list' %}
+                        <ul>
+                            {% for li in item.items %}
+                            <li>{{ li | safe }}</li>
+                            {% endfor %}
+                        </ul>
+                    
+                    {% elif item.type == 'example' %}
+                        <div class="example-box">
+                            <strong>{{ item.title }}</strong>
+                            <p>{{ item.text | safe }}</p>
+                            {% if item.code %}
+                            <div class="code-block">{{ item.code }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+            <div class="cta-section">
+                <h2>🎯 Prêt à tester vos connaissances ?</h2>
+                <p>Retournez sur Discord et utilisez le bouton "Démarrer le QCM" pour passer le quiz</p>
+                <a href="/" class="cta-btn">← Retour à l'accueil</a>
+            </div>
+        </div>
+
+        <div class="back-link">
+            <a href="/">← Retour à l'accueil</a>
+        </div>
+    </div>
+</body>
+</html>
