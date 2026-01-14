@@ -1,0 +1,252 @@
+{
+  "courses": [
+    {
+      "id": 1,
+      "title": "Programmation Orientée Objet en Python",
+      "description": "Maîtrisez les concepts fondamentaux de la POO",
+      "duration": "2h30",
+      "level": "Débutant",
+      "content": [
+        {
+          "section_title": "Introduction à la POO",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "La Programmation Orientée Objet (POO) est un paradigme de programmation qui organise le code autour d'<span class='code-inline'>objets</span> plutôt que de fonctions et de logique."
+            },
+            {
+              "type": "heading",
+              "text": "Pourquoi utiliser la POO ?"
+            },
+            {
+              "type": "list",
+              "items": [
+                "Réutilisabilité du code",
+                "Meilleure organisation et structure",
+                "Facilite la maintenance",
+                "Modélise le monde réel"
+              ]
+            }
+          ]
+        },
+        {
+          "section_title": "Les Classes et Objets",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "Une <span class='code-inline'>classe</span> est un modèle (blueprint) qui définit les attributs et méthodes d'un objet."
+            },
+            {
+              "type": "example",
+              "title": "Exemple : Créer une classe",
+              "text": "Voici comment définir une classe simple en Python :",
+              "code": "class Voiture:\n    def __init__(self, marque, modele):\n        self.marque = marque\n        self.modele = modele\n    \n    def demarrer(self):\n        print(f\"{self.marque} {self.modele} démarre!\")\n\n# Créer un objet\nma_voiture = Voiture(\"Tesla\", \"Model 3\")\nma_voiture.demarrer()  # Affiche: Tesla Model 3 démarre!"
+            },
+            {
+              "type": "heading",
+              "text": "Le constructeur __init__"
+            },
+            {
+              "type": "paragraph",
+              "text": "La méthode <span class='code-inline'>__init__</span> est le constructeur de la classe. Elle est appelée automatiquement lors de la création d'un objet."
+            }
+          ]
+        },
+        {
+          "section_title": "Encapsulation",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "L'encapsulation consiste à cacher les détails internes d'un objet et à contrôler l'accès aux attributs."
+            },
+            {
+              "type": "code",
+              "code": "class CompteBancaire:\n    def __init__(self, solde):\n        self.__solde = solde  # Attribut privé\n    \n    def deposer(self, montant):\n        if montant > 0:\n            self.__solde += montant\n    \n    def get_solde(self):\n        return self.__solde"
+            }
+          ]
+        },
+        {
+          "section_title": "Héritage",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "L'héritage permet de créer une nouvelle classe basée sur une classe existante."
+            },
+            {
+              "type": "code",
+              "code": "class Animal:\n    def __init__(self, nom):\n        self.nom = nom\n    \n    def parler(self):\n        pass\n\nclass Chien(Animal):\n    def parler(self):\n        return f\"{self.nom} dit Wouf!\"\n\nclass Chat(Animal):\n    def parler(self):\n        return f\"{self.nom} dit Miaou!\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Structures de Données en Python",
+      "description": "Découvrez les structures de données essentielles",
+      "duration": "3h00",
+      "level": "Intermédiaire",
+      "content": [
+        {
+          "section_title": "Les Listes",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "Les listes sont des collections ordonnées et modifiables d'éléments."
+            },
+            {
+              "type": "code",
+              "code": "# Créer une liste\nfruits = [\"pomme\", \"banane\", \"orange\"]\n\n# Ajouter un élément\nfruits.append(\"fraise\")\n\n# Accéder à un élément\nprint(fruits[0])  # pomme\n\n# Parcourir une liste\nfor fruit in fruits:\n    print(fruit)"
+            }
+          ]
+        },
+        {
+          "section_title": "Les Dictionnaires",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "Les dictionnaires stockent des paires clé-valeur."
+            },
+            {
+              "type": "code",
+              "code": "# Créer un dictionnaire\npersonne = {\n    \"nom\": \"Dupont\",\n    \"age\": 30,\n    \"ville\": \"Paris\"\n}\n\n# Accéder à une valeur\nprint(personne[\"nom\"])  # Dupont\n\n# Ajouter/Modifier\npersonne[\"email\"] = \"dupont@email.com\"\n\n# Parcourir\nfor cle, valeur in personne.items():\n    print(f\"{cle}: {valeur}\")"
+            }
+          ]
+        },
+        {
+          "section_title": "Les Sets",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "Les sets sont des collections non ordonnées sans doublons."
+            },
+            {
+              "type": "code",
+              "code": "# Créer un set\nnombres = {1, 2, 3, 4, 5}\n\n# Ajouter un élément\nnombres.add(6)\n\n# Opérations d'ensemble\na = {1, 2, 3}\nb = {3, 4, 5}\n\nprint(a.union(b))        # {1, 2, 3, 4, 5}\nprint(a.intersection(b)) # {3}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Gestion des Exceptions en Python",
+      "description": "Gérez les erreurs de manière professionnelle",
+      "duration": "2h00",
+      "level": "Intermédiaire",
+      "content": [
+        {
+          "section_title": "Comprendre les Exceptions",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "Les exceptions sont des erreurs qui surviennent lors de l'exécution d'un programme."
+            },
+            {
+              "type": "heading",
+              "text": "Types d'exceptions courantes"
+            },
+            {
+              "type": "list",
+              "items": [
+                "<span class='code-inline'>ValueError</span> : Valeur incorrecte",
+                "<span class='code-inline'>TypeError</span> : Type incorrect",
+                "<span class='code-inline'>KeyError</span> : Clé inexistante",
+                "<span class='code-inline'>IndexError</span> : Index hors limites",
+                "<span class='code-inline'>ZeroDivisionError</span> : Division par zéro"
+              ]
+            }
+          ]
+        },
+        {
+          "section_title": "Try / Except",
+          "items": [
+            {
+              "type": "code",
+              "code": "try:\n    nombre = int(input(\"Entrez un nombre: \"))\n    resultat = 10 / nombre\n    print(f\"Résultat: {resultat}\")\nexcept ValueError:\n    print(\"Erreur: Vous devez entrer un nombre\")\nexcept ZeroDivisionError:\n    print(\"Erreur: Division par zéro impossible\")\nfinally:\n    print(\"Fin du programme\")"
+            }
+          ]
+        },
+        {
+          "section_title": "Lever des Exceptions",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "Vous pouvez lever manuellement des exceptions avec <span class='code-inline'>raise</span>."
+            },
+            {
+              "type": "code",
+              "code": "def verifier_age(age):\n    if age < 0:\n        raise ValueError(\"L'âge ne peut pas être négatif\")\n    if age < 18:\n        raise Exception(\"Vous devez être majeur\")\n    return True\n\ntry:\n    verifier_age(15)\nexcept ValueError as e:\n    print(f\"Erreur de valeur: {e}\")\nexcept Exception as e:\n    print(f\"Erreur: {e}\")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Algorithmique : Tri et Recherche",
+      "description": "Maîtrisez les algorithmes fondamentaux",
+      "duration": "3h30",
+      "level": "Avancé",
+      "content": [
+        {
+          "section_title": "Complexité Algorithmique",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "La complexité mesure l'efficacité d'un algorithme en termes de temps et d'espace."
+            },
+            {
+              "type": "heading",
+              "text": "Notation Big O"
+            },
+            {
+              "type": "list",
+              "items": [
+                "<span class='code-inline'>O(1)</span> : Temps constant",
+                "<span class='code-inline'>O(log n)</span> : Logarithmique",
+                "<span class='code-inline'>O(n)</span> : Linéaire",
+                "<span class='code-inline'>O(n log n)</span> : Linéarithmique",
+                "<span class='code-inline'>O(n²)</span> : Quadratique"
+              ]
+            }
+          ]
+        },
+        {
+          "section_title": "Algorithmes de Tri",
+          "items": [
+            {
+              "type": "heading",
+              "text": "Tri à Bulles (Bubble Sort)"
+            },
+            {
+              "type": "code",
+              "code": "def tri_bulles(liste):\n    n = len(liste)\n    for i in range(n):\n        for j in range(0, n-i-1):\n            if liste[j] > liste[j+1]:\n                liste[j], liste[j+1] = liste[j+1], liste[j]\n    return liste\n\nnombres = [64, 34, 25, 12, 22]\nprint(tri_bulles(nombres))  # [12, 22, 25, 34, 64]"
+            },
+            {
+              "type": "heading",
+              "text": "Quick Sort"
+            },
+            {
+              "type": "code",
+              "code": "def quick_sort(liste):\n    if len(liste) <= 1:\n        return liste\n    \n    pivot = liste[len(liste) // 2]\n    gauche = [x for x in liste if x < pivot]\n    milieu = [x for x in liste if x == pivot]\n    droite = [x for x in liste if x > pivot]\n    \n    return quick_sort(gauche) + milieu + quick_sort(droite)"
+            }
+          ]
+        },
+        {
+          "section_title": "Recherche Binaire",
+          "items": [
+            {
+              "type": "paragraph",
+              "text": "La recherche binaire est un algorithme efficace pour trouver un élément dans une liste triée."
+            },
+            {
+              "type": "code",
+              "code": "def recherche_binaire(liste, cible):\n    gauche, droite = 0, len(liste) - 1\n    \n    while gauche <= droite:\n        milieu = (gauche + droite) // 2\n        \n        if liste[milieu] == cible:\n            return milieu\n        elif liste[milieu] < cible:\n            gauche = milieu + 1\n        else:\n            droite = milieu - 1\n    \n    return -1\n\nliste_triee = [1, 3, 5, 7, 9, 11, 13]\nprint(recherche_binaire(liste_triee, 7))  # 3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
