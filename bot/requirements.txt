@@ -1,0 +1,55 @@
+# ===================================
+# DÉPENDANCES PRINCIPALES
+# ===================================
+
+# Bot Discord
+discord.py==2.6.4
+
+# Web Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Base de données PostgreSQL
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.23
+
+# API et HTTP
+aiohttp==3.13.3
+requests==2.32.3
+aiofiles==24.1.0
+
+# ===================================
+# AUTRES DÉPENDANCES
+# ===================================
+
+# Utilitaires
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.1
+pytz==2025.2
+
+# Typing et validation
+typing_extensions==4.12.2
+annotated-types==0.7.0
+
+# Networking
+aiohappyeyeballs==2.6.1
+aiosignal==1.4.0
+attrs==25.4.0
+certifi==2024.8.30
+charset-normalizer==3.4.0
+frozenlist==1.8.0
+idna==3.10
+multidict==6.7.0
+propcache==0.4.1
+yarl==1.22.0
+urllib3==2.2.3
+
+# Templates et web
+Jinja2==3.1.6
+MarkupSafe==3.0.2
+itsdangerous==2.2.0
+blinker==1.9.0
+click==8.2.0
+
+# Autres
+colorama==0.4.6
