@@ -50,11 +50,41 @@ def index():
     <body>
         <h1>🎓 Formation Python</h1>
         <p>Plateforme d'examens en ligne</p>
+        <a href="/courses">📚 Voir les Cours</a>
         <a href="/exams">📝 Accéder aux Examens</a>
     </body>
     </html>
     """
 
+@app.route('/courses')
+def courses():
+    """Page d'affichage des cours"""
+    # Charger les cours depuis course_content.json
+    try:
+        with open('course_content.json', 'r', encoding='utf-8') as f:
+            courses_data = json.load(f)
+        
+        # Formater le contenu HTML
+        for course in courses_data['courses']:
+            # Convertir le contenu texte en HTML
+            content_html = course['content'].replace('\n\n', '</p><p>')
+            content_html = f'<p>{content_html}</p>'
+            
+            # Remplacer les blocs de code
+            import re
+            code_blocks = re.findall(r'```python\n(.*?)\n```', course['content'], re.DOTALL)
+            for code in code_blocks:
+                content_html = content_html.replace(
+                    f'```python\n{code}\n```',
+                    f'<pre><code>{code}</code></pre>'
+                )
+            
+            course['content'] = content_html
+        
+        return render_template('courses.html', courses=courses_data['courses'])
+    
+    except FileNotFoundError:
+        return "Fichier course_content.json introuvable", 404
 
 @app.route('/exams', methods=['GET', 'POST'])
 def exams():
