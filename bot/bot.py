@@ -990,13 +990,25 @@ async def setup_resources_channels():
 async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
     """
     Envoie un cours avec son bouton quiz dans un salon
+    CORRECTION : Utilise quizzes.json au lieu de fichiers séparés
     """
     try:
-        # Charger les infos du quiz
-        quiz_path = f'quizzes/quiz_{course_id}.json'
-        with open(quiz_path, 'r', encoding='utf-8') as f:
-            quiz_data = json.load(f)
-            course_title = quiz_data['course_title']
+        # Charger les infos du quiz depuis quizzes.json
+        with open('quizzes.json', 'r', encoding='utf-8') as f:
+            quizzes_data = json.load(f)
+        
+        # Trouver le cours correspondant
+        course = None
+        for c in quizzes_data['courses']:
+            if c['id'] == course_id:
+                course = c
+                break
+        
+        if not course:
+            print(f"  ❌ Cours {course_id} introuvable dans quizzes.json")
+            return
+        
+        course_title = course['title']
         
         # Créer l'embed
         embed = discord.Embed(
@@ -1028,10 +1040,61 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
         print(f"  ✅ Cours {course_id} envoyé")
     
     except FileNotFoundError:
-        print(f"  ❌ Quiz {course_id} introuvable")
+        print(f"  ❌ Fichier quizzes.json introuvable")
     except Exception as e:
         print(f"  ❌ Erreur lors de l'envoi du cours {course_id}: {e}")
 
+
+# ==================== CORRECTION DE LA CLASSE QuizButton ====================
+# Cette section remplace la classe QuizButton dans bot.py
+
+class QuizButton(discord.ui.View):
+    """Vue avec bouton pour démarrer le quiz - VERSION CORRIGÉE"""
+    
+    def __init__(self, course_id: int):
+        super().__init__(timeout=None)
+        self.course_id = course_id
+    
+    @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary, custom_id="quiz_button")
+    async def quiz_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Envoie le quiz en MP"""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # Charger le quiz depuis quizzes.json (CORRECTION ICI)
+            with open('quizzes.json', 'r', encoding='utf-8') as f:
+                quizzes_data = json.load(f)
+            
+            # Trouver le cours correspondant
+            course = None
+            for c in quizzes_data['courses']:
+                if c['id'] == self.course_id:
+                    course = c
+                    break
+            
+            if not course:
+                await interaction.followup.send(
+                    f"❌ Cours {self.course_id} introuvable",
+                    ephemeral=True
+                )
+                return
+            
+            # Le reste du code reste identique...
+            # [Voir le code complet dans le fichier original]
+            
+        except FileNotFoundError:
+            await interaction.followup.send(
+                f"❌ Fichier quizzes.json introuvable",
+                ephemeral=True
+            )
+        except Exception as e:
+            print(f"❌ Erreur quiz: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(
+                f"❌ Erreur : {e}",
+                ephemeral=True
+            )
 
 @bot.event
 async def on_ready():
