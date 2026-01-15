@@ -132,13 +132,16 @@ async def on_member_join(member: discord.Member):
         print(f"❌ Erreur onboarding {member.name}: {e}")
 
 
-@bot.tree.command(name="register", description="S'enregistrer dans le système (si l'inscription automatique a échoué)")
+@bot.tree.command(name="register", description="S'enregistrer dans le système")
 async def register(interaction: discord.Interaction):
     """
     Commande pour s'enregistrer manuellement dans le système
-    Utile si l'onboarding automatique a raté ou si le bot était offline
     """
-    await interaction.response.defer(ephemeral=True)
+    # RÉPONDRE IMMÉDIATEMENT (dans les 3 secondes)
+    await interaction.response.send_message(
+        "🔄 Vérification de ton inscription...",
+        ephemeral=True
+    )
     
     try:
         from db_connection import SessionLocal
@@ -152,46 +155,70 @@ async def register(interaction: discord.Interaction):
         ).first()
         
         if existing:
-            await interaction.followup.send(
-                f"✅ Tu es déjà enregistré !\n\n"
-                f"**Groupe** : {existing.groupe}\n"
-                f"**Niveau** : {existing.niveau_actuel}\n"
-                f"**ID Discord** : `{interaction.user.id}`\n\n"
-                f"Tu peux passer ton examen sur : https://site-fromation.onrender.com/exams",
-                ephemeral=True
+            await interaction.edit_original_response(
+                content=f"✅ **Tu es déjà enregistré !**\n\n"
+                f"📌 **Groupe** : {existing.groupe}\n"
+                f"📊 **Niveau** : {existing.niveau_actuel}\n"
+                f"🆔 **ID Discord** : `{interaction.user.id}`\n\n"
+                f"🌐 Passe ton examen sur : https://site-fromation.onrender.com/exams"
             )
             db.close()
             return
         
-        # Enregistrer comme un nouveau membre
-        await onboarding_manager.on_member_join(interaction.user)
+        # Mettre à jour le message
+        await interaction.edit_original_response(
+            content="⏳ Création de ton compte..."
+        )
         
-        # Récupérer les infos après enregistrement
+        # Récupérer le Member
+        member = interaction.guild.get_member(interaction.user.id)
+        
+        if not member:
+            await interaction.edit_original_response(
+                content="❌ Impossible de te trouver sur le serveur."
+            )
+            db.close()
+            return
+        
+        # Enregistrer
+        await onboarding_manager.on_member_join(member)
+        
+        # Attendre que la DB soit mise à jour
+        await asyncio.sleep(1)
+        
+        # Récupérer les infos
         user = db.query(Utilisateur).filter(
             Utilisateur.user_id == interaction.user.id
         ).first()
         
         if user:
-            await interaction.followup.send(
-                f"✅ Inscription réussie !\n\n"
-                f"**Groupe** : {user.groupe}\n"
-                f"**Niveau** : {user.niveau_actuel}\n"
-                f"**ID Discord** : `{interaction.user.id}`\n\n"
-                f"Tu as maintenant accès à tes salons et tu peux passer ton examen sur :\n"
-                f"https://site-fromation.onrender.com/exams",
-                ephemeral=True
+            await interaction.edit_original_response(
+                content=f"✅ **Inscription réussie !**\n\n"
+                f"📌 **Groupe** : {user.groupe}\n"
+                f"📊 **Niveau** : {user.niveau_actuel}\n"
+                f"🆔 **ID Discord** : `{interaction.user.id}`\n\n"
+                f"✨ Tu as maintenant accès à tes salons !\n"
+                f"🌐 Passe ton examen sur : https://site-fromation.onrender.com/exams"
             )
         else:
-            await interaction.followup.send(
-                "❌ Erreur lors de l'inscription. Contacte un administrateur.",
-                ephemeral=True
+            await interaction.edit_original_response(
+                content=f"⚠️ **Inscription partiellement réussie**\n\n"
+                f"Tu as reçu ton rôle Discord mais une erreur s'est produite.\n"
+                f"🆔 **Ton ID** : `{interaction.user.id}`\n\n"
+                f"Contacte un admin ou réessaye."
             )
         
         db.close()
         
     except Exception as e:
-        await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
+        await interaction.edit_original_response(
+            content=f"❌ **Erreur**\n\n"
+            f"```{str(e)}```\n\n"
+            f"🆔 **Ton ID** : `{interaction.user.id}`"
+        )
         print(f"❌ Erreur register: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @bot.tree.command(name="check_exam_results", description="[ADMIN] Vérifier et notifier les résultats d'examens web")
