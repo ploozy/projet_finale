@@ -222,4 +222,4 @@ async def stats(interaction: discord.Interaction):
         print(f"❌ Erreur stats: {e}")
 
 
-@bot.tree.command(name="manu)
+@bot.tree.command(name="manu")
