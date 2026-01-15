@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 import json
 from datetime import datetime
 import os
-import requests
 
 # ✅ UTILISATION DE POSTGRESQL
 from cohorte_manager_sql import CohortManagerSQL
@@ -10,9 +9,6 @@ from exam_result_database_sql import ExamResultDatabaseSQL
 
 app = Flask(__name__)
 app.secret_key = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2'
-
-# URL du bot Discord (pour les notifications)
-BOT_URL = os.getenv('BOT_URL', 'http://localhost:8080')
 
 # Initialisation des managers SQL
 cohort_manager = CohortManagerSQL()
@@ -29,256 +25,256 @@ with open('exam.json', 'r', encoding='utf-8') as f:
 
 @app.route('/')
 def index():
-    """Page d'accueil"""
-    return render_template('index.html')
+    """Page d'accueil - Redirection vers Discord"""
+    return """
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Plateforme de Formation</title>
+        <style>
+            body {
+                background: #0d1117;
+                color: #c9d1d9;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                text-align: center;
+            }
+            .container {
+                max-width: 600px;
+                padding: 3rem;
+                background: #161b22;
+                border-radius: 10px;
+                border: 1px solid #30363d;
+            }
+            h1 { color: #ff8c00; margin-bottom: 1.5rem; }
+            p { font-size: 1.2rem; line-height: 1.8; margin: 1rem 0; }
+            code {
+                background: #0d1117;
+                padding: 0.3rem 0.6rem;
+                border-radius: 5px;
+                color: #ff8c00;
+                font-size: 1.1rem;
+            }
+            .btn {
+                display: inline-block;
+                margin-top: 1.5rem;
+                padding: 0.8rem 2rem;
+                background: #ff8c00;
+                color: #fff;
+                text-decoration: none;
+                border-radius: 5px;
+                font-weight: bold;
+                transition: background 0.3s;
+            }
+            .btn:hover {
+                background: #ff7700;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🎓 Plateforme de Formation</h1>
+            <p>Pour accéder aux cours, rejoignez notre serveur Discord.</p>
+            <p>Contactez un administrateur pour être inscrit via :</p>
+            <p><code>/send_course [numéro] @vous</code></p>
+            <a href="/exams" class="btn">📝 Passer un examen</a>
+        </div>
+    </body>
+    </html>
+    """
 
 
 @app.route('/course/<int:course_id>')
 def course_detail(course_id):
-    """Affichage d'un cours"""
+    """Page détaillée d'un cours"""
     course = next((c for c in courses_content['courses'] if c['id'] == course_id), None)
-
     if not course:
-        return "Cours non trouvé", 404
-
+        return "Cours introuvable", 404
+    
     return render_template('course_detail.html', course=course)
 
 
-@app.route('/exams')
-def exams_list():
-    """Liste des examens disponibles"""
-    return render_template('exams.html', exams=exams_data['exams'])
-
-
-@app.route('/exam/<int:exam_id>')
-def exam_take(exam_id):
-    """Passer un examen"""
-    exam = next((e for e in exams_data['exams'] if e['id'] == exam_id), None)
-
-    if not exam:
-        return "Examen non trouvé", 404
-
-    return render_template('exam_take.html', exam=exam)
-
-
-@app.route('/api/check_user_level', methods=['POST'])
-def check_user_level():
+@app.route('/exams', methods=['GET', 'POST'])
+def exams():
     """
-    Vérifie le niveau d'un utilisateur et la disponibilité de l'examen
+    ✅ SYSTÈME D'EXAMEN CORRIGÉ
+    GET : Formulaire de saisie ID Discord
+    POST : Affiche l'examen si disponible dans la tranche horaire
     """
+    if request.method == 'GET':
+        return render_template('exams.html')
+    
+    # POST - Vérification et affichage de l'examen
     try:
-        data = request.json
-        user_id = int(data['user_id'])
-        exam_id = int(data['exam_id'])
-
-        # Récupérer les informations de l'utilisateur
+        user_id = int(request.form.get('user_id'))
+        
+        # 1. Vérifier si l'utilisateur existe dans la base
         user_info = cohort_manager.get_user_info(user_id)
-
+        
         if not user_info:
-            return jsonify({
-                'success': False,
-                'message': 'Utilisateur non inscrit'
-            }), 403
-
-        # Vérifier que l'examen correspond au niveau de l'utilisateur
-        exam = next((e for e in exams_data['exams'] if e['id'] == exam_id), None)
-
+            return render_template('exams.html', error="Utilisateur non trouvé. Inscrivez-vous via Discord.")
+        
+        # 2. Récupérer le niveau de l'utilisateur
+        niveau = user_info['niveau_actuel']
+        
+        # 3. Trouver l'examen correspondant au niveau (group)
+        exam = next((e for e in exams_data['exams'] if e['group'] == niveau), None)
+        
         if not exam:
-            return jsonify({
-                'success': False,
-                'message': 'Examen non trouvé'
-            }), 404
-
-        if exam['group'] != user_info['niveau_actuel']:
-            return jsonify({
-                'success': False,
-                'message': f"Cet examen est pour le niveau {exam['group']}. Vous êtes niveau {user_info['niveau_actuel']}"
-            }), 403
-
-        # Vérifier les dates d'examen
-        next_exam = cohort_manager.get_next_exam_for_user(user_id)
-
-        if not next_exam:
-            return jsonify({
-                'success': False,
-                'message': 'Aucun examen planifié'
-            }), 403
-
-        date_debut = datetime.fromisoformat(next_exam['date_debut'])
-        date_fin = datetime.fromisoformat(next_exam['date_fin'])
+            return render_template('exams.html', error=f"Aucun examen disponible pour le niveau {niveau}")
+        
+        # 4. Vérifier la tranche horaire de l'examen
         now = datetime.now()
-
-        if now < date_debut:
-            return jsonify({
-                'success': False,
-                'message': f"L'examen commence le {date_debut.strftime('%d/%m/%Y à %H:%M')}"
-            }), 403
-
-        if now > date_fin:
-            return jsonify({
-                'success': False,
-                'message': f"L'examen s'est terminé le {date_fin.strftime('%d/%m/%Y à %H:%M')}"
-            }), 403
-
-        # Tout est OK
-        return jsonify({
-            'success': True,
-            'user_info': user_info,
-            'exam_window': {
-                'debut': date_debut.isoformat(),
-                'fin': date_fin.isoformat()
-            }
-        })
-
+        exam_start = datetime.fromisoformat(exam['start_date'])
+        exam_end = datetime.fromisoformat(exam['end_date'])
+        
+        if now < exam_start:
+            return render_template('exams.html', 
+                error=f"L'examen du niveau {niveau} n'est pas encore ouvert.\nOuverture le {exam_start.strftime('%d/%m/%Y à %H:%M')}")
+        
+        if now > exam_end:
+            return render_template('exams.html', 
+                error=f"L'examen du niveau {niveau} est terminé.\nIl s'est clôturé le {exam_end.strftime('%d/%m/%Y à %H:%M')}")
+        
+        # 5. Vérifier si l'utilisateur n'a pas déjà passé cet examen aujourd'hui
+        user_results = exam_db.get_user_exam_results(user_id)
+        today = datetime.now().date()
+        
+        for result in user_results:
+            result_date = datetime.fromisoformat(result['date']).date()
+            if result['exam_id'] == exam['id'] and result_date == today:
+                return render_template('exams.html', 
+                    error=f"Vous avez déjà passé cet examen aujourd'hui.\nScore: {result['score']}/{result['total']} ({result['percentage']}%)")
+        
+        # 6. Afficher l'examen
+        return render_template('exam_take.html', 
+                             exam=exam, 
+                             user_id=user_id,
+                             user_info=user_info)
+    
+    except ValueError:
+        return render_template('exams.html', error="ID Discord invalide (doit être un nombre)")
     except Exception as e:
-        print(f"❌ Erreur check_user_level: {e}")
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        print(f"Erreur /exams: {e}")
+        import traceback
+        traceback.print_exc()
+        return render_template('exams.html', error=f"Erreur serveur: {str(e)}")
 
 
-@app.route('/api/submit_exam', methods=['POST'])
+@app.route('/submit_exam', methods=['POST'])
 def submit_exam():
-    """Soumet un examen complété"""
+    """Soumet les résultats d'un examen"""
     try:
-        data = request.json
+        data = request.get_json()
         user_id = int(data['user_id'])
         exam_id = int(data['exam_id'])
         answers = data['answers']
-
-        # Récupérer l'examen
+        
+        # Trouver l'examen
         exam = next((e for e in exams_data['exams'] if e['id'] == exam_id), None)
-
         if not exam:
+            return jsonify({'success': False, 'message': 'Examen introuvable'}), 404
+        
+        # Vérifier la tranche horaire
+        now = datetime.now()
+        exam_start = datetime.fromisoformat(exam['start_date'])
+        exam_end = datetime.fromisoformat(exam['end_date'])
+        
+        if now < exam_start or now > exam_end:
             return jsonify({
-                'success': False,
-                'message': 'Examen non trouvé'
-            }), 404
-
+                'success': False, 
+                'message': 'Examen non disponible dans cette tranche horaire'
+            }), 400
+        
         # Calculer le score
         score = 0
         total_points = 0
         results = []
-
+        
         for question in exam['questions']:
-            total_points += question['points']
-            user_answer = answers.get(str(question['id']))
-            is_correct = (user_answer == question['correct'])
-
-            if is_correct:
-                score += question['points']
-
+            q_id = question['id']
+            user_answer = answers.get(str(q_id))
+            correct = user_answer == question['correct']
+            points = question.get('points', 1)
+            total_points += points
+            
+            if correct:
+                score += points
+            
             results.append({
-                'question_id': question['id'],
+                'question_id': q_id,
+                'question_text': question['text'],
                 'user_answer': user_answer,
                 'correct_answer': question['correct'],
-                'is_correct': is_correct,
-                'points': question['points'] if is_correct else 0
+                'is_correct': correct,
+                'points': points
             })
-
-        # Calculer le pourcentage
-        percentage = (score / total_points) * 100
-        passed = percentage >= exam['passing_score']
-
-        # Enregistrer le résultat
+        
+        percentage = round((score / total_points) * 100, 2)
+        passed = percentage >= exam.get('passing_score', 50)
+        
+        # Sauvegarder le résultat
         exam_result = {
             'user_id': user_id,
             'exam_id': exam_id,
             'exam_title': exam['title'],
             'score': score,
             'total': total_points,
-            'percentage': round(percentage, 2),
+            'percentage': percentage,
             'passed': passed,
-            'passing_score': exam['passing_score'],
-            'date': datetime.now(),
+            'passing_score': exam.get('passing_score', 50),
+            'date': datetime.now().isoformat(),
             'results': results
         }
-
+        
         exam_db.save_exam_result(exam_result)
-
-        # Mettre à jour le niveau de l'utilisateur
-        message, nouveau_niveau, nouveau_sous_groupe = cohort_manager.update_user_after_exam(
-            user_id, passed
-        )
-
-        # Notifier le bot Discord pour la mise à jour des rôles
-        try:
-            response = requests.post(
-                f"{BOT_URL}/api/submit_exam",
-                json={
-                    'user_id': user_id,
-                    'exam_id': exam_id,
-                    'passed': passed,
-                    **exam_result
-                },
-                timeout=5
-            )
-        except Exception as e:
-            print(f"⚠️ Impossible de notifier le bot: {e}")
-
+        
+        # Mettre à jour l'utilisateur dans la cohorte
+        cohort_manager.update_user_after_exam(user_id, passed)
+        
         return jsonify({
             'success': True,
-            'passed': passed,
             'score': score,
             'total': total_points,
             'percentage': percentage,
-            'message': message,
-            'nouveau_niveau': nouveau_niveau,
-            'nouveau_sous_groupe': nouveau_sous_groupe,
-            'results': results
+            'passed': passed
         })
-
+        
     except Exception as e:
-        print(f"❌ Erreur submit_exam: {e}")
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        print(f"Erreur submit_exam: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@app.route('/api/get_user_info/<int:user_id>')
-def get_user_info(user_id):
-    """Récupère les informations d'un utilisateur"""
+@app.route('/api/unnotified_exam_results')
+def api_unnotified_exam_results():
+    """API pour le bot Discord - récupère les résultats non notifiés"""
+    results = exam_db.get_unnotified_results(limit=50)
+    return jsonify(results)
+
+
+@app.route('/api/mark_notified', methods=['POST'])
+def api_mark_notified():
+    """Marque des résultats comme notifiés"""
     try:
-        user_info = cohort_manager.get_user_info(user_id)
-
-        if not user_info:
-            return jsonify({
-                'success': False,
-                'message': 'Utilisateur non trouvé'
-            }), 404
-
-        return jsonify({
-            'success': True,
-            'user': user_info
-        })
-
+        data = request.get_json()
+        for result in data.get('results', []):
+            exam_db.mark_as_notified(
+                result['user_id'],
+                result['exam_id'],
+                result['date']
+            )
+        return jsonify({'success': True})
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
-
-
-@app.route('/api/get_exam_results/<int:user_id>')
-def get_exam_results(user_id):
-    """Récupère les résultats d'examens d'un utilisateur"""
-    try:
-        results = exam_db.get_user_exam_results(user_id)
-
-        return jsonify({
-            'success': True,
-            'results': results
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(debug=True, host='0.0.0.0', port=5000)
