@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Examens - Plateforme de Formation</title>
+    <title>Accès Examen - Formation Python</title>
     <style>
         * {
             margin: 0;
@@ -23,23 +23,32 @@
         
         .container {
             background: white;
-            border-radius: 20px;
             padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             max-width: 500px;
             width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .icon {
+            font-size: 60px;
+            margin-bottom: 10px;
         }
         
         h1 {
-            color: #667eea;
-            margin-bottom: 10px;
+            color: #2c3e50;
             font-size: 2rem;
+            margin-bottom: 10px;
         }
         
         .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 0.95rem;
+            color: #7f8c8d;
+            font-size: 1rem;
         }
         
         .form-group {
@@ -48,18 +57,31 @@
         
         label {
             display: block;
-            margin-bottom: 8px;
-            color: #333;
+            color: #2c3e50;
             font-weight: 600;
+            margin-bottom: 8px;
             font-size: 0.95rem;
+        }
+        
+        .input-wrapper {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7f8c8d;
+            font-size: 20px;
         }
         
         input[type="text"] {
             width: 100%;
-            padding: 14px;
+            padding: 15px 15px 15px 50px;
             border: 2px solid #e0e0e0;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 1rem;
             transition: all 0.3s;
         }
         
@@ -70,53 +92,105 @@
         }
         
         .help-text {
+            display: flex;
+            align-items: flex-start;
+            margin-top: 10px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
             font-size: 0.85rem;
-            color: #999;
-            margin-top: 6px;
+            color: #6c757d;
         }
         
-        .btn {
+        .help-icon {
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        
+        button {
             width: 100%;
-            padding: 14px;
+            padding: 16px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 1.1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.3s;
         }
         
-        .btn:hover {
+        button:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
         }
         
-        .btn:active {
+        button:active {
             transform: translateY(0);
+        }
+        
+        .info-box {
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .info-title::before {
+            content: "ℹ️";
+            margin-right: 8px;
+        }
+        
+        .info-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .info-list li {
+            padding: 8px 0;
+            color: #495057;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .info-list li::before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 10px;
+            flex-shrink: 0;
         }
         
         .error {
             background: #fee;
-            border-left: 4px solid #f44;
+            border-left: 4px solid #dc3545;
             padding: 15px;
+            border-radius: 8px;
             margin-bottom: 20px;
-            border-radius: 8px;
-            color: #c00;
+            color: #721c24;
         }
         
-        .info-box {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 15px;
-            margin-top: 25px;
-            border-radius: 8px;
-            font-size: 0.9rem;
+        .error-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
         }
         
-        .info-box strong {
-            color: #1976d2;
+        .error-title::before {
+            content: "✖";
+            margin-right: 8px;
+            color: #dc3545;
         }
         
         .back-link {
@@ -133,46 +207,72 @@
         .back-link a:hover {
             text-decoration: underline;
         }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .icon {
+                font-size: 50px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎓 Examens</h1>
-        <p class="subtitle">Accédez à votre examen en ligne</p>
-        
+        <div class="header">
+            <div class="icon">🎓</div>
+            <h1>Accès à l'Examen</h1>
+            <p class="subtitle">Formation Python</p>
+        </div>
+
         {% if error %}
         <div class="error">
-            <strong>❌ Erreur :</strong> {{ error }}
+            <div class="error-title">Erreur</div>
+            <p>{{ error }}</p>
         </div>
         {% endif %}
-        
+
         <form method="POST" action="/exams">
             <div class="form-group">
-                <label for="user_id">🆔 Votre ID Discord</label>
-                <input 
-                    type="text" 
-                    id="user_id" 
-                    name="user_id" 
-                    placeholder="Ex: 123456789012345678"
-                    required
-                    pattern="[0-9]+"
-                    title="L'ID Discord doit être un nombre"
-                >
-                <p class="help-text">
-                    💡 Pour obtenir votre ID : Activez le mode développeur dans Discord → Clic droit sur votre profil → Copier l'identifiant
-                </p>
+                <label for="user_id">Votre ID Discord</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🆔</span>
+                    <input 
+                        type="text" 
+                        id="user_id" 
+                        name="user_id" 
+                        placeholder="Ex: 123456789012345678"
+                        required
+                        pattern="[0-9]{17,19}"
+                        title="L'ID Discord doit contenir entre 17 et 19 chiffres"
+                    >
+                </div>
+                <div class="help-text">
+                    <span class="help-icon">💡</span>
+                    <span>Pour obtenir votre ID : Activez le mode développeur dans Discord → Clic droit sur votre profil → Copier l'identifiant</span>
+                </div>
             </div>
-            
-            <button type="submit" class="btn">Accéder à mon examen →</button>
+
+            <button type="submit">Accéder à mon examen →</button>
         </form>
-        
+
         <div class="info-box">
-            <strong>ℹ️ Important :</strong><br>
-            • Vous devez être inscrit via Discord (/send_course)<br>
-            • L'examen correspond à votre groupe actuel<br>
-            • Vérifiez les dates d'ouverture de votre examen
+            <div class="info-title">Important</div>
+            <ul class="info-list">
+                <li>Vous devez être membre du serveur Discord</li>
+                <li>L'examen correspond à votre niveau actuel</li>
+                <li>Vérifiez les dates et horaires d'ouverture</li>
+                <li>Durée : 40 minutes</li>
+                <li>Score minimum requis : 70%</li>
+            </ul>
         </div>
-        
+
         <div class="back-link">
             <a href="/">← Retour à l'accueil</a>
         </div>
