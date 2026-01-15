@@ -1,6 +1,7 @@
 """
 Modèles SQLAlchemy pour la base de données
 Utilisé par le Bot Discord et le Site Web
+VERSION COMPLÈTE avec Vote et ExamPeriod
 """
 from sqlalchemy import Column, Integer, String, BigInteger, Float, Boolean, DateTime, ForeignKey, JSON, CheckConstraint, Text
 from sqlalchemy.orm import relationship
@@ -40,14 +41,15 @@ class Utilisateur(Base):
     username = Column(String(100), nullable=False)
     cohorte_id = Column(String(20), ForeignKey('cohortes.id', ondelete='CASCADE'), nullable=False)
     niveau_actuel = Column(Integer, nullable=False, default=1)
-    groupe = Column(String(10), nullable=False, default="1-A") 
-    # Champs pour le système de vote
+    groupe = Column(String(10), nullable=False, default="1-A")  # Ex: "1-A", "2-B", "3-C"
+    examens_reussis = Column(Integer, nullable=False, default=0)
+    date_inscription = Column(DateTime, nullable=False, default=datetime.now)
+    
+    # NOUVEAUX CHAMPS pour le système de vote
     has_voted = Column(Boolean, nullable=False, default=False)
     current_exam_period = Column(String(50), nullable=True)
     bonus_points = Column(Float, nullable=False, default=0.0)
-    bonus_level = Column(String(20), nullable=True)  # "or", "argent", "bronze", ou None# Ex: "1-A", "2-B", "3-C"
-    examens_reussis = Column(Integer, nullable=False, default=0)
-    date_inscription = Column(DateTime, nullable=False, default=datetime.now)
+    bonus_level = Column(String(20), nullable=True)  # "or", "argent", "bronze", ou None
     
     # Relations
     cohorte = relationship("Cohorte", back_populates="utilisateurs")
@@ -108,7 +110,7 @@ class Review(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
-    question_id = Column(String(50), nullable=False)  # Ex: "poo_q1", "struct_q2"
+    question_id = Column(Integer, nullable=False)
     next_review = Column(DateTime, nullable=False)
     interval_days = Column(Float, nullable=False)
     repetitions = Column(Integer, nullable=False, default=0)
@@ -163,6 +165,10 @@ class CourseQuizResult(Base):
     
     def __repr__(self):
         return f"<CourseQuizResult {self.user_id} - Cours {self.course_id} Q{self.quiz_question_id}>"
+
+
+# ==================== NOUVELLES CLASSES ====================
+
 class Vote(Base):
     """Table des votes pour le système de récompense"""
     __tablename__ = 'votes'
