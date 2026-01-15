@@ -40,7 +40,12 @@ class Utilisateur(Base):
     username = Column(String(100), nullable=False)
     cohorte_id = Column(String(20), ForeignKey('cohortes.id', ondelete='CASCADE'), nullable=False)
     niveau_actuel = Column(Integer, nullable=False, default=1)
-    groupe = Column(String(10), nullable=False, default="1-A")  # Ex: "1-A", "2-B", "3-C"
+    groupe = Column(String(10), nullable=False, default="1-A") 
+    # Champs pour le système de vote
+    has_voted = Column(Boolean, nullable=False, default=False)
+    current_exam_period = Column(String(50), nullable=True)
+    bonus_points = Column(Float, nullable=False, default=0.0)
+    bonus_level = Column(String(20), nullable=True)  # "or", "argent", "bronze", ou None# Ex: "1-A", "2-B", "3-C"
     examens_reussis = Column(Integer, nullable=False, default=0)
     date_inscription = Column(DateTime, nullable=False, default=datetime.now)
     
