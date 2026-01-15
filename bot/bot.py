@@ -15,6 +15,7 @@ from cohorte_manager_sql import CohortManagerSQL
 from database_sql import ReviewDatabaseSQL
 from exam_result_database_sql import ExamResultDatabaseSQL
 from role_channel_manager import RoleChannelManager
+from auto_role_manager import AutoRoleManager
 
 keep_alive()
 load_dotenv()
@@ -36,6 +37,7 @@ cohort_manager = CohortManagerSQL()
 review_db = ReviewDatabaseSQL()
 exam_db = ExamResultDatabaseSQL()
 role_manager = RoleChannelManager(bot)
+auto_role_manager = AutoRoleManager(bot)
 quiz_manager = QuizManager(bot, review_db, config)
 scheduler = ReviewScheduler(bot, review_db, quiz_manager)
 
@@ -141,6 +143,9 @@ async def on_ready():
     
     # Démarrer le scheduler
     scheduler.start()
+    
+    # Démarrer la synchronisation automatique des rôles
+    auto_role_manager.start()
     
     # Démarrer le serveur HTTP
     await http_server.start()
