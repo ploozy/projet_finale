@@ -9,7 +9,7 @@ from models import Cohorte, Utilisateur, CalendrierExamen, HistoriqueCohorte
 from db_connection import SessionLocal
 
 
-class CohortManagerSQL:
+class CohorteManagerSQL:
     """Gestionnaire de cohortes temporelles avec PostgreSQL"""
     
     def __init__(self):
