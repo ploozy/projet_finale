@@ -1,0 +1,126 @@
+{
+  "course_id": 4,
+  "course_title": "Algorithmique : Tri et Recherche",
+  "questions": [
+    {
+      "id": "algo_q1",
+      "question": "Quelle est la complexité du tri à bulles (Bubble Sort) ?",
+      "options": {
+        "A": "O(n)",
+        "B": "O(n log n)",
+        "C": "O(n²)",
+        "D": "O(log n)"
+      },
+      "correct": "C",
+      "explanation": "Le tri à bulles a une complexité quadratique O(n²) dans le pire cas."
+    },
+    {
+      "id": "algo_q2",
+      "question": "Quel algorithme de tri est le plus rapide en moyenne ?",
+      "options": {
+        "A": "Bubble Sort",
+        "B": "Quick Sort",
+        "C": "Insertion Sort",
+        "D": "Selection Sort"
+      },
+      "correct": "B",
+      "explanation": "Quick Sort a une complexité moyenne de O(n log n), ce qui en fait l'un des plus rapides."
+    },
+    {
+      "id": "algo_q3",
+      "question": "La recherche binaire nécessite que la liste soit :",
+      "options": {
+        "A": "Vide",
+        "B": "Triée",
+        "C": "Non triée",
+        "D": "De taille paire"
+      },
+      "correct": "B",
+      "explanation": "La recherche binaire ne fonctionne que sur des listes triées."
+    },
+    {
+      "id": "algo_q4",
+      "question": "Quelle est la complexité de la recherche binaire ?",
+      "options": {
+        "A": "O(n)",
+        "B": "O(n²)",
+        "C": "O(log n)",
+        "D": "O(1)"
+      },
+      "correct": "C",
+      "explanation": "La recherche binaire divise l'espace de recherche par 2 à chaque étape : O(log n)."
+    },
+    {
+      "id": "algo_q5",
+      "question": "Que signifie O(1) en complexité algorithmique ?",
+      "options": {
+        "A": "Le temps dépend de la taille des données",
+        "B": "Le temps est constant, indépendant de la taille",
+        "C": "L'algorithme est très lent",
+        "D": "L'algorithme utilise beaucoup de mémoire"
+      },
+      "correct": "B",
+      "explanation": "O(1) signifie temps constant : l'opération prend toujours le même temps."
+    },
+    {
+      "id": "algo_q6",
+      "question": "Dans Quick Sort, qu'est-ce qu'un pivot ?",
+      "options": {
+        "A": "Le premier élément de la liste",
+        "B": "Un élément de référence pour partitionner la liste",
+        "C": "Le plus petit élément",
+        "D": "Le dernier élément"
+      },
+      "correct": "B",
+      "explanation": "Le pivot est l'élément de référence autour duquel on partitionne la liste."
+    },
+    {
+      "id": "algo_q7",
+      "question": "Quel algorithme utilise la stratégie 'diviser pour régner' ?",
+      "options": {
+        "A": "Bubble Sort",
+        "B": "Linear Search",
+        "C": "Merge Sort",
+        "D": "Selection Sort"
+      },
+      "correct": "C",
+      "explanation": "Merge Sort divise récursivement la liste puis fusionne les parties triées."
+    },
+    {
+      "id": "algo_q8",
+      "question": "Quelle est la complexité d'accès à un élément dans une liste Python ?",
+      "options": {
+        "A": "O(1)",
+        "B": "O(n)",
+        "C": "O(log n)",
+        "D": "O(n²)"
+      },
+      "correct": "A",
+      "explanation": "L'accès par index dans une liste Python est en temps constant O(1)."
+    },
+    {
+      "id": "algo_q9",
+      "question": "Quel tri est le plus efficace pour des petites listes ?",
+      "options": {
+        "A": "Quick Sort",
+        "B": "Merge Sort",
+        "C": "Insertion Sort",
+        "D": "Heap Sort"
+      },
+      "correct": "C",
+      "explanation": "Insertion Sort est simple et efficace pour de petites listes (faible overhead)."
+    },
+    {
+      "id": "algo_q10",
+      "question": "Que signifie 'in-place' pour un algorithme de tri ?",
+      "options": {
+        "A": "Il utilise beaucoup de mémoire supplémentaire",
+        "B": "Il trie sans utiliser de mémoire supplémentaire significative",
+        "C": "Il est très rapide",
+        "D": "Il ne modifie pas la liste originale"
+      },
+      "correct": "B",
+      "explanation": "Un algorithme in-place trie la liste directement sans créer de copie (O(1) espace)."
+    }
+  ]
+}
