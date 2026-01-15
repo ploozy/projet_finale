@@ -2,12 +2,12 @@
   "exams": [
     {
       "id": 1,
-      "title": "Examen Groupe 1 - Fondamentaux Python",
+      "title": "Examen Niveau 1 - Fondamentaux Python",
       "group": 1,
-      "duration_minutes": 30,
+      "duration_minutes": 40,
       "passing_score": 70,
-      "start_date": "2026-01-15T09:00:00",
-      "end_date": "2026-01-30T23:59:59",
+      "start_date": "2026-01-20T09:00:00",
+      "end_date": "2026-01-20T15:00:00",
       "questions": [
         {
           "id": 1,
@@ -73,12 +73,12 @@
     },
     {
       "id": 2,
-      "title": "Examen Groupe 2 - Structures de Données",
+      "title": "Examen Niveau 2 - Structures de Données",
       "group": 2,
       "duration_minutes": 40,
       "passing_score": 70,
-      "start_date": "2026-01-29T09:00:00",
-      "end_date": "2026-02-13T23:59:59",
+      "start_date": "2026-02-03T09:00:00",
+      "end_date": "2026-02-03T15:00:00",
       "questions": [
         {
           "id": 6,
@@ -144,12 +144,12 @@
     },
     {
       "id": 3,
-      "title": "Examen Groupe 3 - Gestion des Exceptions",
+      "title": "Examen Niveau 3 - Gestion des Exceptions",
       "group": 3,
-      "duration_minutes": 35,
+      "duration_minutes": 40,
       "passing_score": 70,
-      "start_date": "2026-02-12T09:00:00",
-      "end_date": "2026-02-27T23:59:59",
+      "start_date": "2026-02-17T09:00:00",
+      "end_date": "2026-02-17T15:00:00",
       "questions": [
         {
           "id": 11,
@@ -215,12 +215,12 @@
     },
     {
       "id": 4,
-      "title": "Examen Groupe 4 - Algorithmique",
+      "title": "Examen Niveau 4 - Algorithmique",
       "group": 4,
-      "duration_minutes": 45,
+      "duration_minutes": 40,
       "passing_score": 70,
-      "start_date": "2026-02-26T09:00:00",
-      "end_date": "2026-03-13T23:59:59",
+      "start_date": "2026-03-03T09:00:00",
+      "end_date": "2026-03-03T15:00:00",
       "questions": [
         {
           "id": 16,
@@ -286,12 +286,12 @@
     },
     {
       "id": 5,
-      "title": "Examen Groupe 5 - Projet Final",
+      "title": "Examen Niveau 5 - Projet Final",
       "group": 5,
-      "duration_minutes": 60,
+      "duration_minutes": 40,
       "passing_score": 75,
-      "start_date": "2026-03-12T09:00:00",
-      "end_date": "2026-03-27T23:59:59",
+      "start_date": "2026-03-17T09:00:00",
+      "end_date": "2026-03-17T15:00:00",
       "questions": [
         {
           "id": 21,
