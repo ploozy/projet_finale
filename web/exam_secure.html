@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examen Sécurisé - Python</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Header d'avertissement fixe */
+        .exam-warning-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border-bottom: 3px solid #7f1d1d;
+        }
+        
+        .exam-timer {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .exam-warning-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Conteneur principal */
+        .exam-container {
+            max-width: 900px;
+            margin: 150px auto 50px;
+            padding: 40px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+        
+        .exam-title {
+            font-size: 2rem;
+            color: #1e3c72;
+            margin-bottom: 30px;
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2a5298;
+        }
+        
+        /* Questions */
+        .question-card {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border-left: 5px solid #2a5298;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .question-number {
+            font-size: 1.1rem;
+            color: #2a5298;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .question-text {
+            font-size: 1.2rem;
+            color: #1f2937;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .option:hover {
+            border-color: #2a5298;
+            background: #eff6ff;
+            transform: translateX(5px);
+        }
+        
+        .option input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+        
+        .option label {
+            font-size: 1.1rem;
+            cursor: pointer;
+            flex: 1;
+        }
+        
+        /* Bouton de soumission */
+        .submit-container {
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 18px 60px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(16, 185, 129, 0.4);
+        }
+        
+        .submit-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Modal de triche */
+        .cheat-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .cheat-modal-content {
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+        
+        .cheat-modal h2 {
+            font-size: 2.5rem;
+            color: #dc2626;
+            margin-bottom: 20px;
+        }
+        
+        .cheat-modal p {
+            font-size: 1.3rem;
+            color: #1f2937;
+            margin-bottom: 30px;
+        }
+        
+        .restart-timer {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #dc2626;
+        }
+        
+        /* Progress bar */
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header d'avertissement -->
+    <div class="exam-warning-header">
+        <div class="exam-timer" id="timer">⏱️ <span id="timer-display">06:00:00</span></div>
+        <div class="exam-warning-text">
+            ⚠️ NE QUITTEZ PAS CETTE PAGE - L'examen redémarrera automatiquement
+        </div>
+    </div>
+    
+    <!-- Modal de triche -->
+    <div class="cheat-modal" id="cheatModal">
+        <div class="cheat-modal-content">
+            <h2>⚠️ TRICHE DÉTECTÉE</h2>
+            <p>Vous avez quitté la page de l'examen.</p>
+            <p>L'examen va redémarrer dans :</p>
+            <div class="restart-timer" id="restartTimer">3</div>
+        </div>
+    </div>
+    
+    <!-- Conteneur principal -->
+    <div class="exam-container">
+        <h1 class="exam-title" id="examTitle">Chargement...</h1>
+        
+        <!-- Barre de progression -->
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <form id="examForm">
+            <div id="questionsContainer"></div>
+            
+            <div class="submit-container">
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    🎯 Soumettre l'Examen
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        // ==================== CONFIGURATION ====================
+        const EXAM_DURATION = 6 * 60 * 60; // 6 heures en secondes
+        let examData = null;
+        let examStartTime = Date.now();
+        let timerInterval = null;
+        let focusLost = false;
+        
+        // ==================== CHARGEMENT DE L'EXAMEN ====================
+        async function loadExam() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const examId = urlParams.get('exam_id');
+                
+                if (!examId) {
+                    alert('ID d\'examen manquant');
+                    return;
+                }
+                
+                const response = await fetch(`/api/get_exam/${examId}`);
+                examData = await response.json();
+                
+                document.getElementById('examTitle').textContent = examData.title;
+                renderQuestions();
+                startTimer();
+                initAntiCheat();
+                
+            } catch (error) {
+                console.error('Erreur chargement examen:', error);
+                alert('Erreur lors du chargement de l\'examen');
+            }
+        }
+        
+        // ==================== RENDU DES QUESTIONS ====================
+        function renderQuestions() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            
+            examData.questions.forEach((question, index) => {
+                const questionCard = document.createElement('div');
+                questionCard.className = 'question-card';
+                
+                let optionsHtml = '';
+                question.options.forEach((option, optIndex) => {
+                    optionsHtml += `
+                        <div class="option">
+                            <input type="radio" 
+                                   id="q${index}_opt${optIndex}" 
+                                   name="question_${index}" 
+                                   value="${optIndex}"
+                                   required>
+                            <label for="q${index}_opt${optIndex}">${option}</label>
+                        </div>
+                    `;
+                });
+                
+                questionCard.innerHTML = `
+                    <div class="question-number">Question ${index + 1} / ${examData.questions.length}</div>
+                    <div class="question-text">${question.question}</div>
+                    <div class="options">${optionsHtml}</div>
+                `;
+                
+                container.appendChild(questionCard);
+            });
+            
+            // Mise à jour de la barre de progression lors du changement
+            document.querySelectorAll('input[type="radio"]').forEach(radio => {
+                radio.addEventListener('change', updateProgress);
+            });
+        }
+        
+        // ==================== BARRE DE PROGRESSION ====================
+        function updateProgress() {
+            const totalQuestions = examData.questions.length;
+            let answeredQuestions = 0;
+            
+            for (let i = 0; i < totalQuestions; i++) {
+                const answered = document.querySelector(`input[name="question_${i}"]:checked`);
+                if (answered) answeredQuestions++;
+            }
+            
+            const progress = (answeredQuestions / totalQuestions) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+        }
+        
+        // ==================== TIMER ====================
+        function startTimer() {
+            let remainingTime = EXAM_DURATION;
+            
+            timerInterval = setInterval(() => {
+                remainingTime--;
+                
+                if (remainingTime <= 0) {
+                    clearInterval(timerInterval);
+                    alert('⏱️ Temps écoulé ! L\'examen va être soumis automatiquement.');
+                    document.getElementById('examForm').dispatchEvent(new Event('submit'));
+                    return;
+                }
+                
+                const hours = Math.floor(remainingTime / 3600);
+                const minutes = Math.floor((remainingTime % 3600) / 60);
+                const seconds = remainingTime % 60;
+                
+                document.getElementById('timer-display').textContent = 
+                    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                // Changer la couleur si moins de 30 minutes
+                if (remainingTime < 1800) {
+                    document.querySelector('.exam-timer').style.color = '#fbbf24';
+                }
+                if (remainingTime < 600) {
+                    document.querySelector('.exam-timer').style.color = '#ef4444';
+                }
+                
+            }, 1000);
+        }
+        
+        // ==================== SYSTÈME ANTI-TRICHE ====================
+        function initAntiCheat() {
+            // Détection changement d'onglet
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            
+            // Détection changement de fenêtre
+            window.addEventListener('blur', handleWindowBlur);
+            
+            // Désactiver clic droit
+            document.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showWarning('⚠️ Le clic droit est désactivé pendant l\'examen');
+            });
+            
+            // Désactiver raccourcis clavier
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+C, Ctrl+V, Ctrl+U, Ctrl+S, F12, etc.
+                if (
+                    (e.ctrlKey && ['c', 'v', 'u', 's', 'a'].includes(e.key.toLowerCase())) ||
+                    e.key === 'F12' ||
+                    (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(e.key.toLowerCase()))
+                ) {
+                    e.preventDefault();
+                    showWarning('⚠️ Cette action est désactivée pendant l\'examen');
+                }
+            });
+            
+            // Désactiver sélection de texte
+            document.addEventListener('selectstart', (e) => {
+                if (e.target.tagName !== 'INPUT') {
+                    e.preventDefault();
+                }
+            });
+            
+            // Détection DevTools (approximatif)
+            setInterval(() => {
+                if (window.outerHeight - window.innerHeight > 200 || 
+                    window.outerWidth - window.innerWidth > 200) {
+                    handleCheatDetected('DevTools détecté');
+                }
+            }, 1000);
+        }
+        
+        function handleVisibilityChange() {
+            if (document.hidden && !focusLost) {
+                handleCheatDetected('Changement d\'onglet détecté');
+            }
+        }
+        
+        function handleWindowBlur() {
+            if (!focusLost && !document.hidden) {
+                handleCheatDetected('Changement de fenêtre détecté');
+            }
+        }
+        
+        function handleCheatDetected(reason) {
+            focusLost = true;
+            console.log('Triche détectée:', reason);
+            
+            // Arrêter le timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            // Afficher le modal
+            const modal = document.getElementById('cheatModal');
+            modal.style.display = 'flex';
+            
+            // Compte à rebours de redémarrage
+            let countdown = 3;
+            const restartTimer = document.getElementById('restartTimer');
+            
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                restartTimer.textContent = countdown;
+                
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    window.location.reload();
+                }
+            }, 1000);
+        }
+        
+        function showWarning(message) {
+            const warning = document.createElement('div');
+            warning.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #ef4444;
+                color: white;
+                padding: 20px 40px;
+                border-radius: 10px;
+                font-size: 1.2rem;
+                font-weight: bold;
+                z-index: 9999;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            `;
+            warning.textContent = message;
+            document.body.appendChild(warning);
+            
+            setTimeout(() => {
+                warning.remove();
+            }, 2000);
+        }
+        
+        // ==================== SOUMISSION ====================
+        document.getElementById('examForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!confirm('⚠️ Êtes-vous sûr de vouloir soumettre l\'examen ? Cette action est irréversible.')) {
+                return;
+            }
+            
+            // Désactiver le bouton
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Soumission en cours...';
+            
+            // Collecter les réponses
+            const answers = [];
+            for (let i = 0; i < examData.questions.length; i++) {
+                const selected = document.querySelector(`input[name="question_${i}"]:checked`);
+                answers.push(selected ? parseInt(selected.value) : null);
+            }
+            
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const userId = urlParams.get('user_id');
+                const examId = urlParams.get('exam_id');
+                
+                const response = await fetch('/api/submit_exam', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        exam_id: examId,
+                        answers: answers
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // Rediriger vers la page de résultats
+                window.location.href = `/exam_result?user_id=${userId}&exam_id=${examId}`;
+                
+            } catch (error) {
+                console.error('Erreur soumission:', error);
+                alert('Erreur lors de la soumission. Réessayez.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🎯 Soumettre l\'Examen';
+            }
+        });
+        
+        // ==================== INITIALISATION ====================
+        window.addEventListener('load', loadExam);
+        
+        // Désactiver le bouton retour du navigateur
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', () => {
+            window.history.pushState(null, '', window.location.href);
+            showWarning('⚠️ Vous ne pouvez pas revenir en arrière pendant l\'examen');
+        });
+    </script>
+</body>
+</html>
