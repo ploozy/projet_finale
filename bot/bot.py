@@ -1052,6 +1052,40 @@ async def on_user_level_change(user_id: int, new_level: int, new_groupe: str, gu
     print(f"✅ Cours envoyés dans {category_name} 📖-ressources")
 
 
+@bot.tree.command(name="send_course_manual", description="[ADMIN] Envoyer un cours manuellement")
+@commands.has_permissions(administrator=True)
+async def send_course_manual(
+    interaction: discord.Interaction,
+    course_id: int,
+    channel: discord.TextChannel
+):
+    """
+    Envoie un cours avec bouton quiz dans le salon choisi
+    
+    Args:
+        course_id: ID du cours (1=POO, 2=Structures, 3=Exceptions, 4=Algo)
+        channel: Salon où envoyer (#📖-ressources par exemple)
+    """
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        await send_course_to_channel(course_id, channel)
+        await interaction.followup.send(
+            f"✅ Cours {course_id} envoyé dans {channel.mention}",
+            ephemeral=True
+        )
+    except FileNotFoundError:
+        await interaction.followup.send(
+            f"❌ Quiz {course_id} introuvable. IDs disponibles : 1, 2, 3, 4",
+            ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Erreur : {e}",
+            ephemeral=True
+        )
+
+
 @bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
 @commands.has_permissions(administrator=True)
 async def setup_resources_command(interaction: discord.Interaction):
