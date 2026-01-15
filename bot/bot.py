@@ -1459,7 +1459,152 @@ async def setup_resources_command(interaction: discord.Interaction):
             f"❌ Erreur : {e}",
             ephemeral=True
         )
+# ==================== COMMANDE /vote ====================
+@bot.tree.command(name="vote", description="Voter pour 1 à 3 personnes qui t'ont aidé")
+@app_commands.describe(
+    user1="Première personne à récompenser",
+    user2="Deuxième personne à récompenser (optionnel)",
+    user3="Troisième personne à récompenser (optionnel)"
+)
+async def vote(
+    interaction: discord.Interaction,
+    user1: discord.Member,
+    user2: discord.Member = None,
+    user3: discord.Member = None
+):
+    """Commande pour voter"""
+    vote_system = VoteSystem(bot)
+    await vote_system.vote_command(interaction, user1, user2, user3)
 
+
+# ==================== COMMANDE /create_exam_period ====================
+@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen de 6h")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    group="Numéro du groupe (1-5)",
+    start_time="Date et heure de début (format: YYYY-MM-DD HH:MM)"
+)
+async def create_exam_period(
+    interaction: discord.Interaction,
+    group: int,
+    start_time: str
+):
+    """Crée une période d'examen de 6h"""
+    await interaction.response.defer(ephemeral=True)
+    
+    from datetime import datetime, timedelta
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+    
+    try:
+        # Parser la date
+        start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
+        end = start + timedelta(hours=6)
+        
+        # Générer l'ID
+        period_id = f"{start.strftime('%Y-%m-%d')}_group{group}"
+        
+        # Créer la période
+        db = SessionLocal()
+        try:
+            period = ExamPeriod(
+                id=period_id,
+                group_number=group,
+                start_time=start,
+                end_time=end,
+                votes_closed=False,
+                bonuses_applied=False
+            )
+            
+            db.add(period)
+            db.commit()
+            
+            embed = discord.Embed(
+                title="✅ Période d'Examen Créée",
+                color=discord.Color.green()
+            )
+            
+            embed.add_field(name="🆔 ID", value=period_id, inline=False)
+            embed.add_field(name="📊 Groupe", value=f"Niveau {group}", inline=True)
+            embed.add_field(name="⏰ Début", value=start.strftime("%d/%m/%Y %H:%M"), inline=True)
+            embed.add_field(name="🏁 Fin", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        
+        finally:
+            db.close()
+    
+    except ValueError:
+        await interaction.followup.send(
+            "❌ Format de date incorrect. Utilise : YYYY-MM-DD HH:MM",
+            ephemeral=True
+        )
+
+
+# ==================== COMMANDE /my_vote_status ====================
+@bot.tree.command(name="my_vote_status", description="Vérifier si tu as voté")
+async def my_vote_status(interaction: discord.Interaction):
+    """Vérifie si l'utilisateur a voté"""
+    await interaction.response.defer(ephemeral=True)
+    
+    from db_connection import SessionLocal
+    from models import Utilisateur, Vote
+    
+    db = SessionLocal()
+    try:
+        user = db.query(Utilisateur).filter(
+            Utilisateur.user_id == interaction.user.id
+        ).first()
+        
+        if not user:
+            await interaction.followup.send(
+                "❌ Tu n'es pas inscrit. Utilise `/register`",
+                ephemeral=True
+            )
+            return
+        
+        vote_system = VoteSystem(bot)
+        exam_period = vote_system.get_active_exam_period(user.niveau_actuel)
+        
+        if not exam_period:
+            await interaction.followup.send(
+                "ℹ️ Aucune période d'examen active pour ton groupe.",
+                ephemeral=True
+            )
+            return
+        
+        votes = db.query(Vote).filter(
+            Vote.voter_id == interaction.user.id,
+            Vote.exam_period_id == exam_period.id
+        ).all()
+        
+        if len(votes) == 0:
+            embed = discord.Embed(
+                title="⚠️ Tu n'as pas encore voté",
+                description=f"Tu dois voter avant de passer l'examen !",
+                color=discord.Color.orange()
+            )
+            embed.add_field(
+                name="📝 Comment voter ?",
+                value="Utilise `/vote @user1 @user2 @user3`",
+                inline=False
+            )
+        else:
+            voted_for = [f"• <@{vote.voted_for_id}>" for vote in votes]
+            embed = discord.Embed(
+                title="✅ Tu as déjà voté",
+                color=discord.Color.green()
+            )
+            embed.add_field(
+                name=f"👥 Tes Votes ({len(votes)})",
+                value="\n".join(voted_for),
+                inline=False
+            )
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+    
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     print("🚀 Démarrage du bot...")
