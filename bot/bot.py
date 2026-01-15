@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import asyncio
 import json
 from vote_system import VoteSystem
+from bonus_system import BonusSystem, check_finished_exam_periods
 # Keep-alive
 from stay_alive import keep_alive
 keep_alive()
@@ -82,6 +83,10 @@ async def on_ready():
     if not check_results_task.is_running():
         check_results_task.start()
         print("✅ Tâche de vérification automatique démarrée (toutes les 30s)")
+        
+    if not check_finished_exam_periods.is_running():
+        check_finished_exam_periods.start()
+        print("✅ Système de bonus automatique démarré")
 
 
 @tasks.loop(seconds=30)
