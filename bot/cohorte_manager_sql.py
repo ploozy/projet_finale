@@ -1,4 +1,26 @@
-def _generate_cohort_id(self, db: Session) -> str:
+"""
+Gestionnaire de cohortes avec PostgreSQL et système de groupes
+Gère les inscriptions, passages de niveau et réaffectations
+"""
+from sqlalchemy.orm import Session
+from sqlalchemy import func, and_
+from datetime import datetime, timedelta
+from models import Cohorte, Utilisateur, CalendrierExamen, HistoriqueCohorte
+from db_connection import SessionLocal
+
+class CohortManagerSQL:
+    """Gestionnaire de cohortes temporelles avec PostgreSQL"""
+
+    def __init__(self):
+        self.config = {
+            'max_membres_par_groupe': 15,
+            'jours_avant_fermeture': 14,
+            'delai_entre_examens_jours': 14,
+            'niveau_max': 5,
+            'duree_tranche_examen_heures': 6  # Tranche de 6h pour passer l'examen
+        }
+
+    def _generate_cohort_id(self, db: Session) -> str:
         """Génère un ID de cohorte unique (ex: JAN26-A)"""
         now = datetime.now()
         month = now.strftime('%b').upper()[:3]  # JAN, FEB, MAR...
@@ -372,4 +394,3 @@ def _generate_cohort_id(self, db: Session) -> str:
             return result
         finally:
             db.close()
-
