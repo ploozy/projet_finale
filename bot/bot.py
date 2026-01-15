@@ -367,6 +367,100 @@ async def list_users(interaction: discord.Interaction):
         db.close()
 
 
+@bot.tree.command(name="check_exam_results", description="[ADMIN] Vérifier les résultats et notifier en MP")
+@commands.has_permissions(administrator=True)
+async def check_exam_results(interaction: discord.Interaction):
+    """
+    Vérifie les résultats d'examens non notifiés
+    Envoie un MP à chaque utilisateur avec son résultat
+    """
+    await interaction.response.defer()
+    
+    from db_connection import SessionLocal
+    from models import ExamResult, Utilisateur
+    
+    db = SessionLocal()
+    
+    try:
+        # Récupérer les résultats non notifiés
+        results = db.query(ExamResult).filter(ExamResult.notified == False).all()
+        
+        if not results:
+            await interaction.followup.send("📭 Aucun nouveau résultat à notifier")
+            return
+        
+        print(f"\n{'='*50}")
+        print(f"🔔 CHECK_EXAM_RESULTS : {len(results)} résultats à notifier")
+        
+        notified_count = 0
+        
+        for result in results:
+            try:
+                # Récupérer l'utilisateur
+                user_db = db.query(Utilisateur).filter(
+                    Utilisateur.user_id == result.user_id
+                ).first()
+                
+                if not user_db:
+                    print(f"⚠️ User {result.user_id} pas trouvé en base")
+                    continue
+                
+                # Récupérer le membre Discord
+                member = interaction.guild.get_member(result.user_id)
+                
+                if not member:
+                    print(f"⚠️ Member {result.user_id} pas trouvé sur Discord")
+                    continue
+                
+                # Créer le message
+                if result.passed:
+                    message = (
+                        f"🎉 **Félicitations {member.mention} !**\n\n"
+                        f"Tu as **réussi** l'examen **{result.exam_title}** !\n\n"
+                        f"📊 **Résultat** : {result.percentage}% ({result.score}/{result.total} points)\n"
+                        f"✅ **Seuil de réussite** : {result.passing_score}%\n\n"
+                        f"🎊 **Tu as été promu automatiquement !**\n"
+                        f"**Nouveau niveau** : {user_db.niveau_actuel}\n"
+                        f"**Nouveau groupe** : {user_db.groupe}\n\n"
+                        f"Continue comme ça ! 💪"
+                    )
+                else:
+                    message = (
+                        f"📝 **Résultat de ton examen {member.mention}**\n\n"
+                        f"Examen : **{result.exam_title}**\n\n"
+                        f"📊 **Résultat** : {result.percentage}% ({result.score}/{result.total} points)\n"
+                        f"❌ **Seuil de réussite** : {result.passing_score}%\n\n"
+                        f"Tu n'as pas atteint le seuil requis cette fois.\n"
+                        f"Révise bien et retente l'examen quand tu es prêt(e) !\n"
+                        f"Tu peux le faire ! 💪"
+                    )
+                
+                # Envoyer le MP
+                await member.send(message)
+                
+                # Marquer comme notifié
+                result.notified = True
+                db.commit()
+                
+                notified_count += 1
+                print(f"✅ Notification envoyée à {member.name}")
+                
+            except discord.Forbidden:
+                print(f"⚠️ Impossible d'envoyer un MP à {member.name}")
+            except Exception as e:
+                print(f"❌ Erreur pour {result.user_id}: {e}")
+        
+        print(f"{'='*50}\n")
+        
+        await interaction.followup.send(
+            f"✅ **Notifications envoyées !**\n\n"
+            f"📨 {notified_count}/{len(results)} utilisateurs notifiés"
+        )
+    
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     print("🚀 Démarrage du bot...")
     bot.run(token)
