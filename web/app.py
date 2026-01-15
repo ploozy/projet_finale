@@ -7,6 +7,8 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 import json
 from datetime import datetime
 import os
+
+# Import des modèles et connexion DB
 from db_connection import SessionLocal
 from models import Utilisateur, ExamResult
 
@@ -100,94 +102,108 @@ def exams():
         return render_template('exams.html')
     
     # POST - Traitement de la soumission du formulaire
+    db = None
     try:
         user_id_str = request.form.get('user_id', '').strip()
         
         if not user_id_str:
             return render_template('exams.html', error="Veuillez entrer votre ID Discord")
         
+        # Valider que c'est bien un nombre
         try:
             user_id = int(user_id_str)
         except ValueError:
             return render_template('exams.html', error="ID Discord invalide (doit être composé de chiffres uniquement)")
         
-        # Vérifier dans la base de données PostgreSQL
+        # Connexion à PostgreSQL
         db = SessionLocal()
-        try:
-            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-            
-            if not user:
-                return render_template('exams.html', 
-                    error="Utilisateur non trouvé. Assurez-vous d'avoir rejoint le serveur Discord.")
-            
-            # Récupérer le niveau actuel de l'utilisateur
-            niveau_actuel = user.niveau_actuel
-            
-            # Trouver l'examen correspondant au niveau
-            exam = None
-            for e in exams_data['exams']:
-                if e['group'] == niveau_actuel:
-                    exam = e
-                    break
-            
-            if not exam:
-                return render_template('exams.html', 
-                    error=f"Aucun examen disponible pour le niveau {niveau_actuel}. Contactez un administrateur.")
-            
-            # Vérifier les dates de disponibilité
-            now = datetime.now()
-            
+        
+        # 1. CHERCHER l'utilisateur dans la base
+        user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+        
+        if not user:
+            # ❌ Utilisateur non trouvé
+            print(f"❌ Utilisateur {user_id} non trouvé dans PostgreSQL")
+            return render_template('exams.html', 
+                error="Utilisateur non trouvé. Assurez-vous d'avoir rejoint le serveur Discord et utilisé la commande /register si nécessaire.")
+        
+        # ✅ Utilisateur trouvé !
+        print(f"✅ Utilisateur trouvé : {user.username} (Niveau {user.niveau_actuel}, Groupe {user.groupe})")
+        
+        # 2. Récupérer le niveau actuel
+        niveau_actuel = user.niveau_actuel
+        
+        # 3. Trouver l'examen correspondant au niveau
+        exam = None
+        for e in exams_data['exams']:
+            if e['group'] == niveau_actuel:
+                exam = e
+                break
+        
+        if not exam:
+            print(f"❌ Aucun examen trouvé pour le niveau {niveau_actuel}")
+            return render_template('exams.html', 
+                error=f"Aucun examen disponible pour le niveau {niveau_actuel}. Contactez un administrateur.")
+        
+        print(f"✅ Examen trouvé : {exam['title']} (ID: {exam['id']})")
+        
+        # 4. Vérifier les dates de disponibilité (si définies)
+        now = datetime.now()
+        
+        # Vérifier si les dates existent
+        if 'start_date' in exam and 'end_date' in exam:
             try:
                 exam_start = datetime.fromisoformat(exam['start_date'])
                 exam_end = datetime.fromisoformat(exam['end_date'])
-            except (KeyError, ValueError):
-                # Si pas de dates, l'examen est toujours disponible
-                return render_template('exam_take.html', 
-                    exam=exam,
-                    user_id=user_id,
-                    user_info={
-                        'username': user.username,
-                        'niveau_actuel': user.niveau_actuel,
-                        'groupe': user.groupe
-                    })
+                
+                # Vérifier si l'examen est ouvert
+                if now < exam_start:
+                    return render_template('exams.html', 
+                        error=f"L'examen du niveau {niveau_actuel} n'est pas encore ouvert. Ouverture prévue le {exam_start.strftime('%d/%m/%Y à %H:%M')}")
+                
+                if now > exam_end:
+                    return render_template('exams.html', 
+                        error=f"L'examen du niveau {niveau_actuel} est terminé. Il s'est clôturé le {exam_end.strftime('%d/%m/%Y à %H:%M')}")
             
-            # Vérifier si l'examen est ouvert
-            if now < exam_start:
-                return render_template('exams.html', 
-                    error=f"L'examen du niveau {niveau_actuel} n'est pas encore ouvert. Ouverture prévue le {exam_start.strftime('%d/%m/%Y à %H:%M')}")
-            
-            if now > exam_end:
-                return render_template('exams.html', 
-                    error=f"L'examen du niveau {niveau_actuel} est terminé. Il s'est clôturé le {exam_end.strftime('%d/%m/%Y à %H:%M')}")
-            
-            # Tout est OK, afficher l'examen
-            return render_template('exam_take.html', 
-                exam=exam,
-                user_id=user_id,
-                user_info={
-                    'username': user.username,
-                    'niveau_actuel': user.niveau_actuel,
-                    'groupe': user.groupe
-                })
+            except (ValueError, TypeError) as date_error:
+                print(f"⚠️ Erreur de parsing des dates : {date_error}")
+                # Si erreur de dates, on continue quand même (examen toujours disponible)
         
-        finally:
-            db.close()
+        # 5. Tout est OK, afficher l'examen
+        print(f"✅ Affichage de l'examen pour {user.username}")
+        
+        return render_template('exam_take.html', 
+            exam=exam,
+            user_id=user_id,
+            user_info={
+                'username': user.username,
+                'niveau_actuel': user.niveau_actuel,
+                'groupe': user.groupe
+            })
     
     except Exception as e:
-        print(f"❌ Erreur /exams: {e}")
+        print(f"❌ ERREUR /exams: {e}")
         import traceback
         traceback.print_exc()
         return render_template('exams.html', error=f"Erreur serveur: {str(e)}")
+    
+    finally:
+        # Toujours fermer la connexion DB
+        if db:
+            db.close()
 
 
 @app.route('/submit_exam', methods=['POST'])
 def submit_exam():
     """Soumet et corrige un examen"""
+    db = None
     try:
         data = request.get_json()
         user_id = int(data['user_id'])
         exam_id = int(data['exam_id'])
         answers = data['answers']
+        
+        print(f"📝 Soumission examen : User {user_id}, Exam {exam_id}")
         
         # Trouver l'examen
         exam = None
@@ -197,6 +213,7 @@ def submit_exam():
                 break
         
         if not exam:
+            print(f"❌ Examen {exam_id} introuvable")
             return jsonify({'success': False, 'message': 'Examen introuvable'}), 404
         
         # Calculer le score
@@ -226,30 +243,29 @@ def submit_exam():
         percentage = round((score / total_points) * 100, 2)
         passed = percentage >= exam.get('passing_score', 70)
         
+        print(f"📊 Score calculé : {score}/{total_points} = {percentage}% - {'✅ Réussi' if passed else '❌ Échoué'}")
+        
         # Sauvegarder dans PostgreSQL
         db = SessionLocal()
-        try:
-            exam_result = ExamResult(
-                user_id=user_id,
-                exam_id=exam_id,
-                exam_title=exam['title'],
-                score=score,
-                total=total_points,
-                percentage=percentage,
-                passed=passed,
-                passing_score=exam.get('passing_score', 70),
-                date=datetime.now(),
-                notified=False,
-                results=results
-            )
-            
-            db.add(exam_result)
-            db.commit()
-            
-            print(f"✅ Résultat sauvegardé : User {user_id} - Score {percentage}% - {'Réussi' if passed else 'Échoué'}")
         
-        finally:
-            db.close()
+        exam_result = ExamResult(
+            user_id=user_id,
+            exam_id=exam_id,
+            exam_title=exam['title'],
+            score=score,
+            total=total_points,
+            percentage=percentage,
+            passed=passed,
+            passing_score=exam.get('passing_score', 70),
+            date=datetime.now(),
+            notified=False,
+            results=results
+        )
+        
+        db.add(exam_result)
+        db.commit()
+        
+        print(f"✅ Résultat sauvegardé dans PostgreSQL (notified=False)")
         
         return jsonify({
             'success': True,
@@ -261,16 +277,52 @@ def submit_exam():
         })
     
     except Exception as e:
-        print(f"❌ Erreur submit_exam: {e}")
+        print(f"❌ ERREUR submit_exam: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
+    
+    finally:
+        # Toujours fermer la connexion DB
+        if db:
+            db.close()
 
 
 @app.route('/api/health')
 def health():
     """Endpoint de vérification de santé"""
     return jsonify({'status': 'ok', 'timestamp': datetime.now().isoformat()})
+
+
+@app.route('/api/debug/users')
+def debug_users():
+    """DEBUG : Affiche tous les utilisateurs (à supprimer en production)"""
+    db = None
+    try:
+        db = SessionLocal()
+        users = db.query(Utilisateur).all()
+        
+        users_list = []
+        for user in users:
+            users_list.append({
+                'user_id': user.user_id,
+                'username': user.username,
+                'niveau_actuel': user.niveau_actuel,
+                'groupe': user.groupe,
+                'cohorte_id': user.cohorte_id
+            })
+        
+        return jsonify({
+            'total': len(users_list),
+            'users': users_list
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if db:
+            db.close()
 
 
 if __name__ == '__main__':
