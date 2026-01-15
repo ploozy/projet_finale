@@ -113,12 +113,16 @@ def exams():
     # POST - Vérification et affichage de l'examen
     try:
         user_id = int(request.form.get('user_id'))
+        username = request.form.get('username', f'User_{user_id}')
         
-        # 1. Vérifier si l'utilisateur existe dans la base
+        # 1. Vérifier si l'utilisateur existe, sinon l'inscrire automatiquement
         user_info = cohort_manager.get_user_info(user_id)
         
         if not user_info:
-            return render_template('exams.html', error="Utilisateur non trouvé. Inscrivez-vous via Discord.")
+            # Inscription automatique niveau 1
+            cohorte_id, niveau = cohort_manager.add_user_to_cohort(user_id, username)
+            user_info = cohort_manager.get_user_info(user_id)
+            print(f"✅ Nouvel utilisateur inscrit : {username} dans {cohorte_id}")
         
         # 2. Récupérer le niveau de l'utilisateur
         niveau = user_info['niveau_actuel']
@@ -274,6 +278,10 @@ def api_mark_notified():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
 
 
 if __name__ == '__main__':
