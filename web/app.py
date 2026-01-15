@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 import os
 from db_connection import SessionLocal
-from models import Utilisateur, ExamResult, ExamPeriod
+from models import Utilisateur, ExamResult
 
 app = Flask(__name__)
 app.secret_key = 'secret'
