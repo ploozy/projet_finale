@@ -1,22 +1,17 @@
+"""
+Application Web Flask - Système de Formation Python
+Gestion des examens en ligne
+"""
+
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 import json
 from datetime import datetime
 import os
-
-# ✅ UTILISATION DE POSTGRESQL
-from cohorte_manager_sql import CohortManagerSQL
-from exam_result_database_sql import ExamResultDatabaseSQL
+from db_connection import SessionLocal
+from models import Utilisateur, ExamResult
 
 app = Flask(__name__)
 app.secret_key = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2'
-
-# Initialisation des managers SQL
-cohort_manager = CohortManagerSQL()
-exam_db = ExamResultDatabaseSQL()
-
-# Charger les cours
-with open('courses_content.json', 'r', encoding='utf-8') as f:
-    courses_content = json.load(f)
 
 # Charger les examens
 with open('exam.json', 'r', encoding='utf-8') as f:
@@ -25,18 +20,18 @@ with open('exam.json', 'r', encoding='utf-8') as f:
 
 @app.route('/')
 def index():
-    """Page d'accueil - Redirection vers Discord"""
+    """Page d'accueil"""
     return """
     <!DOCTYPE html>
     <html lang="fr">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Plateforme de Formation</title>
+        <title>Formation Python</title>
         <style>
             body {
-                background: #0d1117;
-                color: #c9d1d9;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: #fff;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
                 display: flex;
                 justify-content: center;
@@ -48,110 +43,138 @@ def index():
             .container {
                 max-width: 600px;
                 padding: 3rem;
-                background: #161b22;
-                border-radius: 10px;
-                border: 1px solid #30363d;
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
             }
-            h1 { color: #ff8c00; margin-bottom: 1.5rem; }
-            p { font-size: 1.2rem; line-height: 1.8; margin: 1rem 0; }
-            code {
-                background: #0d1117;
-                padding: 0.3rem 0.6rem;
-                border-radius: 5px;
-                color: #ff8c00;
-                font-size: 1.1rem;
+            h1 { 
+                font-size: 3rem;
+                margin-bottom: 1rem;
+            }
+            p { 
+                font-size: 1.2rem;
+                line-height: 1.8;
+                margin: 1rem 0;
+                opacity: 0.9;
             }
             .btn {
                 display: inline-block;
-                margin-top: 1.5rem;
-                padding: 0.8rem 2rem;
-                background: #ff8c00;
-                color: #fff;
+                margin-top: 2rem;
+                padding: 1rem 3rem;
+                background: #fff;
+                color: #667eea;
                 text-decoration: none;
-                border-radius: 5px;
+                border-radius: 50px;
                 font-weight: bold;
-                transition: background 0.3s;
+                font-size: 1.1rem;
+                transition: all 0.3s;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             }
             .btn:hover {
-                background: #ff7700;
+                transform: translateY(-3px);
+                box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
             }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🎓 Plateforme de Formation</h1>
-            <p>Pour accéder aux cours, utilisez la commande Discord :</p>
-            <p><code>/send_course [numéro]</code></p>
-            <p>Exemple : <code>/send_course 1</code></p>
-            <a href="/exams" class="btn">📝 Passer un examen</a>
+            <h1>🎓 Formation Python</h1>
+            <p>Plateforme d'apprentissage et d'évaluation</p>
+            <p>Connectez-vous via Discord pour accéder aux cours</p>
+            <a href="/exams" class="btn">📝 Accéder aux Examens</a>
         </div>
     </body>
     </html>
     """
 
 
-@app.route('/course/<int:course_id>')
-def course_detail(course_id):
-    """Page détaillée d'un cours"""
-    course = next((c for c in courses_content['courses'] if c['id'] == course_id), None)
-    if not course:
-        return "Cours introuvable", 404
-    
-    return render_template('course_detail.html', course=course)
-
-
 @app.route('/exams', methods=['GET', 'POST'])
 def exams():
     """
-    ✅ SYSTÈME D'EXAMEN CORRIGÉ
+    Page d'accès aux examens
     GET : Formulaire de saisie ID Discord
-    POST : Affiche l'examen si disponible
+    POST : Affiche l'examen disponible
     """
     if request.method == 'GET':
         return render_template('exams.html')
     
-    # POST - Vérification et affichage de l'examen
+    # POST - Traitement de la soumission du formulaire
     try:
-        user_id = int(request.form.get('user_id'))
+        user_id_str = request.form.get('user_id', '').strip()
         
-        # 1. Vérifier si l'utilisateur existe dans la base
-        user_info = cohort_manager.get_user_info(user_id)
+        if not user_id_str:
+            return render_template('exams.html', error="Veuillez entrer votre ID Discord")
         
-        if not user_info:
-            return render_template('exams.html', error="Utilisateur non trouvé. Inscrivez-vous via Discord avec /send_course")
+        try:
+            user_id = int(user_id_str)
+        except ValueError:
+            return render_template('exams.html', error="ID Discord invalide (doit être composé de chiffres uniquement)")
         
-        # 2. Récupérer le groupe de l'utilisateur
-        groupe = user_info['niveau_actuel']  # Le niveau actuel = le groupe
+        # Vérifier dans la base de données PostgreSQL
+        db = SessionLocal()
+        try:
+            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+            
+            if not user:
+                return render_template('exams.html', 
+                    error="Utilisateur non trouvé. Assurez-vous d'avoir rejoint le serveur Discord.")
+            
+            # Récupérer le niveau actuel de l'utilisateur
+            niveau_actuel = user.niveau_actuel
+            
+            # Trouver l'examen correspondant au niveau
+            exam = None
+            for e in exams_data['exams']:
+                if e['group'] == niveau_actuel:
+                    exam = e
+                    break
+            
+            if not exam:
+                return render_template('exams.html', 
+                    error=f"Aucun examen disponible pour le niveau {niveau_actuel}. Contactez un administrateur.")
+            
+            # Vérifier les dates de disponibilité
+            now = datetime.now()
+            
+            try:
+                exam_start = datetime.fromisoformat(exam['start_date'])
+                exam_end = datetime.fromisoformat(exam['end_date'])
+            except (KeyError, ValueError):
+                # Si pas de dates, l'examen est toujours disponible
+                return render_template('exam_take.html', 
+                    exam=exam,
+                    user_id=user_id,
+                    user_info={
+                        'username': user.username,
+                        'niveau_actuel': user.niveau_actuel,
+                        'groupe': user.groupe
+                    })
+            
+            # Vérifier si l'examen est ouvert
+            if now < exam_start:
+                return render_template('exams.html', 
+                    error=f"L'examen du niveau {niveau_actuel} n'est pas encore ouvert. Ouverture prévue le {exam_start.strftime('%d/%m/%Y à %H:%M')}")
+            
+            if now > exam_end:
+                return render_template('exams.html', 
+                    error=f"L'examen du niveau {niveau_actuel} est terminé. Il s'est clôturé le {exam_end.strftime('%d/%m/%Y à %H:%M')}")
+            
+            # Tout est OK, afficher l'examen
+            return render_template('exam_take.html', 
+                exam=exam,
+                user_id=user_id,
+                user_info={
+                    'username': user.username,
+                    'niveau_actuel': user.niveau_actuel,
+                    'groupe': user.groupe
+                })
         
-        # 3. Trouver l'examen correspondant au groupe
-        exam = next((e for e in exams_data['exams'] if e['group'] == groupe), None)
-        
-        if not exam:
-            return render_template('exams.html', error=f"Aucun examen disponible pour le groupe {groupe}")
-        
-        # 4. Vérifier la date de l'examen
-        now = datetime.now()
-        exam_start = datetime.fromisoformat(exam['start_date'])
-        exam_end = datetime.fromisoformat(exam['end_date'])
-        
-        if now < exam_start:
-            return render_template('exams.html', 
-                error=f"L'examen du groupe {groupe} n'est pas encore ouvert. Ouverture le {exam_start.strftime('%d/%m/%Y à %H:%M')}")
-        
-        if now > exam_end:
-            return render_template('exams.html', 
-                error=f"L'examen du groupe {groupe} est terminé. Il s'est clôturé le {exam_end.strftime('%d/%m/%Y à %H:%M')}")
-        
-        # 5. Afficher l'examen
-        return render_template('exam_take.html', 
-                             exam=exam, 
-                             user_id=user_id,
-                             user_info=user_info)
+        finally:
+            db.close()
     
-    except ValueError:
-        return render_template('exams.html', error="ID Discord invalide (doit être un nombre)")
     except Exception as e:
-        print(f"Erreur /exams: {e}")
+        print(f"❌ Erreur /exams: {e}")
         import traceback
         traceback.print_exc()
         return render_template('exams.html', error=f"Erreur serveur: {str(e)}")
@@ -159,7 +182,7 @@ def exams():
 
 @app.route('/submit_exam', methods=['POST'])
 def submit_exam():
-    """Soumet les résultats d'un examen"""
+    """Soumet et corrige un examen"""
     try:
         data = request.get_json()
         user_id = int(data['user_id'])
@@ -167,7 +190,12 @@ def submit_exam():
         answers = data['answers']
         
         # Trouver l'examen
-        exam = next((e for e in exams_data['exams'] if e['id'] == exam_id), None)
+        exam = None
+        for e in exams_data['exams']:
+            if e['id'] == exam_id:
+                exam = e
+                break
+        
         if not exam:
             return jsonify({'success': False, 'message': 'Examen introuvable'}), 404
         
@@ -196,64 +224,55 @@ def submit_exam():
             })
         
         percentage = round((score / total_points) * 100, 2)
-        passed = percentage >= exam.get('passing_score', 50)
+        passed = percentage >= exam.get('passing_score', 70)
         
-        # Sauvegarder le résultat
-        exam_result = {
-            'user_id': user_id,
-            'exam_id': exam_id,
-            'exam_title': exam['title'],
-            'score': score,
-            'total': total_points,
-            'percentage': percentage,
-            'passed': passed,
-            'passing_score': exam.get('passing_score', 50),
-            'date': datetime.now().isoformat(),
-            'results': results
-        }
+        # Sauvegarder dans PostgreSQL
+        db = SessionLocal()
+        try:
+            exam_result = ExamResult(
+                user_id=user_id,
+                exam_id=exam_id,
+                exam_title=exam['title'],
+                score=score,
+                total=total_points,
+                percentage=percentage,
+                passed=passed,
+                passing_score=exam.get('passing_score', 70),
+                date=datetime.now(),
+                notified=False,
+                results=results
+            )
+            
+            db.add(exam_result)
+            db.commit()
+            
+            print(f"✅ Résultat sauvegardé : User {user_id} - Score {percentage}% - {'Réussi' if passed else 'Échoué'}")
         
-        exam_db.save_exam_result(exam_result)
-        
-        # Mettre à jour l'utilisateur dans la cohorte
-        cohort_manager.update_user_after_exam(user_id, passed)
+        finally:
+            db.close()
         
         return jsonify({
             'success': True,
             'score': score,
             'total': total_points,
             'percentage': percentage,
-            'passed': passed
+            'passed': passed,
+            'passing_score': exam.get('passing_score', 70)
         })
-        
+    
     except Exception as e:
-        print(f"Erreur submit_exam: {e}")
+        print(f"❌ Erreur submit_exam: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@app.route('/api/unnotified_exam_results')
-def api_unnotified_exam_results():
-    """API pour le bot Discord - récupère les résultats non notifiés"""
-    results = exam_db.get_unnotified_results(limit=50)
-    return jsonify(results)
-
-
-@app.route('/api/mark_notified', methods=['POST'])
-def api_mark_notified():
-    """Marque des résultats comme notifiés"""
-    try:
-        data = request.get_json()
-        for result in data.get('results', []):
-            exam_db.mark_as_notified(
-                result['user_id'],
-                result['exam_id'],
-                result['date']
-            )
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+@app.route('/api/health')
+def health():
+    """Endpoint de vérification de santé"""
+    return jsonify({'status': 'ok', 'timestamp': datetime.now().isoformat()})
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
