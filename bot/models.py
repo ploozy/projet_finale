@@ -103,7 +103,7 @@ class Review(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
-    question_id = Column(Integer, nullable=False)
+    question_id = Column(String(50), nullable=False)  # Ex: "poo_q1", "struct_q2"
     next_review = Column(DateTime, nullable=False)
     interval_days = Column(Float, nullable=False)
     repetitions = Column(Integer, nullable=False, default=0)
@@ -143,3 +143,18 @@ class ExamResult(Base):
     
     def __repr__(self):
         return f"<ExamResult {self.user_id} - {self.exam_title} ({self.percentage}%)>"
+
+
+class CourseQuizResult(Base):
+    """Table des résultats de quiz sur les cours"""
+    __tablename__ = 'course_quiz_results'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
+    course_id = Column(Integer, nullable=False)  # ID du cours (1, 2, 3, 4)
+    quiz_question_id = Column(String(50), nullable=False)  # Ex: "poo_q1", "struct_q2"
+    quality = Column(Integer, nullable=False)  # 0-5 (SM-2)
+    date = Column(DateTime, nullable=False, default=datetime.now)
+    
+    def __repr__(self):
+        return f"<CourseQuizResult {self.user_id} - Cours {self.course_id} Q{self.quiz_question_id}>"
