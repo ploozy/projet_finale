@@ -99,6 +99,53 @@
             font-size: 0.95rem;
         }
         
+        .course-content .code-inline {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+        
+        .section-title {
+            color: #667eea;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .course-content h3 {
+            color: #2c3e50;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+        
+        .course-content ul {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        
+        .course-content li {
+            margin: 8px 0;
+        }
+        
+        .example-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .example-title {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
         .quiz-section {
             margin-top: 40px;
             padding: 30px;
@@ -140,10 +187,10 @@
         <a href="/courses" class="back-btn">← Retour aux cours</a>
         
         <div class="course-header">
-            <div class="course-icon">{{ course.icon }}</div>
+            <div class="course-icon">{{ course.icon if course.icon else '📚' }}</div>
             <h1 class="course-title">{{ course.title }}</h1>
             <p class="course-description">{{ course.description }}</p>
-            <span class="course-level">Niveau {{ course.niveau }}</span>
+            <span class="course-level">{{ course.level }} • {{ course.duration }}</span>
         </div>
         
         <div class="course-content">
