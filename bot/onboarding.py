@@ -256,8 +256,8 @@ class OnboardingManager:
         try:
             niveau = int(groupe.split('-')[0])
             
-            # URL du site web (à adapter selon votre déploiement)
-            site_url = https://site-fromation.onrender.com
+            # URL du site web
+            site_url = "https://site-fromation.onrender.com"
             
             # Calculer la date du prochain examen (exemple : dans 14 jours)
             next_exam_date = datetime.now() + timedelta(days=14)
