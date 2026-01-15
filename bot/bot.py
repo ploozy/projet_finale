@@ -170,7 +170,7 @@ async def check_results_task():
                     await create_group_channels(main_guild, new_groupe, new_role)
                     
                     # Envoyer les cours du nouveau niveau dans le salon ressources
-                    await on_user_level_change(user_db.user_id, user_db.niveau_actuel, main_guild)
+                    await on_user_level_change(user_db.user_id, user_db.niveau_actuel, new_groupe, main_guild)
                     print(f"   📚 Ressources envoyées pour niveau {user_db.niveau_actuel}")
                 
                 # Message en MP
@@ -636,54 +636,63 @@ def get_courses_for_level(niveau: int) -> list:
 
 async def setup_resources_channels():
     """
-    Crée les salons #ressources-niveau-X et envoie les cours automatiquement
+    Envoie les cours dans les salons #📁-ressources de chaque groupe existant
     """
     from db_connection import SessionLocal
     from models import Utilisateur
     
     db = SessionLocal()
     try:
-        # Récupérer tous les niveaux actifs
-        niveaux_actifs = db.query(Utilisateur.niveau_actuel).distinct().all()
-        niveaux_actifs = [n[0] for n in niveaux_actifs]
+        # Récupérer tous les groupes actifs
+        groupes_actifs = db.query(Utilisateur.groupe, Utilisateur.niveau_actuel).distinct().all()
         
-        print(f"📚 Niveaux actifs détectés : {niveaux_actifs}")
+        print(f"📚 Groupes actifs détectés : {len(groupes_actifs)}")
         
         for guild in bot.guilds:
-            for niveau in niveaux_actifs:
-                channel_name = f"ressources-niveau-{niveau}"
+            for groupe, niveau in groupes_actifs:
+                # Trouver le salon #📁-ressources dans la catégorie du groupe
+                # Ex: "Groupe 1-A" → chercher #📁-ressources dans cette catégorie
+                category_name = f"Groupe {groupe}"
+                category = discord.utils.get(guild.categories, name=category_name)
                 
-                # Vérifier si le salon existe déjà
-                existing_channel = discord.utils.get(guild.text_channels, name=channel_name)
+                if not category:
+                    print(f"⚠️ Catégorie '{category_name}' introuvable")
+                    continue
                 
-                if not existing_channel:
-                    # Créer le salon
-                    print(f"🔨 Création du salon {channel_name}...")
-                    
-                    # Trouver la catégorie "Niveau X" si elle existe
-                    category = discord.utils.get(guild.categories, name=f"Niveau {niveau}")
-                    
-                    existing_channel = await guild.create_text_channel(
-                        channel_name,
-                        category=category,
-                        topic=f"📚 Ressources et cours pour le niveau {niveau}"
-                    )
-                    print(f"✅ Salon {channel_name} créé")
+                # Chercher le salon #📁-ressources dans cette catégorie
+                resources_channel = None
+                for channel in category.text_channels:
+                    if channel.name in ["📁-ressources", "ressources"]:
+                        resources_channel = channel
+                        break
                 
-                # Envoyer les cours pour ce niveau
+                if not resources_channel:
+                    print(f"⚠️ Salon #📁-ressources introuvable dans {category_name}")
+                    continue
+                
+                # Vérifier si les cours ont déjà été envoyés
+                messages_count = 0
+                async for message in resources_channel.history(limit=50):
+                    if message.author == bot.user and message.embeds:
+                        messages_count += 1
+                
                 course_ids = get_courses_for_level(niveau)
+                
+                if messages_count >= len(course_ids) and messages_count > 0:
+                    print(f"✅ Cours déjà envoyés dans {category_name}")
+                    continue
                 
                 if not course_ids:
                     print(f"ℹ️ Pas de cours pour le niveau {niveau}")
                     continue
                 
-                print(f"📤 Envoi de {len(course_ids)} cours dans {channel_name}...")
+                print(f"📤 Envoi de {len(course_ids)} cours dans {category_name} #📁-ressources...")
                 
                 for course_id in course_ids:
-                    await send_course_to_channel(course_id, existing_channel)
-                    await asyncio.sleep(1)  # Pause entre chaque message
+                    await send_course_to_channel(course_id, resources_channel)
+                    await asyncio.sleep(1)
                 
-                print(f"✅ Cours envoyés dans {channel_name}")
+                print(f"✅ Cours envoyés dans {category_name}")
     
     finally:
         db.close()
@@ -1000,35 +1009,48 @@ async def start_quiz_sm2(member: discord.Member, course_id: int, questions: list
     )
 
 
-async def on_user_level_change(user_id: int, new_level: int, guild: discord.Guild):
+async def on_user_level_change(user_id: int, new_level: int, new_groupe: str, guild: discord.Guild):
     """
     Appelé quand un utilisateur change de niveau
-    Envoie les cours du nouveau niveau dans le salon ressources
+    Envoie les cours du nouveau niveau dans le salon #📁-ressources du groupe
     """
-    channel_name = f"ressources-niveau-{new_level}"
-    channel = discord.utils.get(guild.text_channels, name=channel_name)
+    # Trouver la catégorie du nouveau groupe
+    category_name = f"Groupe {new_groupe}"
+    category = discord.utils.get(guild.categories, name=category_name)
     
-    if not channel:
-        # Créer le salon s'il n'existe pas
-        category = discord.utils.get(guild.categories, name=f"Niveau {new_level}")
-        channel = await guild.create_text_channel(
-            channel_name,
-            category=category,
-            topic=f"📚 Ressources et cours pour le niveau {new_level}"
-        )
+    if not category:
+        print(f"⚠️ Catégorie '{category_name}' introuvable")
+        return
+    
+    # Chercher le salon #📁-ressources
+    resources_channel = None
+    for channel in category.text_channels:
+        if channel.name in ["📁-ressources", "ressources"]:
+            resources_channel = channel
+            break
+    
+    if not resources_channel:
+        print(f"⚠️ Salon #📁-ressources introuvable dans {category_name}")
+        return
     
     # Vérifier si les cours ont déjà été envoyés
-    # (pour éviter les doublons)
-    async for message in channel.history(limit=50):
+    messages_count = 0
+    async for message in resources_channel.history(limit=50):
         if message.author == bot.user and message.embeds:
-            # Les cours sont déjà là
-            return
+            messages_count += 1
+    
+    course_ids = get_courses_for_level(new_level)
+    
+    if messages_count >= len(course_ids) and messages_count > 0:
+        print(f"✅ Cours déjà présents dans {category_name}")
+        return
     
     # Envoyer les cours
-    course_ids = get_courses_for_level(new_level)
     for course_id in course_ids:
-        await send_course_to_channel(course_id, channel)
+        await send_course_to_channel(course_id, resources_channel)
         await asyncio.sleep(1)
+    
+    print(f"✅ Cours envoyés dans {category_name} #📁-ressources")
 
 
 @bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
