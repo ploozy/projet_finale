@@ -19,49 +19,6 @@ with open('exam.json', 'r', encoding='utf-8') as f:
     exams_data = json.load(f)
 
 
-@app.route('/')
-def index():
-    """Page d'accueil"""
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Formation Python</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                text-align: center;
-                padding: 50px;
-            }
-            a {
-                display: inline-block;
-                margin: 10px;
-                padding: 15px 30px;
-                background: white;
-                color: #667eea;
-                text-decoration: none;
-                border-radius: 25px;
-                font-weight: bold;
-                transition: all 0.3s;
-            }
-            a:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 5px 15px rgba(255,255,255,0.3);
-            }
-        </style>
-    </head>
-    <body>
-        <h1>🎓 Formation Python</h1>
-        <p>Plateforme d'examens et de cours en ligne</p>
-        <a href="/courses">📚 Voir les Cours</a>
-        <a href="/exams">📝 Accéder aux Examens</a>
-    </body>
-    </html>
-    """
-
-
 def parse_course_content(content):
     """
     Parse la structure complexe du cours en HTML
@@ -106,38 +63,47 @@ def parse_course_content(content):
     return html
 
 
-@app.route('/courses')
-def courses():
-    """Page d'affichage des cours"""
-    try:
-        with open('course_content.json', 'r', encoding='utf-8') as f:
-            courses_data = json.load(f)
-        
-        # Parser le contenu de chaque cours
-        for course in courses_data['courses']:
-            # Vérifier si content est une liste complexe
-            if isinstance(course['content'], list) and course['content'] and isinstance(course['content'][0], dict):
-                # Structure complexe avec sections
-                course['content'] = parse_course_content(course['content'])
-            elif isinstance(course['content'], list):
-                # Liste simple de strings
-                content_text = '\n\n'.join(course['content'])
-                content_html = content_text.replace('\n\n', '</p><p>')
-                course['content'] = f'<p>{content_html}</p>'
-            else:
-                # String simple
-                content_html = course['content'].replace('\n\n', '</p><p>')
-                course['content'] = f'<p>{content_html}</p>'
-        
-        return render_template('courses.html', courses=courses_data['courses'])
-    
-    except FileNotFoundError:
-        return "Fichier course_content.json introuvable", 404
-    except Exception as e:
-        print(f"Erreur /courses: {e}")
-        import traceback
-        traceback.print_exc()
-        return f"Erreur : {e}", 500
+@app.route('/')
+def index():
+    """Page d'accueil"""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Formation Python</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-align: center;
+                padding: 50px;
+            }
+            a {
+                display: inline-block;
+                margin: 10px;
+                padding: 15px 30px;
+                background: white;
+                color: #667eea;
+                text-decoration: none;
+                border-radius: 25px;
+                font-weight: bold;
+                transition: all 0.3s;
+            }
+            a:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+            }
+        </style>
+    </head>
+    <body>
+        <h1>🎓 Formation Python</h1>
+        <p>Plateforme d'examens et de cours en ligne</p>
+        <a href="/courses">📚 Voir les Cours</a>
+        <a href="/exams">📝 Accéder aux Examens</a>
+    </body>
+    </html>
+    """
 
 
 @app.route('/course/<course_id>')
