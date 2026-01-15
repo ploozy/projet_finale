@@ -1,33 +1,34 @@
 """
 Système de Vote pour Récompense d'Entraide
-⚠️ Les commandes Discord sont dans bot.py, PAS ici
+⚠️ ATTENTION : Ne pas mettre de @bot.tree.command ici.
+La commande doit être enregistrée dans bot.py qui appellera la méthode vote_command de ce fichier.
 """
 
 import discord
 from datetime import datetime
+from sqlalchemy import func
 from db_connection import SessionLocal
 from models import Utilisateur, Vote, ExamPeriod
-from sqlalchemy import func
-
+import traceback
 
 class VoteSystem:
-    """Gestion du système de vote"""
+    """Gestion du système de vote et des bonus"""
     
     def __init__(self, bot):
         self.bot = bot
     
-    def get_active_exam_period(self, group_number: int) -> ExamPeriod:
+    def get_active_exam_period(self, group_number: int):
         """Récupère la période d'examen active pour un groupe"""
         db = SessionLocal()
         try:
             now = datetime.now()
+            # Cherche une période active : commencée, pas finie, votes ouverts
             period = db.query(ExamPeriod).filter(
                 ExamPeriod.group_number == group_number,
                 ExamPeriod.start_time <= now,
                 ExamPeriod.end_time >= now,
                 ExamPeriod.votes_closed == False
             ).first()
-            
             return period
         finally:
             db.close()
@@ -35,156 +36,142 @@ class VoteSystem:
     async def vote_command(
         self, 
         interaction: discord.Interaction, 
-        user1: discord.Member = None,
+        user1: discord.Member,
         user2: discord.Member = None,
         user3: discord.Member = None
     ):
-        """Logique de la commande /vote"""
+        """
+        Logique principale de la commande /vote.
+        À appeler depuis bot.py.
+        """
+        # On diffère la réponse car les opérations DB peuvent prendre > 3s
         await interaction.response.defer(ephemeral=True)
         
         db = SessionLocal()
         try:
             voter_id = interaction.user.id
             
-            # 1. Vérifier que l'utilisateur existe
-            voter = db.query(Utilisateur).filter(
-                Utilisateur.user_id == voter_id
-            ).first()
-            
+            # 1. Vérifier que l'utilisateur est inscrit
+            voter = db.query(Utilisateur).filter(Utilisateur.user_id == voter_id).first()
             if not voter:
-                await interaction.followup.send(
-                    "❌ Tu dois d'abord t'inscrire avec `/register`",
-                    ephemeral=True
-                )
+                await interaction.followup.send("❌ Tu dois d'abord t'inscrire avec `/register`", ephemeral=True)
                 return
             
-            # 2. Vérifier période d'examen active
+            # 2. Vérifier qu'il y a un examen en cours pour son groupe
             exam_period = self.get_active_exam_period(voter.niveau_actuel)
-            
             if not exam_period:
-                await interaction.followup.send(
-                    "❌ Aucune période d'examen active pour ton groupe.",
-                    ephemeral=True
-                )
+                await interaction.followup.send("❌ Aucune période de vote/examen active pour ton groupe actuellement.", ephemeral=True)
                 return
             
-            # 3. Vérifier qu'il n'a pas déjà voté
+            # 3. Vérifier s'il a déjà voté pour cet examen spécifique
             existing_votes = db.query(Vote).filter(
                 Vote.voter_id == voter_id,
                 Vote.exam_period_id == exam_period.id
             ).count()
             
             if existing_votes > 0:
-                await interaction.followup.send(
-                    f"❌ Tu as déjà voté pour cette période d'examen !",
-                    ephemeral=True
-                )
+                await interaction.followup.send("❌ Tu as déjà voté pour cette session d'examen !", ephemeral=True)
                 return
             
-            # 4. Collecter les votes
-            voted_users = [u for u in [user1, user2, user3] if u is not None]
+            # 4. Filtrer les utilisateurs valides (ignorer les None)
+            potential_votes = [u for u in [user1, user2, user3] if u is not None]
             
-            if len(voted_users) == 0:
-                await interaction.followup.send(
-                    "❌ Tu dois voter pour au moins 1 personne !",
-                    ephemeral=True
-                )
+            # Dédoublonner si l'utilisateur a mis 2 fois la même personne
+            voted_users_unique = list(set(potential_votes))
+            
+            if not voted_users_unique:
+                await interaction.followup.send("❌ Tu dois sélectionner au moins une personne.", ephemeral=True)
                 return
-            
-            # 5. Vérifier qu'on ne vote pas pour soi-même
-            for user in voted_users:
-                if user.id == voter_id:
-                    await interaction.followup.send(
-                        "❌ Tu ne peux pas voter pour toi-même !",
-                        ephemeral=True
-                    )
-                    return
-            
-            # 6. Vérifier que tous sont du même groupe
+
+            # 5. Vérifications sur les candidats
             errors = []
-            for user in voted_users:
-                user_db = db.query(Utilisateur).filter(
-                    Utilisateur.user_id == user.id
-                ).first()
-                
-                if not user_db:
-                    errors.append(f"❌ {user.mention} n'est pas inscrit")
-                elif user_db.niveau_actuel != voter.niveau_actuel:
-                    errors.append(f"❌ {user.mention} n'est pas dans ton groupe")
+            valid_targets = []
             
+            for target_member in voted_users_unique:
+                # A. Pas de vote pour soi-même
+                if target_member.id == voter_id:
+                    errors.append(f"❌ Tu ne peux pas voter pour toi-même ({target_member.mention}).")
+                    continue
+                
+                # B. Le candidat est-il inscrit dans la DB ?
+                target_db = db.query(Utilisateur).filter(Utilisateur.user_id == target_member.id).first()
+                if not target_db:
+                    errors.append(f"❌ {target_member.mention} n'est pas inscrit dans le système.")
+                    continue
+                
+                # C. Le candidat est-il dans le même groupe ?
+                if target_db.niveau_actuel != voter.niveau_actuel:
+                    errors.append(f"❌ {target_member.mention} n'est pas dans ton groupe (Groupe {voter.niveau_actuel}).")
+                    continue
+                
+                valid_targets.append(target_db)
+            
+            # Si erreurs, on arrête tout
             if errors:
-                await interaction.followup.send(
-                    "❌ **Erreurs :**\n\n" + "\n".join(errors),
-                    ephemeral=True
-                )
+                await interaction.followup.send("\n".join(errors), ephemeral=True)
                 return
             
-            # 7. Enregistrer les votes
-            for user in voted_users:
-                vote = Vote(
-                    voter_id=voter_id,
-                    voted_for_id=user.id,
+            # 6. Enregistrement des votes
+            for target in valid_targets:
+                new_vote = Vote(
+                    voter_id=voter.user_id,
+                    voted_for_id=target.user_id,
                     exam_period_id=exam_period.id,
                     date=datetime.now()
                 )
-                db.add(vote)
+                db.add(new_vote)
             
-            # 8. Marquer comme ayant voté
+            # 7. Marquer le votant comme ayant participé
             voter.has_voted = True
             voter.current_exam_period = exam_period.id
+            
             db.commit()
             
-            # 9. Message de confirmation
-            vote_list = "\n".join([f"• {user.mention}" for user in voted_users])
-            
+            # 8. Réponse positive
+            mentions = " ".join([f"<@{u.user_id}>" for u in valid_targets])
             embed = discord.Embed(
-                title="✅ Votes Enregistrés !",
-                description=f"Tu as voté pour {len(voted_users)} personne(s) :",
+                title="✅ Votes enregistrés",
+                description=f"Merci pour ton entraide ! Tes votes ont été comptabilisés pour :\n{mentions}",
                 color=discord.Color.green()
             )
-            
-            embed.add_field(name="👥 Tes Votes", value=vote_list, inline=False)
-            embed.add_field(
-                name="🎯 Prochaine Étape",
-                value="Tu peux maintenant passer ton examen !",
-                inline=False
-            )
-            
+            embed.set_footer(text="Tu peux maintenant accéder à l'examen.")
             await interaction.followup.send(embed=embed, ephemeral=True)
-            print(f"✅ {interaction.user.name} a voté pour {len(voted_users)} personne(s)")
-        
+            
         except Exception as e:
             db.rollback()
-            print(f"❌ Erreur vote: {e}")
-            import traceback
+            print(f"❌ Erreur critique dans vote_command: {e}")
             traceback.print_exc()
-            await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
-        
+            await interaction.followup.send("Une erreur interne est survenue lors du vote.", ephemeral=True)
         finally:
             db.close()
-    
-    def get_vote_counts(self, exam_period_id: str) -> dict:
-        """Compte les votes reçus par chaque utilisateur"""
+
+    def get_vote_counts(self, exam_period_id: int) -> dict:
+        """Retourne un dictionnaire {user_id: nombre_votes} pour un examen donné"""
         db = SessionLocal()
         try:
-            votes = db.query(
-                Vote.voted_for_id,
-                func.count(Vote.id).label('vote_count')
+            results = db.query(
+                Vote.voted_for_id, 
+                func.count(Vote.id)
             ).filter(
                 Vote.exam_period_id == exam_period_id
             ).group_by(Vote.voted_for_id).all()
             
-            return {user_id: count for user_id, count in votes}
+            return {user_id: count for user_id, count in results}
         finally:
             db.close()
-    
-    def calculate_bonus(self, vote_count: int) -> tuple:
-        """Calcule le bonus en fonction du nombre de votes"""
+
+    def calculate_bonus(self, vote_count: int):
+        """
+        Calcule le bonus selon les paliers définis :
+        - Or (8+) : 20%
+        - Argent (5-7) : 12%
+        - Bronze (3-4) : 6%
+        """
         if vote_count >= 8:
-            return 20.0, "or"
+            return 20.0, "Or 🥇"
         elif vote_count >= 5:
-            return 12.0, "argent"
+            return 12.0, "Argent 🥈"
         elif vote_count >= 3:
-            return 6.0, "bronze"
+            return 6.0, "Bronze 🥉"
         else:
             return 0.0, None
