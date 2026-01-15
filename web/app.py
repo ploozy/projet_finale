@@ -63,7 +63,7 @@ def exams():
     """
     if request.method == 'GET':
         # Afficher le formulaire
-        return render_template('exams_all.html', exams=exams_data['exams'])
+        return render_template('exams.html', exams=exams_data['exams'])
     
     # POST - L'utilisateur a choisi un examen
     try:
@@ -71,7 +71,7 @@ def exams():
         exam_id_str = request.form.get('exam_id', '').strip()
         
         if not user_id_str or not exam_id_str:
-            return render_template('exams_all.html', 
+            return render_template('exams.html', 
                 exams=exams_data['exams'],
                 error="Entre ton ID Discord et choisis un examen")
         
@@ -90,7 +90,7 @@ def exams():
             
             if not user:
                 print(f"❌ Utilisateur {user_id} non trouvé en base")
-                return render_template('exams_all.html',
+                return render_template('exams.html',
                     exams=exams_data['exams'],
                     error="Utilisateur non trouvé. Utilise /register sur Discord d'abord.")
             
@@ -106,7 +106,7 @@ def exams():
                     break
             
             if not exam:
-                return render_template('exams_all.html',
+                return render_template('exams.html',
                     exams=exams_data['exams'],
                     error="Examen introuvable")
             
@@ -115,7 +115,7 @@ def exams():
             # 3. Vérifier que c'est le bon niveau
             if exam['group'] != user.niveau_actuel:
                 print(f"❌ Mauvais niveau : User={user.niveau_actuel}, Exam={exam['group']}")
-                return render_template('exams_all.html',
+                return render_template('exams.html',
                     exams=exams_data['exams'],
                     error=f"❌ Cet examen est pour le Niveau {exam['group']}, tu es Niveau {user.niveau_actuel}")
             
@@ -139,7 +139,7 @@ def exams():
         print(f"❌ Erreur /exams: {e}")
         import traceback
         traceback.print_exc()
-        return render_template('exams_all.html',
+        return render_template('exams.html',
             exams=exams_data['exams'],
             error=f"Erreur: {e}")
 
