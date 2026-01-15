@@ -703,7 +703,7 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
     """
     try:
         # Charger les infos du quiz
-        quiz_path = f'quiz_{course_id}.json'
+        quiz_path = f'quizzes/quiz_{course_id}.json'
         with open(quiz_path, 'r', encoding='utf-8') as f:
             quiz_data = json.load(f)
             course_title = quiz_data['course_title']
