@@ -176,7 +176,7 @@ async def on_member_join(member):
 @commands.has_permissions(administrator=True)
 async def send_course(ctx, course_number: int, member: discord.Member = None):
     """
-    ADMIN UNIQUEMENT: Envoie un cours et inscrit un utilisateur
+    ADMIN UNIQUEMENT: Envoie un cours en MP
     Usage: /send_course 1 @membre
     """
     
@@ -191,24 +191,6 @@ async def send_course(ctx, course_number: int, member: discord.Member = None):
         return
     
     try:
-        # Inscrire l'utilisateur dans une cohorte
-        cohorte_id, niveau = cohort_manager.add_user_to_cohort(
-            member.id, 
-            member.name
-        )
-        
-        # Créer/récupérer le rôle et salon Discord
-        cohort_info = cohort_manager.get_cohort_info(cohorte_id)
-        role, channel = await role_manager.ensure_cohort_resources(
-            ctx.guild, 
-            cohorte_id, 
-            niveau
-        )
-        
-        # Attribuer le rôle au membre
-        if role:
-            await member.add_roles(role)
-        
         # Envoyer le cours en MP
         embed = discord.Embed(
             title=f"📚 {course['title']}",
@@ -222,23 +204,12 @@ async def send_course(ctx, course_number: int, member: discord.Member = None):
             inline=False
         )
         
-        embed.add_field(
-            name="🎓 Votre groupe",
-            value=f"**{cohorte_id}** - Niveau {niveau}",
-            inline=False
-        )
-        
         embed.set_footer(text="Étudiez bien le cours avant votre examen")
         
         await member.send(embed=embed)
         
         # Confirmation dans le salon
-        await ctx.send(
-            f"✅ {member.mention} a été inscrit dans la cohorte **{cohorte_id}**\n"
-            f"📚 Cours {course_number} envoyé en MP\n"
-            f"🎭 Rôle: {role.mention if role else 'N/A'}\n"
-            f"💬 Salon: {channel.mention if channel else 'N/A'}"
-        )
+        await ctx.send(f"✅ Cours {course_number} envoyé en MP à {member.mention}")
         
     except discord.Forbidden:
         await ctx.send(f"❌ Impossible d'envoyer un MP à {member.mention}")
