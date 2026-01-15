@@ -1,0 +1,126 @@
+{
+  "course_id": 1,
+  "course_title": "Programmation Orientée Objet en Python",
+  "questions": [
+    {
+      "id": "poo_q1",
+      "question": "Qu'est-ce qu'une classe en Python ?",
+      "options": {
+        "A": "Une fonction spéciale",
+        "B": "Un modèle (blueprint) qui définit les attributs et méthodes d'un objet",
+        "C": "Une variable globale",
+        "D": "Une boucle"
+      },
+      "correct": "B",
+      "explanation": "Une classe est un modèle qui définit la structure et le comportement des objets."
+    },
+    {
+      "id": "poo_q2",
+      "question": "À quoi sert la méthode __init__ ?",
+      "options": {
+        "A": "À détruire un objet",
+        "B": "À copier un objet",
+        "C": "À initialiser les attributs d'un objet lors de sa création",
+        "D": "À imprimer un objet"
+      },
+      "correct": "C",
+      "explanation": "__init__ est le constructeur appelé automatiquement lors de la création d'un objet."
+    },
+    {
+      "id": "poo_q3",
+      "question": "Comment rendre un attribut privé en Python ?",
+      "options": {
+        "A": "private nom",
+        "B": "__nom (double underscore)",
+        "C": "nom_ (underscore à la fin)",
+        "D": "Il n'y a pas d'attributs privés en Python"
+      },
+      "correct": "B",
+      "explanation": "Le double underscore (__) avant le nom rend l'attribut privé par name mangling."
+    },
+    {
+      "id": "poo_q4",
+      "question": "Qu'est-ce que l'héritage en POO ?",
+      "options": {
+        "A": "Copier du code d'une classe à une autre",
+        "B": "Créer une nouvelle classe basée sur une classe existante",
+        "C": "Partager des variables entre classes",
+        "D": "Importer une bibliothèque"
+      },
+      "correct": "B",
+      "explanation": "L'héritage permet de créer une classe enfant qui hérite des propriétés de la classe parent."
+    },
+    {
+      "id": "poo_q5",
+      "question": "Que signifie 'self' dans une méthode de classe ?",
+      "options": {
+        "A": "Une variable globale",
+        "B": "Une référence à l'instance actuelle de la classe",
+        "C": "Un mot-clé pour créer des objets",
+        "D": "Le nom de la classe"
+      },
+      "correct": "B",
+      "explanation": "self fait référence à l'instance actuelle et permet d'accéder aux attributs et méthodes."
+    },
+    {
+      "id": "poo_q6",
+      "question": "Quel est le principe d'encapsulation ?",
+      "options": {
+        "A": "Regrouper toutes les fonctions dans un fichier",
+        "B": "Cacher les détails internes et contrôler l'accès aux attributs",
+        "C": "Créer plusieurs classes identiques",
+        "D": "Utiliser des boucles dans les classes"
+      },
+      "correct": "B",
+      "explanation": "L'encapsulation protège les données en cachant les détails d'implémentation."
+    },
+    {
+      "id": "poo_q7",
+      "question": "Comment créer un objet à partir d'une classe Voiture ?",
+      "options": {
+        "A": "Voiture.create()",
+        "B": "new Voiture()",
+        "C": "ma_voiture = Voiture()",
+        "D": "ma_voiture = class Voiture()"
+      },
+      "correct": "C",
+      "explanation": "On instancie une classe en l'appelant comme une fonction."
+    },
+    {
+      "id": "poo_q8",
+      "question": "Qu'est-ce que le polymorphisme ?",
+      "options": {
+        "A": "Avoir plusieurs classes",
+        "B": "La capacité d'utiliser une interface commune pour différents types d'objets",
+        "C": "Créer des copies d'objets",
+        "D": "Utiliser plusieurs héritages"
+      },
+      "correct": "B",
+      "explanation": "Le polymorphisme permet à différentes classes d'implémenter la même méthode différemment."
+    },
+    {
+      "id": "poo_q9",
+      "question": "Que retourne cette ligne : class Chien(Animal) ?",
+      "options": {
+        "A": "Chien hérite de Animal",
+        "B": "Animal hérite de Chien",
+        "C": "Chien et Animal sont identiques",
+        "D": "Erreur de syntaxe"
+      },
+      "correct": "A",
+      "explanation": "La classe entre parenthèses est la classe parent dont on hérite."
+    },
+    {
+      "id": "poo_q10",
+      "question": "Quelle méthode permet de définir comment un objet est affiché avec print() ?",
+      "options": {
+        "A": "__init__",
+        "B": "__str__",
+        "C": "__print__",
+        "D": "__display__"
+      },
+      "correct": "B",
+      "explanation": "__str__ retourne une représentation en chaîne de caractères de l'objet."
+    }
+  ]
+}
