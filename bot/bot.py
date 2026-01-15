@@ -18,6 +18,15 @@ from exam_result_database_sql import ExamResultDatabaseSQL
 keep_alive()
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
+# ===== INITIALISATION AUTOMATIQUE DE LA BASE DE DONNÉES =====
+try:
+    print("🔧 Vérification de la base de données...")
+    from init_db import init_database
+    init_database()
+    print("✅ Base de données initialisée")
+except Exception as e:
+    print(f"⚠️ Erreur initialisation DB: {e}")
+# =============================================================
 
 # Initialisation du bot
 intents = discord.Intents.default()
