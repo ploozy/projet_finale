@@ -1,11 +1,34 @@
-"""
-Script d'initialisation de la base de données PostgreSQL
-À exécuter UNE SEULE FOIS au premier déploiement
-"""
+import discord
 import os
-import sys
-from db_connection import init_db, test_connection, engine
-from sqlalchemy import text
+from dotenv import load_dotenv
+from discord.ext import commands
+import json
+from datetime import datetime
+import asyncio
+
+# ===== INITIALISATION AUTOMATIQUE =====
+print("🔧 Initialisation du système...")
+
+try:
+    print("📦 Vérification de la base de données...")
+    from init_db import init_database
+    init_database()
+except Exception as e:
+    print(f"⚠️ Erreur init DB: {e}")
+
+try:
+    print("📦 Vérification de la colonne 'groupe'...")
+    from add_groupe_column import add_groupe_column
+    add_groupe_column()
+except Exception as e:
+    print(f"⚠️ Erreur migration: {e}")
+
+print("✅ Initialisation terminée")
+# =======================================
+
+# Modules de quiz et révisions
+from quiz import QuizManager
+# ... reste du code
 
 def create_indexes():
     """Crée les index pour optimiser les requêtes"""
