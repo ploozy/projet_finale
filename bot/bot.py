@@ -636,7 +636,7 @@ def get_courses_for_level(niveau: int) -> list:
 
 async def setup_resources_channels():
     """
-    Envoie les cours dans les salons #📁-ressources de chaque groupe existant
+    Envoie les cours dans les salons 📖-ressources de chaque groupe existant
     """
     from db_connection import SessionLocal
     from models import Utilisateur
@@ -650,24 +650,23 @@ async def setup_resources_channels():
         
         for guild in bot.guilds:
             for groupe, niveau in groupes_actifs:
-                # Trouver le salon #📁-ressources dans la catégorie du groupe
-                # Ex: "Groupe 1-A" → chercher #📁-ressources dans cette catégorie
-                category_name = f"Groupe {groupe}"
+                # Trouver la catégorie "📚 Groupe X-Y" (avec emoji livre + espace)
+                category_name = f"📚 Groupe {groupe}"
                 category = discord.utils.get(guild.categories, name=category_name)
                 
                 if not category:
                     print(f"⚠️ Catégorie '{category_name}' introuvable")
                     continue
                 
-                # Chercher le salon #📁-ressources dans cette catégorie
+                # Chercher le salon 📖-ressources (livre ouvert) dans cette catégorie
                 resources_channel = None
                 for channel in category.text_channels:
-                    if channel.name in ["📁-ressources", "ressources"]:
+                    if channel.name == "📖-ressources":
                         resources_channel = channel
                         break
                 
                 if not resources_channel:
-                    print(f"⚠️ Salon #📁-ressources introuvable dans {category_name}")
+                    print(f"⚠️ Salon 📖-ressources introuvable dans {category_name}")
                     continue
                 
                 # Vérifier si les cours ont déjà été envoyés
@@ -686,7 +685,7 @@ async def setup_resources_channels():
                     print(f"ℹ️ Pas de cours pour le niveau {niveau}")
                     continue
                 
-                print(f"📤 Envoi de {len(course_ids)} cours dans {category_name} #📁-ressources...")
+                print(f"📤 Envoi de {len(course_ids)} cours dans {category_name} 📖-ressources...")
                 
                 for course_id in course_ids:
                     await send_course_to_channel(course_id, resources_channel)
@@ -1012,25 +1011,25 @@ async def start_quiz_sm2(member: discord.Member, course_id: int, questions: list
 async def on_user_level_change(user_id: int, new_level: int, new_groupe: str, guild: discord.Guild):
     """
     Appelé quand un utilisateur change de niveau
-    Envoie les cours du nouveau niveau dans le salon #📁-ressources du groupe
+    Envoie les cours du nouveau niveau dans le salon 📖-ressources du groupe
     """
-    # Trouver la catégorie du nouveau groupe
-    category_name = f"Groupe {new_groupe}"
+    # Trouver la catégorie "📚 Groupe X-Y" (avec emoji livre + espace)
+    category_name = f"📚 Groupe {new_groupe}"
     category = discord.utils.get(guild.categories, name=category_name)
     
     if not category:
         print(f"⚠️ Catégorie '{category_name}' introuvable")
         return
     
-    # Chercher le salon #📁-ressources
+    # Chercher le salon 📖-ressources (livre ouvert)
     resources_channel = None
     for channel in category.text_channels:
-        if channel.name in ["📁-ressources", "ressources"]:
+        if channel.name == "📖-ressources":
             resources_channel = channel
             break
     
     if not resources_channel:
-        print(f"⚠️ Salon #📁-ressources introuvable dans {category_name}")
+        print(f"⚠️ Salon 📖-ressources introuvable dans {category_name}")
         return
     
     # Vérifier si les cours ont déjà été envoyés
@@ -1050,7 +1049,7 @@ async def on_user_level_change(user_id: int, new_level: int, new_groupe: str, gu
         await send_course_to_channel(course_id, resources_channel)
         await asyncio.sleep(1)
     
-    print(f"✅ Cours envoyés dans {category_name} #📁-ressources")
+    print(f"✅ Cours envoyés dans {category_name} 📖-ressources")
 
 
 @bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
