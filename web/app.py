@@ -156,6 +156,140 @@ def course_detail(course_id):
         return f"Erreur : {e}", 500
 
 
+@app.route('/exam_secure')
+def exam_secure():
+    """Page d'examen sécurisée avec anti-triche"""
+    user_id = request.args.get('user_id')
+    exam_id = request.args.get('exam_id')
+    
+    if not user_id or not exam_id:
+        return "Paramètres manquants", 400
+    
+    return render_template('exam_secure.html')
+
+
+@app.route('/api/get_exam/<int:exam_id>')
+def api_get_exam(exam_id):
+    """API pour récupérer les données d'un examen"""
+    try:
+        # Chercher l'examen dans exam.json
+        exam = None
+        for e in exams_data:
+            if e['id'] == exam_id:
+                exam = e
+                break
+        
+        if not exam:
+            return jsonify({'error': 'Examen introuvable'}), 404
+        
+        return jsonify(exam)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/submit_exam', methods=['POST'])
+def api_submit_exam():
+    """API pour soumettre un examen"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        exam_id = data.get('exam_id')
+        answers = data.get('answers')
+        
+        if not user_id or not exam_id or answers is None:
+            return jsonify({'error': 'Données manquantes'}), 400
+        
+        # Charger l'examen
+        exam = None
+        for e in exams_data:
+            if e['id'] == exam_id:
+                exam = e
+                break
+        
+        if not exam:
+            return jsonify({'error': 'Examen introuvable'}), 404
+        
+        # Calculer le score
+        score = 0
+        total = len(exam['questions'])
+        results = []
+        
+        for i, question in enumerate(exam['questions']):
+            user_answer = answers[i]
+            correct_answer = question['correct']
+            is_correct = user_answer == correct_answer
+            
+            if is_correct:
+                score += 1
+            
+            results.append({
+                'question': i + 1,
+                'user_answer': user_answer,
+                'correct_answer': correct_answer,
+                'is_correct': is_correct
+            })
+        
+        percentage = (score / total) * 100
+        passing_score = exam.get('passing_score', 80)
+        passed = percentage >= passing_score
+        
+        # Sauvegarder en DB
+        db = SessionLocal()
+        try:
+            # Vérifier si l'utilisateur existe
+            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+            
+            if not user:
+                return jsonify({'error': 'Utilisateur introuvable'}), 404
+            
+            # Créer le résultat
+            exam_result = ExamResult(
+                user_id=user_id,
+                exam_id=exam_id,
+                exam_title=exam['title'],
+                score=score,
+                total=total,
+                percentage=percentage,
+                passed=passed,
+                passing_score=passing_score,
+                date=datetime.now(),
+                notified=False,
+                results=results
+            )
+            
+            db.add(exam_result)
+            
+            # Si réussi, promouvoir
+            if passed:
+                old_niveau = user.niveau_actuel
+                user.niveau_actuel += 1
+                user.examens_reussis += 1
+                
+                # Calculer le nouveau groupe
+                new_groupe = f"{user.niveau_actuel}-{user.groupe.split('-')[1]}"
+                user.groupe = new_groupe
+            
+            db.commit()
+            
+            return jsonify({
+                'success': True,
+                'score': score,
+                'total': total,
+                'percentage': percentage,
+                'passed': passed
+            })
+        
+        finally:
+            db.close()
+    
+    except Exception as e:
+        print(f"Erreur submit_exam: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/exams', methods=['GET', 'POST'])
 def exams():
     """
