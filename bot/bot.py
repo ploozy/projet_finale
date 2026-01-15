@@ -106,12 +106,12 @@ async def on_ready():
     except Exception as e:
         print(f'❌ Erreur synchronisation commandes: {e}')
     
-    # Démarrer le scheduler de révisions
+    # Démarrer le scheduler de révisions (SI BESOIN)
     try:
         scheduler.start()
+        print('⏰ Scheduler de révisions initialisé')
     except Exception as e:
-        print(f"⚠️ Erreur scheduler: {e}")
-    print('⏰ Scheduler de révisions initialisé')
+        print(f'⚠️ Scheduler non disponible: {e}')
 
 
 @bot.event
