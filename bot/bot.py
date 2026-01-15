@@ -129,6 +129,68 @@ async def on_member_join(member: discord.Member):
         print(f"❌ Erreur onboarding {member.name}: {e}")
 
 
+@bot.tree.command(name="register", description="S'enregistrer dans le système (si l'inscription automatique a échoué)")
+async def register(interaction: discord.Interaction):
+    """
+    Commande pour s'enregistrer manuellement dans le système
+    Utile si l'onboarding automatique a raté ou si le bot était offline
+    """
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        from db_connection import SessionLocal
+        from models import Utilisateur
+        
+        db = SessionLocal()
+        
+        # Vérifier si déjà enregistré
+        existing = db.query(Utilisateur).filter(
+            Utilisateur.user_id == interaction.user.id
+        ).first()
+        
+        if existing:
+            await interaction.followup.send(
+                f"✅ Tu es déjà enregistré !\n\n"
+                f"**Groupe** : {existing.groupe}\n"
+                f"**Niveau** : {existing.niveau_actuel}\n"
+                f"**ID Discord** : `{interaction.user.id}`\n\n"
+                f"Tu peux passer ton examen sur : https://site-fromation.onrender.com/exams",
+                ephemeral=True
+            )
+            db.close()
+            return
+        
+        # Enregistrer comme un nouveau membre
+        await onboarding_manager.on_member_join(interaction.user)
+        
+        # Récupérer les infos après enregistrement
+        user = db.query(Utilisateur).filter(
+            Utilisateur.user_id == interaction.user.id
+        ).first()
+        
+        if user:
+            await interaction.followup.send(
+                f"✅ Inscription réussie !\n\n"
+                f"**Groupe** : {user.groupe}\n"
+                f"**Niveau** : {user.niveau_actuel}\n"
+                f"**ID Discord** : `{interaction.user.id}`\n\n"
+                f"Tu as maintenant accès à tes salons et tu peux passer ton examen sur :\n"
+                f"https://site-fromation.onrender.com/exams",
+                ephemeral=True
+            )
+        else:
+            await interaction.followup.send(
+                "❌ Erreur lors de l'inscription. Contacte un administrateur.",
+                ephemeral=True
+            )
+        
+        db.close()
+        
+    except Exception as e:
+        await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
+        print(f"❌ Erreur register: {e}")
+
+
 @bot.tree.command(name="check_exam_results", description="[ADMIN] Vérifier et notifier les résultats d'examens web")
 @commands.has_permissions(administrator=True)
 async def check_exam_results(interaction: discord.Interaction):
@@ -319,7 +381,7 @@ async def my_info(interaction: discord.Interaction):
         if not user_db:
             await interaction.followup.send(
                 "❌ Tu n'es pas encore enregistré dans le système.\n"
-                "Cela devrait se faire automatiquement quand tu as rejoint le serveur.",
+                "Utilise la commande `/register` pour t'inscrire.",
                 ephemeral=True
             )
             return
@@ -365,6 +427,12 @@ async def my_info(interaction: discord.Interaction):
             inline=True
         )
         
+        embed.add_field(
+            name="🆔 ID Discord",
+            value=f"`{interaction.user.id}`",
+            inline=True
+        )
+        
         # Progression
         progress = (user_db.niveau_actuel / 5) * 100
         progress_bar = "█" * int(progress / 10) + "░" * (10 - int(progress / 10))
@@ -380,7 +448,8 @@ async def my_info(interaction: discord.Interaction):
         next_steps = "• Consulte les ressources dans ton salon\n"
         next_steps += f"• Prépare-toi pour l'examen du Niveau {user_db.niveau_actuel}\n"
         next_steps += "• Demande de l'aide dans #entraide si besoin\n"
-        next_steps += "• Passe ton examen sur le site web avec ton ID Discord"
+        next_steps += f"• Passe ton examen sur : https://site-fromation.onrender.com/exams\n"
+        next_steps += f"• Utilise ton ID : `{interaction.user.id}`"
         
         embed.add_field(
             name="🎯 Prochaines Étapes",
@@ -409,6 +478,12 @@ async def on_command_error(ctx, error):
         pass  # Ignorer les commandes inconnues
     else:
         print(f"❌ Erreur commande: {error}")
+
+
+# Lancement du bot
+if __name__ == "__main__":
+    print("🚀 Démarrage du bot...")
+    bot.run(token)
 
 
 # Lancement du bot
