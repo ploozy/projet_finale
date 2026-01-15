@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 import os
 from db_connection import SessionLocal
-from models import Utilisateur, ExamResult
+from models import Utilisateur, ExamResult, ExamPeriod
 
 app = Flask(__name__)
 app.secret_key = 'secret'
@@ -292,42 +292,47 @@ def api_submit_exam():
 
 @app.route('/exams', methods=['GET', 'POST'])
 def exams():
-    """
-    Page d'examens
-    1. Entre ton ID
-    2. Affiche automatiquement TON examen (filtré par niveau)
-    """
+    """Page d'examens avec vérification du vote"""
     if request.method == 'GET':
         return render_template('exams_id.html')
     
-    # POST - L'utilisateur a entré son ID
     db = None
     try:
         user_id_str = request.form.get('user_id', '').strip()
         
         if not user_id_str:
-            return render_template('exams_id.html', 
-                error="Entre ton ID Discord")
+            return render_template('exams_id.html', error="Entre ton ID Discord")
         
         user_id = int(user_id_str)
-        
-        print(f"\n{'='*50}")
-        print(f"📝 Demande d'examen : User {user_id}")
         
         # 1. Chercher l'utilisateur
         db = SessionLocal()
         user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
         
         if not user:
-            print(f"❌ Utilisateur {user_id} non trouvé")
             return render_template('exams_id.html',
                 error="Utilisateur non trouvé. Utilise /register sur Discord d'abord.")
         
-        print(f"✅ Utilisateur : {user.username}")
-        print(f"   Niveau: {user.niveau_actuel}")
-        print(f"   Groupe: {user.groupe}")
+        # 2. Vérifier période d'examen active
+        now = datetime.now()
+        exam_period = db.query(ExamPeriod).filter(
+            ExamPeriod.group_number == user.niveau_actuel,
+            ExamPeriod.start_time <= now,
+            ExamPeriod.end_time >= now
+        ).first()
         
-        # 2. Trouver l'examen de SON niveau
+        if not exam_period:
+            return render_template('exams_id.html',
+                error=f"Aucune période d'examen active pour le niveau {user.niveau_actuel}.")
+        
+        # 3. NOUVEAU : Vérifier que l'utilisateur a voté
+        if not user.has_voted or user.current_exam_period != exam_period.id:
+            return render_template('exams_id.html',
+                error=f"⚠️ Tu dois voter avant de passer l'examen !\n\n"
+                      f"Utilise la commande Discord :\n"
+                      f"/vote @user1 @user2 @user3")
+        
+        # 4. Trouver l'examen
         exam = None
         for e in exams_data['exams']:
             if e['group'] == user.niveau_actuel:
@@ -338,11 +343,8 @@ def exams():
             return render_template('exams_id.html',
                 error=f"Aucun examen pour le niveau {user.niveau_actuel}")
         
-        print(f"✅ Examen : {exam['title']}")
-        print(f"{'='*50}\n")
-        
-        # 3. Afficher l'examen
-        return render_template('exam_take.html',
+        # 5. Afficher l'examen sécurisé
+        return render_template('exam_secure.html',
             exam=exam,
             user_id=user_id,
             user_info={
@@ -352,15 +354,11 @@ def exams():
             })
     
     except Exception as e:
-        print(f"❌ Erreur /exams: {e}")
-        import traceback
-        traceback.print_exc()
         return render_template('exams_id.html', error=f"Erreur: {e}")
     
     finally:
         if db:
             db.close()
-
 
 @app.route('/submit_exam', methods=['POST'])
 def submit_exam():
