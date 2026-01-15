@@ -1057,11 +1057,10 @@ class QuizButton(discord.ui.View):
     
     @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary, custom_id="quiz_button")
     async def quiz_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Envoie le quiz en MP"""
         await interaction.response.defer(ephemeral=True)
         
         try:
-            # Charger le quiz depuis quizzes.json (CORRECTION ICI)
+            # CORRECTION : Charger depuis quizzes.json
             with open('quizzes.json', 'r', encoding='utf-8') as f:
                 quizzes_data = json.load(f)
             
@@ -1078,6 +1077,8 @@ class QuizButton(discord.ui.View):
                     ephemeral=True
                 )
                 return
+        
+        # ... reste du code identique
             
             # Le reste du code reste identique...
             # [Voir le code complet dans le fichier original]
