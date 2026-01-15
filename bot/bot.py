@@ -12,7 +12,7 @@ from discord.ext import commands, tasks
 from datetime import datetime, timedelta
 import asyncio
 import json
-
+from vote_system import VoteSystem
 # Keep-alive
 from stay_alive import keep_alive
 keep_alive()
