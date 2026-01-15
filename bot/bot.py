@@ -25,13 +25,11 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix='/', intents=intents)
 
-# Chargement de la config
+# Chargement de la config (pour les QCM uniquement)
 with open('config.json', 'r', encoding='utf-8') as f:
     config = json.load(f)
 
-# Chargement des examens
-with open('exam.json', 'r', encoding='utf-8') as f:
-    exams_data = json.load(f)
+# ❌ PLUS BESOIN DE exam.json ICI - c'est pour le site web seulement
 
 # Initialisation des managers (PostgreSQL)
 cohort_manager = CohortManagerSQL()
@@ -42,6 +40,7 @@ scheduler = ReviewScheduler(bot, review_db, quiz_manager)
 
 # Le DiscordGroupManager sera initialisé après le démarrage du bot
 discord_group_manager = None
+
 
 
 class BotHTTPServer:
