@@ -1,6 +1,7 @@
 """
-Site Web - Version Simplifiée
-Affiche TOUS les examens, l'utilisateur choisit le sien
+Site Web - Version Finale
+1. Entre ton ID → Affiche TON examen automatiquement
+2. Promotion automatique après réussite
 """
 
 from flask import Flask, render_template, request, jsonify
@@ -58,95 +59,81 @@ def index():
 @app.route('/exams', methods=['GET', 'POST'])
 def exams():
     """
-    Page d'examens - AFFICHE TOUS LES EXAMENS
-    L'utilisateur choisit manuellement le sien
+    Page d'examens
+    1. Entre ton ID
+    2. Affiche automatiquement TON examen (filtré par niveau)
     """
     if request.method == 'GET':
-        # Afficher le formulaire
-        return render_template('exams.html', exams=exams_data['exams'])
+        return render_template('exams_id.html')
     
-    # POST - L'utilisateur a choisi un examen
+    # POST - L'utilisateur a entré son ID
+    db = None
     try:
         user_id_str = request.form.get('user_id', '').strip()
-        exam_id_str = request.form.get('exam_id', '').strip()
         
-        if not user_id_str or not exam_id_str:
-            return render_template('exams.html', 
-                exams=exams_data['exams'],
-                error="Entre ton ID Discord et choisis un examen")
+        if not user_id_str:
+            return render_template('exams_id.html', 
+                error="Entre ton ID Discord")
         
         user_id = int(user_id_str)
-        exam_id = int(exam_id_str)
         
         print(f"\n{'='*50}")
-        print(f"📝 Tentative d'examen")
-        print(f"   User ID: {user_id}")
-        print(f"   Exam ID: {exam_id}")
+        print(f"📝 Demande d'examen : User {user_id}")
         
         # 1. Chercher l'utilisateur
         db = SessionLocal()
-        try:
-            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-            
-            if not user:
-                print(f"❌ Utilisateur {user_id} non trouvé en base")
-                return render_template('exams.html',
-                    exams=exams_data['exams'],
-                    error="Utilisateur non trouvé. Utilise /register sur Discord d'abord.")
-            
-            print(f"✅ Utilisateur trouvé : {user.username}")
-            print(f"   Niveau: {user.niveau_actuel}")
-            print(f"   Groupe: {user.groupe}")
-            
-            # 2. Trouver l'examen
-            exam = None
-            for e in exams_data['exams']:
-                if e['id'] == exam_id:
-                    exam = e
-                    break
-            
-            if not exam:
-                return render_template('exams.html',
-                    exams=exams_data['exams'],
-                    error="Examen introuvable")
-            
-            print(f"✅ Examen trouvé : {exam['title']} (Groupe {exam['group']})")
-            
-            # 3. Vérifier que c'est le bon niveau
-            if exam['group'] != user.niveau_actuel:
-                print(f"❌ Mauvais niveau : User={user.niveau_actuel}, Exam={exam['group']}")
-                return render_template('exams.html',
-                    exams=exams_data['exams'],
-                    error=f"❌ Cet examen est pour le Niveau {exam['group']}, tu es Niveau {user.niveau_actuel}")
-            
-            print(f"✅ Niveau correct !")
-            print(f"{'='*50}\n")
-            
-            # 4. Afficher l'examen
-            return render_template('exam_take.html',
-                exam=exam,
-                user_id=user_id,
-                user_info={
-                    'username': user.username,
-                    'niveau_actuel': user.niveau_actuel,
-                    'groupe': user.groupe
-                })
+        user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
         
-        finally:
-            db.close()
+        if not user:
+            print(f"❌ Utilisateur {user_id} non trouvé")
+            return render_template('exams_id.html',
+                error="Utilisateur non trouvé. Utilise /register sur Discord d'abord.")
+        
+        print(f"✅ Utilisateur : {user.username}")
+        print(f"   Niveau: {user.niveau_actuel}")
+        print(f"   Groupe: {user.groupe}")
+        
+        # 2. Trouver l'examen de SON niveau
+        exam = None
+        for e in exams_data['exams']:
+            if e['group'] == user.niveau_actuel:
+                exam = e
+                break
+        
+        if not exam:
+            return render_template('exams_id.html',
+                error=f"Aucun examen pour le niveau {user.niveau_actuel}")
+        
+        print(f"✅ Examen : {exam['title']}")
+        print(f"{'='*50}\n")
+        
+        # 3. Afficher l'examen
+        return render_template('exam_take.html',
+            exam=exam,
+            user_id=user_id,
+            user_info={
+                'username': user.username,
+                'niveau_actuel': user.niveau_actuel,
+                'groupe': user.groupe
+            })
     
     except Exception as e:
         print(f"❌ Erreur /exams: {e}")
         import traceback
         traceback.print_exc()
-        return render_template('exams.html',
-            exams=exams_data['exams'],
-            error=f"Erreur: {e}")
+        return render_template('exams_id.html', error=f"Erreur: {e}")
+    
+    finally:
+        if db:
+            db.close()
 
 
 @app.route('/submit_exam', methods=['POST'])
 def submit_exam():
-    """Soumet un examen"""
+    """
+    Soumet un examen
+    SI RÉUSSI (≥70%) → PROMOUVOIR automatiquement
+    """
     db = None
     try:
         data = request.get_json()
@@ -191,9 +178,13 @@ def submit_exam():
         percentage = round((score / total_points) * 100, 2)
         passed = percentage >= exam.get('passing_score', 70)
         
-        print(f"📊 Résultat : User {user_id}, Score {percentage}%, {'✅ Réussi' if passed else '❌ Échoué'}")
+        print(f"\n{'='*50}")
+        print(f"📊 RÉSULTAT EXAMEN")
+        print(f"   User: {user_id}")
+        print(f"   Score: {percentage}%")
+        print(f"   Statut: {'✅ RÉUSSI' if passed else '❌ ÉCHOUÉ'}")
         
-        # Sauvegarder dans PostgreSQL
+        # Sauvegarder le résultat
         db = SessionLocal()
         
         exam_result = ExamResult(
@@ -212,8 +203,30 @@ def submit_exam():
         
         db.add(exam_result)
         db.commit()
-        
         print(f"✅ Résultat sauvegardé en base")
+        
+        # SI RÉUSSI → PROMOUVOIR
+        if passed:
+            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+            
+            if user and user.niveau_actuel < 5:
+                old_niveau = user.niveau_actuel
+                old_groupe = user.groupe
+                
+                # Nouveau niveau et groupe
+                new_niveau = old_niveau + 1
+                new_groupe = f"{new_niveau}-A"  # Toujours mettre dans le groupe A du niveau suivant
+                
+                user.niveau_actuel = new_niveau
+                user.groupe = new_groupe
+                user.examens_reussis += 1
+                db.commit()
+                
+                print(f"🎉 PROMOTION AUTOMATIQUE")
+                print(f"   {old_groupe} (Niveau {old_niveau}) → {new_groupe} (Niveau {new_niveau})")
+                print(f"✅ Utilisateur promu en base")
+        
+        print(f"{'='*50}\n")
         
         return jsonify({
             'success': True,
