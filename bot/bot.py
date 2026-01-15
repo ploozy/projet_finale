@@ -18,10 +18,45 @@ import json
 from datetime import datetime
 import asyncio
 
+# Keep-alive et environnement DOIVENT ÊTRE EN PREMIER
+from stay_alive import keep_alive
+keep_alive()
+load_dotenv()
+
+# ===== AUTO-INITIALISATION BASE DE DONNÉES =====
+print("🔧 Initialisation automatique de la base de données...")
+try:
+    from db_connection import engine, Base
+    from models import Cohorte, Utilisateur, CalendrierExamen, HistoriqueCohorte, Review, ExamResult
+    
+    Base.metadata.create_all(engine)
+    print("✅ Tables créées/vérifiées")
+    
+    # Ajouter colonne 'groupe' si nécessaire
+    from db_connection import SessionLocal
+    from sqlalchemy import text
+    
+    db = SessionLocal()
+    try:
+        check = text("SELECT column_name FROM information_schema.columns WHERE table_name='utilisateurs' AND column_name='groupe'")
+        if not db.execute(check).fetchone():
+            db.execute(text("ALTER TABLE utilisateurs ADD COLUMN groupe VARCHAR(10) DEFAULT '1-A'"))
+            db.commit()
+            print("✅ Colonne 'groupe' ajoutée")
+        else:
+            print("✅ Colonne 'groupe' existe déjà")
+    except Exception as e:
+        print(f"⚠️ Colonne 'groupe' : {e}")
+    finally:
+        db.close()
+except Exception as e:
+    print(f"⚠️ Init DB: {e}")
+print("=" * 50)
+# ================================================
+
 # Modules de quiz et révisions
 from quiz import QuizManager
 from scheduler import ReviewScheduler
-from stay_alive import keep_alive
 
 # Managers PostgreSQL
 from cohorte_manager_sql import CohorteManagerSQL
@@ -32,27 +67,6 @@ from exam_result_database_sql import ExamResultDatabaseSQL
 from onboarding import OnboardingManager
 from promotion import PromotionManager
 
-print("🔧 Initialisation du système...")
-
-try:
-    print("📦 Vérification de la base de données...")
-    from init_db import init_database
-    init_database()
-except Exception as e:
-    print(f"⚠️ Erreur init DB: {e}")
-
-try:
-    print("📦 Vérification de la colonne 'groupe'...")
-    from add_groupe_column import add_groupe_column
-    add_groupe_column()
-except Exception as e:
-    print(f"⚠️ Erreur migration: {e}")
-
-print("✅ Initialisation terminée")
-
-# Keep-alive et environnement
-keep_alive()
-load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
 # Configuration du bot
@@ -208,196 +222,4 @@ async def stats(interaction: discord.Interaction):
         print(f"❌ Erreur stats: {e}")
 
 
-@bot.tree.command(name="manual_promote", description="[ADMIN] Promouvoir manuellement un utilisateur")
-@commands.has_permissions(administrator=True)
-async def manual_promote(interaction: discord.Interaction, member: discord.Member):
-    """
-    Commande ADMIN pour promouvoir manuellement un utilisateur
-    Utile pour corriger des erreurs ou faire des promotions exceptionnelles
-    """
-    await interaction.response.defer()
-    
-    try:
-        from db_connection import SessionLocal
-        from models import Utilisateur
-        
-        db = SessionLocal()
-        
-        # Récupérer l'utilisateur de la DB
-        user_db = db.query(Utilisateur).filter(
-            Utilisateur.user_id == member.id
-        ).first()
-        
-        if not user_db:
-            await interaction.followup.send(f"❌ {member.mention} n'est pas enregistré dans la base de données.")
-            return
-        
-        old_niveau = user_db.niveau_actuel
-        old_groupe = user_db.groupe
-        
-        if old_niveau >= 5:
-            await interaction.followup.send(f"❌ {member.mention} est déjà au niveau maximum (5).")
-            return
-        
-        # Utiliser le système de promotion normal
-        new_niveau = old_niveau + 1
-        new_groupe = await onboarding_manager._get_available_group(interaction.guild, new_niveau)
-        
-        # Mettre à jour la DB
-        user_db.niveau_actuel = new_niveau
-        user_db.groupe = new_groupe
-        user_db.examens_reussis += 1
-        db.commit()
-        
-        # Changer les rôles Discord
-        old_role = discord.utils.get(interaction.guild.roles, name=f"Groupe {old_groupe}")
-        if old_role and old_role in member.roles:
-            await member.remove_roles(old_role)
-        
-        new_role = await onboarding_manager._get_or_create_role(interaction.guild, new_groupe)
-        await member.add_roles(new_role)
-        
-        # Créer les salons si nécessaire
-        await onboarding_manager._create_group_channels(interaction.guild, new_groupe, new_role)
-        
-        # Notification
-        await member.send(
-            f"🎉 **Promotion Manuelle**\n\n"
-            f"Tu as été promu manuellement par un administrateur !\n"
-            f"**{old_groupe}** → **{new_groupe}**\n\n"
-            f"Tu as maintenant accès aux salons du Groupe {new_groupe}.\n"
-            f"Bon courage pour la suite ! 💪"
-        )
-        
-        await interaction.followup.send(
-            f"✅ {member.mention} a été promu manuellement !\n"
-            f"**{old_groupe}** → **{new_groupe}**"
-        )
-        
-        db.close()
-        
-    except Exception as e:
-        await interaction.followup.send(f"❌ Erreur : {e}")
-        print(f"❌ Erreur manual_promote: {e}")
-
-
-@bot.tree.command(name="my_info", description="Afficher tes informations de progression")
-async def my_info(interaction: discord.Interaction):
-    """
-    Affiche les informations de l'utilisateur :
-    - Groupe actuel
-    - Niveau
-    - Examens réussis
-    - Prochaines étapes
-    """
-    await interaction.response.defer(ephemeral=True)
-    
-    try:
-        from db_connection import SessionLocal
-        from models import Utilisateur
-        
-        db = SessionLocal()
-        
-        user_db = db.query(Utilisateur).filter(
-            Utilisateur.user_id == interaction.user.id
-        ).first()
-        
-        if not user_db:
-            await interaction.followup.send(
-                "❌ Tu n'es pas encore enregistré dans le système.\n"
-                "Cela devrait se faire automatiquement quand tu as rejoint le serveur.",
-                ephemeral=True
-            )
-            return
-        
-        embed = discord.Embed(
-            title="📋 Tes Informations",
-            color=discord.Color.blue(),
-            timestamp=datetime.now()
-        )
-        
-        embed.set_author(
-            name=interaction.user.name,
-            icon_url=interaction.user.display_avatar.url
-        )
-        
-        embed.add_field(
-            name="👥 Ton Groupe",
-            value=f"**Groupe {user_db.groupe}**",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="📊 Niveau Actuel",
-            value=f"**Niveau {user_db.niveau_actuel}**",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="🎯 Examens Réussis",
-            value=f"**{user_db.examens_reussis}**",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="📅 Inscrit Depuis",
-            value=f"{user_db.date_inscription.strftime('%d/%m/%Y')}",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="🏆 Cohorte",
-            value=f"**{user_db.cohorte_id}**",
-            inline=True
-        )
-        
-        # Progression
-        progress = (user_db.niveau_actuel / 5) * 100
-        progress_bar = "█" * int(progress / 10) + "░" * (10 - int(progress / 10))
-        
-        embed.add_field(
-            name="📈 Progression Globale",
-            value=f"`{progress_bar}` {progress:.0f}%\n"
-                  f"Niveau {user_db.niveau_actuel}/5",
-            inline=False
-        )
-        
-        # Prochaines étapes
-        next_steps = "• Consulte les ressources dans ton salon\n"
-        next_steps += f"• Prépare-toi pour l'examen du Niveau {user_db.niveau_actuel}\n"
-        next_steps += "• Demande de l'aide dans #entraide si besoin\n"
-        next_steps += "• Passe ton examen sur le site web avec ton ID Discord"
-        
-        embed.add_field(
-            name="🎯 Prochaines Étapes",
-            value=next_steps,
-            inline=False
-        )
-        
-        embed.set_footer(text=f"ID Discord: {interaction.user.id}")
-        
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        
-        db.close()
-        
-    except Exception as e:
-        await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
-        print(f"❌ Erreur my_info: {e}")
-
-
-# Gestion des erreurs globales
-@bot.event
-async def on_command_error(ctx, error):
-    """Gestion des erreurs de commandes"""
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ Tu n'as pas les permissions nécessaires pour utiliser cette commande.")
-    elif isinstance(error, commands.CommandNotFound):
-        pass  # Ignorer les commandes inconnues
-    else:
-        print(f"❌ Erreur commande: {error}")
-
-
-# Lancement du bot
-if __name__ == "__main__":
-    print("🚀 Démarrage du bot...")
-    bot.run(token)
+@bot.tree.command(name="manu)
