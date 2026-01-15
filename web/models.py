@@ -1,6 +1,7 @@
 """
 Modèles SQLAlchemy pour la base de données
 Utilisé par le Bot Discord et le Site Web
+VERSION COMPLÈTE avec Vote et ExamPeriod
 """
 from sqlalchemy import Column, Integer, String, BigInteger, Float, Boolean, DateTime, ForeignKey, JSON, CheckConstraint, Text
 from sqlalchemy.orm import relationship
@@ -43,6 +44,12 @@ class Utilisateur(Base):
     groupe = Column(String(10), nullable=False, default="1-A")  # Ex: "1-A", "2-B", "3-C"
     examens_reussis = Column(Integer, nullable=False, default=0)
     date_inscription = Column(DateTime, nullable=False, default=datetime.now)
+    
+    # NOUVEAUX CHAMPS pour le système de vote
+    has_voted = Column(Boolean, nullable=False, default=False)
+    current_exam_period = Column(String(50), nullable=True)
+    bonus_points = Column(Float, nullable=False, default=0.0)
+    bonus_level = Column(String(20), nullable=True)  # "or", "argent", "bronze", ou None
     
     # Relations
     cohorte = relationship("Cohorte", back_populates="utilisateurs")
@@ -151,11 +158,41 @@ class CourseQuizResult(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
-    course_id = Column(String(50), nullable=False)  # Ex: "variables", "loops"
-    quiz_question_id = Column(Integer, nullable=False)
+    course_id = Column(Integer, nullable=False)  # ID du cours (1, 2, 3, 4)
+    quiz_question_id = Column(String(50), nullable=False)  # Ex: "poo_q1", "struct_q2"
     quality = Column(Integer, nullable=False)  # 0-5 (SM-2)
     date = Column(DateTime, nullable=False, default=datetime.now)
     
     def __repr__(self):
-        return f"<CourseQuizResult {self.user_id} - {self.course_id} Q{self.quiz_question_id}>"
-        return f"<ExamResult {self.user_id} - {self.exam_title} ({self.percentage}%)>"
+        return f"<CourseQuizResult {self.user_id} - Cours {self.course_id} Q{self.quiz_question_id}>"
+
+
+# ==================== NOUVELLES CLASSES ====================
+
+class Vote(Base):
+    """Table des votes pour le système de récompense"""
+    __tablename__ = 'votes'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    voter_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
+    voted_for_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
+    exam_period_id = Column(String(50), nullable=False)  # Ex: "2026-01-15_group1"
+    date = Column(DateTime, nullable=False, default=datetime.now)
+    
+    def __repr__(self):
+        return f"<Vote {self.voter_id} → {self.voted_for_id}>"
+
+
+class ExamPeriod(Base):
+    """Table des périodes d'examen (fenêtres de 6h)"""
+    __tablename__ = 'exam_periods'
+    
+    id = Column(String(50), primary_key=True)  # Ex: "2026-01-15_group1"
+    group_number = Column(Integer, nullable=False)  # 1, 2, 3, 4, 5
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    votes_closed = Column(Boolean, nullable=False, default=False)
+    bonuses_applied = Column(Boolean, nullable=False, default=False)
+    
+    def __repr__(self):
+        return f"<ExamPeriod {self.id} - Group {self.group_number}>"
