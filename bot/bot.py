@@ -107,7 +107,10 @@ async def on_ready():
         print(f'❌ Erreur synchronisation commandes: {e}')
     
     # Démarrer le scheduler de révisions
-    bot.loop.create_task(scheduler.start())
+    try:
+        scheduler.start()
+    except Exception as e:
+        print(f"⚠️ Erreur scheduler: {e}")
     print('⏰ Scheduler de révisions initialisé')
 
 
