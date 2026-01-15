@@ -13,11 +13,16 @@ def create_indexes():
     
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_utilisateurs_cohorte ON utilisateurs(cohorte_id);",
+        "CREATE INDEX IF NOT EXISTS idx_utilisateurs_niveau ON utilisateurs(niveau_actuel);",
+        "CREATE INDEX IF NOT EXISTS idx_cohortes_statut ON cohortes(statut);",
+        "CREATE INDEX IF NOT EXISTS idx_cohortes_niveau ON cohortes(niveau_actuel);",
         "CREATE INDEX IF NOT EXISTS idx_calendrier_cohorte ON calendrier_examens(cohorte_id);",
+        "CREATE INDEX IF NOT EXISTS idx_calendrier_niveau ON calendrier_examens(niveau);",
         "CREATE INDEX IF NOT EXISTS idx_reviews_next ON reviews(next_review);",
         "CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);",
         "CREATE INDEX IF NOT EXISTS idx_exam_results_user ON exam_results(user_id);",
         "CREATE INDEX IF NOT EXISTS idx_exam_results_notified ON exam_results(notified);",
+        "CREATE INDEX IF NOT EXISTS idx_exam_results_exam ON exam_results(exam_id);",
     ]
     
     with engine.connect() as conn:
@@ -68,6 +73,7 @@ def main():
     print("=" * 60)
     print("\nLa base de données est prête à être utilisée !")
     print("Vous pouvez maintenant démarrer votre application.")
+    print("\n📝 Note: Les colonnes guild_id, role_id et channel_id ont été ajoutées aux cohortes")
 
 if __name__ == "__main__":
     main()
