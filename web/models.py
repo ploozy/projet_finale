@@ -143,3 +143,19 @@ class ExamResult(Base):
     
     def __repr__(self):
         return f"<ExamResult {self.user_id} - {self.exam_title} ({self.percentage}%)>"
+
+
+class CourseQuizResult(Base):
+    """Table des résultats de quiz sur les cours"""
+    __tablename__ = 'course_quiz_results'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
+    course_id = Column(String(50), nullable=False)  # Ex: "variables", "loops"
+    quiz_question_id = Column(Integer, nullable=False)
+    quality = Column(Integer, nullable=False)  # 0-5 (SM-2)
+    date = Column(DateTime, nullable=False, default=datetime.now)
+    
+    def __repr__(self):
+        return f"<CourseQuizResult {self.user_id} - {self.course_id} Q{self.quiz_question_id}>"
+        return f"<ExamResult {self.user_id} - {self.exam_title} ({self.percentage}%)>"
