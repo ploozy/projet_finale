@@ -32,6 +32,24 @@ from exam_result_database_sql import ExamResultDatabaseSQL
 from onboarding import OnboardingManager
 from promotion import PromotionManager
 
+print("🔧 Initialisation du système...")
+
+try:
+    print("📦 Vérification de la base de données...")
+    from init_db import init_database
+    init_database()
+except Exception as e:
+    print(f"⚠️ Erreur init DB: {e}")
+
+try:
+    print("📦 Vérification de la colonne 'groupe'...")
+    from add_groupe_column import add_groupe_column
+    add_groupe_column()
+except Exception as e:
+    print(f"⚠️ Erreur migration: {e}")
+
+print("✅ Initialisation terminée")
+
 # Keep-alive et environnement
 keep_alive()
 load_dotenv()
