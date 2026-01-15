@@ -615,6 +615,328 @@ async def task_status(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed, ephemeral=True)
 
+@bot.tree.command(name="send_course", description="[ADMIN] Envoyer un cours dans un salon")
+@commands.has_permissions(administrator=True)
+async def send_course(
+    interaction: discord.Interaction,
+    course_id: str,
+    channel: discord.TextChannel
+):
+    """
+    Envoie un cours avec un bouton 'Faire le Quiz'
+    
+    Args:
+        course_id: ID du cours (ex: "variables", "loops")
+        channel: Salon où envoyer le cours
+    """
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        # Charger les cours
+        import json
+        with open('course_content.json', 'r', encoding='utf-8') as f:
+            courses_data = json.load(f)
+        
+        # Trouver le cours
+        course = None
+        for c in courses_data['courses']:
+            if c['id'] == course_id:
+                course = c
+                break
+        
+        if not course:
+            await interaction.followup.send(
+                f"❌ Cours `{course_id}` introuvable.\n"
+                f"Cours disponibles : {', '.join([c['id'] for c in courses_data['courses']])}",
+                ephemeral=True
+            )
+            return
+        
+        # Créer l'embed du cours
+        embed = discord.Embed(
+            title=f"{course.get('icon', '📚')} {course['title']}",
+            description=course['description'],
+            color=discord.Color.blue()
+        )
+        
+        # Ajouter le contenu (limité à 1024 caractères par field)
+        content = course['content']
+        if len(content) > 1024:
+            # Couper en plusieurs parties
+            parts = [content[i:i+1024] for i in range(0, len(content), 1024)]
+            for i, part in enumerate(parts[:3]):  # Max 3 parties
+                embed.add_field(
+                    name=f"Contenu (partie {i+1})" if i > 0 else "Contenu",
+                    value=part,
+                    inline=False
+                )
+        else:
+            embed.add_field(name="Contenu", value=content, inline=False)
+        
+        embed.set_footer(text=f"Niveau {course['niveau']} • {len(course.get('quiz', []))} questions de quiz disponibles")
+        
+        # Créer le bouton "Faire le Quiz"
+        view = CourseQuizView(course_id, course['title'])
+        
+        # Envoyer dans le salon
+        await channel.send(embed=embed, view=view)
+        
+        await interaction.followup.send(
+            f"✅ Cours **{course['title']}** envoyé dans {channel.mention}",
+            ephemeral=True
+        )
+    
+    except FileNotFoundError:
+        await interaction.followup.send(
+            "❌ Fichier `course_content.json` introuvable",
+            ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Erreur : {e}",
+            ephemeral=True
+        )
+
+
+class CourseQuizView(discord.ui.View):
+    """Vue avec bouton 'Faire le Quiz'"""
+    
+    def __init__(self, course_id: str, course_title: str):
+        super().__init__(timeout=None)  # Pas de timeout
+        self.course_id = course_id
+        self.course_title = course_title
+    
+    @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary)
+    async def quiz_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Envoie le quiz en MP"""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # Charger les cours
+            import json
+            with open('course_content.json', 'r', encoding='utf-8') as f:
+                courses_data = json.load(f)
+            
+            # Trouver le cours
+            course = None
+            for c in courses_data['courses']:
+                if c['id'] == self.course_id:
+                    course = c
+                    break
+            
+            if not course or 'quiz' not in course:
+                await interaction.followup.send(
+                    "❌ Quiz introuvable pour ce cours",
+                    ephemeral=True
+                )
+                return
+            
+            # Vérifier l'utilisateur en DB
+            from db_connection import SessionLocal
+            from models import Utilisateur, Review
+            from datetime import datetime, timedelta
+            
+            db = SessionLocal()
+            try:
+                user = db.query(Utilisateur).filter(
+                    Utilisateur.user_id == interaction.user.id
+                ).first()
+                
+                if not user:
+                    await interaction.followup.send(
+                        "❌ Tu dois d'abord t'inscrire avec `/register`",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Filtrer les questions selon SM-2
+                now = datetime.now()
+                questions_to_review = []
+                
+                for question in course['quiz']:
+                    q_id = question['id']
+                    
+                    # Vérifier si une review existe
+                    review = db.query(Review).filter(
+                        Review.user_id == interaction.user.id,
+                        Review.question_id == q_id
+                    ).first()
+                    
+                    if not review:
+                        # Nouvelle question
+                        questions_to_review.append(question)
+                    elif review.next_review <= now:
+                        # Question à réviser
+                        questions_to_review.append(question)
+                
+                if not questions_to_review:
+                    await interaction.followup.send(
+                        "✅ Tu as déjà révisé toutes les questions récemment !\n"
+                        "Reviens plus tard pour continuer.",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Envoyer le quiz en MP
+                member = interaction.guild.get_member(interaction.user.id) if interaction.guild else interaction.user
+                
+                embed = discord.Embed(
+                    title=f"📝 Quiz : {self.course_title}",
+                    description=f"Tu as **{len(questions_to_review)} question(s)** à réviser.",
+                    color=discord.Color.green()
+                )
+                
+                embed.add_field(
+                    name="Instructions",
+                    value=(
+                        "Je vais te poser les questions une par une.\n"
+                        "Réponds avec le **numéro de ta réponse** (1, 2, 3 ou 4).\n\n"
+                        "Ton score déterminera quand tu reverras cette question (SM-2)."
+                    ),
+                    inline=False
+                )
+                
+                await member.send(embed=embed)
+                
+                # Démarrer le quiz
+                await start_quiz(member, self.course_id, questions_to_review, db)
+                
+                await interaction.followup.send(
+                    f"✅ Quiz envoyé en MP ! Vérifie tes messages privés.",
+                    ephemeral=True
+                )
+            
+            finally:
+                db.close()
+        
+        except discord.Forbidden:
+            await interaction.followup.send(
+                "❌ Je ne peux pas t'envoyer de MP. Active tes messages privés !",
+                ephemeral=True
+            )
+        except Exception as e:
+            print(f"❌ Erreur quiz: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(
+                f"❌ Erreur : {e}",
+                ephemeral=True
+            )
+
+
+async def start_quiz(member: discord.Member, course_id: str, questions: list, db):
+    """
+    Démarre un quiz interactif en MP
+    Utilise l'algorithme SM-2 pour la répétition espacée
+    """
+    from models import Review, CourseQuizResult
+    from datetime import datetime, timedelta
+    
+    total_questions = len(questions)
+    
+    for i, question in enumerate(questions):
+        # Envoyer la question
+        embed = discord.Embed(
+            title=f"Question {i+1}/{total_questions}",
+            description=question['question'],
+            color=discord.Color.blue()
+        )
+        
+        for j, option in enumerate(question['options'], 1):
+            embed.add_field(
+                name=f"{j}.",
+                value=option,
+                inline=False
+            )
+        
+        await member.send(embed=embed)
+        
+        # Attendre la réponse
+        def check(m):
+            return m.author.id == member.id and isinstance(m.channel, discord.DMChannel) and m.content in ['1', '2', '3', '4']
+        
+        try:
+            msg = await bot.wait_for('message', check=check, timeout=120)
+            user_answer = int(msg.content)
+            correct_answer = question['correct']
+            
+            # Vérifier la réponse
+            if user_answer == correct_answer:
+                quality = 5  # Parfait
+                await member.send("✅ **Correct !**")
+            else:
+                quality = 0  # Échec
+                await member.send(
+                    f"❌ **Incorrect**\n"
+                    f"La bonne réponse était : **{correct_answer}. {question['options'][correct_answer-1]}**"
+                )
+            
+            # Appliquer l'algorithme SM-2
+            review = db.query(Review).filter(
+                Review.user_id == member.id,
+                Review.question_id == question['id']
+            ).first()
+            
+            if not review:
+                # Nouvelle question
+                review = Review(
+                    user_id=member.id,
+                    question_id=question['id'],
+                    next_review=datetime.now(),
+                    interval_days=1.0,
+                    repetitions=0,
+                    easiness_factor=2.5
+                )
+                db.add(review)
+            
+            # Algorithme SM-2
+            if quality >= 3:
+                # Bonne réponse
+                if review.repetitions == 0:
+                    review.interval_days = 1
+                elif review.repetitions == 1:
+                    review.interval_days = 6
+                else:
+                    review.interval_days = review.interval_days * review.easiness_factor
+                
+                review.repetitions += 1
+            else:
+                # Mauvaise réponse
+                review.repetitions = 0
+                review.interval_days = 1
+            
+            # Ajuster easiness_factor
+            review.easiness_factor = max(
+                1.3,
+                review.easiness_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+            )
+            
+            # Prochaine révision
+            review.next_review = datetime.now() + timedelta(days=review.interval_days)
+            
+            # Sauvegarder le résultat
+            quiz_result = CourseQuizResult(
+                user_id=member.id,
+                course_id=course_id,
+                quiz_question_id=question['id'],
+                quality=quality,
+                date=datetime.now()
+            )
+            db.add(quiz_result)
+            db.commit()
+            
+            await asyncio.sleep(2)
+        
+        except asyncio.TimeoutError:
+            await member.send("⏱️ Temps écoulé ! Quiz annulé.")
+            return
+    
+    # Fin du quiz
+    await member.send(
+        f"🎉 **Quiz terminé !**\n\n"
+        f"Tu as répondu à **{total_questions} question(s)**.\n"
+        f"Continue à réviser pour maîtriser le sujet ! 💪"
+    )
 
 if __name__ == "__main__":
     print("🚀 Démarrage du bot...")
