@@ -128,14 +128,18 @@ async def on_member_join(member: discord.Member):
     
     try:
         await onboarding_manager.on_member_join(member)
+        print(f"✅ Onboarding réussi pour {member.name}")
     except Exception as e:
         print(f"❌ Erreur onboarding {member.name}: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @bot.tree.command(name="register", description="S'enregistrer dans le système")
 async def register(interaction: discord.Interaction):
     """
     Commande pour s'enregistrer manuellement dans le système
+    Utile si l'onboarding automatique a échoué
     """
     # RÉPONDRE IMMÉDIATEMENT (dans les 3 secondes)
     await interaction.response.send_message(
@@ -143,11 +147,14 @@ async def register(interaction: discord.Interaction):
         ephemeral=True
     )
     
+    db = None
     try:
         from db_connection import SessionLocal
         from models import Utilisateur
         
         db = SessionLocal()
+        
+        print(f"🔍 /register demandé par {interaction.user.name} (ID: {interaction.user.id})")
         
         # Vérifier si déjà enregistré
         existing = db.query(Utilisateur).filter(
@@ -155,6 +162,7 @@ async def register(interaction: discord.Interaction):
         ).first()
         
         if existing:
+            print(f"✅ {interaction.user.name} déjà enregistré (Groupe {existing.groupe})")
             await interaction.edit_original_response(
                 content=f"✅ **Tu es déjà enregistré !**\n\n"
                 f"📌 **Groupe** : {existing.groupe}\n"
@@ -162,36 +170,40 @@ async def register(interaction: discord.Interaction):
                 f"🆔 **ID Discord** : `{interaction.user.id}`\n\n"
                 f"🌐 Passe ton examen sur : https://site-fromation.onrender.com/exams"
             )
-            db.close()
             return
+        
+        # Pas encore enregistré
+        print(f"⏳ Inscription de {interaction.user.name}...")
         
         # Mettre à jour le message
         await interaction.edit_original_response(
             content="⏳ Création de ton compte..."
         )
         
-        # Récupérer le Member
+        # Récupérer le Member depuis le serveur
         member = interaction.guild.get_member(interaction.user.id)
         
         if not member:
+            print(f"❌ Member introuvable pour {interaction.user.id}")
             await interaction.edit_original_response(
                 content="❌ Impossible de te trouver sur le serveur."
             )
-            db.close()
             return
         
-        # Enregistrer
+        # Lancer le processus d'onboarding
         await onboarding_manager.on_member_join(member)
         
-        # Attendre que la DB soit mise à jour
-        await asyncio.sleep(1)
+        # Attendre 2 secondes que PostgreSQL soit mis à jour
+        await asyncio.sleep(2)
         
-        # Récupérer les infos
+        # Vérifier que ça a fonctionné
+        db.expire_all()  # Rafraîchir la session
         user = db.query(Utilisateur).filter(
             Utilisateur.user_id == interaction.user.id
         ).first()
         
         if user:
+            print(f"✅ {interaction.user.name} enregistré avec succès (Groupe {user.groupe})")
             await interaction.edit_original_response(
                 content=f"✅ **Inscription réussie !**\n\n"
                 f"📌 **Groupe** : {user.groupe}\n"
@@ -201,24 +213,30 @@ async def register(interaction: discord.Interaction):
                 f"🌐 Passe ton examen sur : https://site-fromation.onrender.com/exams"
             )
         else:
+            print(f"⚠️ {interaction.user.name} - Rôle attribué mais pas trouvé en DB")
             await interaction.edit_original_response(
                 content=f"⚠️ **Inscription partiellement réussie**\n\n"
                 f"Tu as reçu ton rôle Discord mais une erreur s'est produite.\n"
                 f"🆔 **Ton ID** : `{interaction.user.id}`\n\n"
-                f"Contacte un admin ou réessaye."
+                f"Essaie d'aller sur le site web avec ton ID.\n"
+                f"Si ça ne marche pas, contacte un admin."
             )
         
-        db.close()
-        
     except Exception as e:
+        print(f"❌ Erreur /register pour {interaction.user.name}: {e}")
+        import traceback
+        traceback.print_exc()
+        
         await interaction.edit_original_response(
             content=f"❌ **Erreur**\n\n"
             f"```{str(e)}```\n\n"
-            f"🆔 **Ton ID** : `{interaction.user.id}`"
+            f"🆔 **Ton ID** : `{interaction.user.id}`\n"
+            f"Contacte un administrateur avec cette erreur."
         )
-        print(f"❌ Erreur register: {e}")
-        import traceback
-        traceback.print_exc()
+    
+    finally:
+        if db:
+            db.close()
 
 
 @bot.tree.command(name="check_exam_results", description="[ADMIN] Vérifier et notifier les résultats d'examens web")
@@ -234,14 +252,18 @@ async def check_exam_results(interaction: discord.Interaction):
     await interaction.response.defer()
     
     try:
+        print(f"🔍 /check_exam_results lancé par {interaction.user.name}")
+        
         guild = interaction.guild
         result_message = await promotion_manager.check_and_notify_results(guild)
         
         await interaction.followup.send(result_message)
         
     except Exception as e:
-        await interaction.followup.send(f"❌ Erreur : {e}")
         print(f"❌ Erreur check_exam_results: {e}")
+        import traceback
+        traceback.print_exc()
+        await interaction.followup.send(f"❌ Erreur : {e}")
 
 
 @bot.tree.command(name="stats", description="[ADMIN] Afficher les statistiques des groupes")
@@ -278,7 +300,7 @@ async def stats(interaction: discord.Interaction):
             
             stats_text = ""
             for group_name, count in sorted_groups:
-                bar = "█" * count + "░" * (15 - count)
+                bar = "█" * count + "░" * (15 - count) if count <= 15 else "█" * 15
                 stats_text += f"**{group_name}** : {count}/15 membres\n`{bar}`\n\n"
             
             embed.add_field(
@@ -323,6 +345,7 @@ async def manual_promote(interaction: discord.Interaction, member: discord.Membe
     """
     await interaction.response.defer()
     
+    db = None
     try:
         from db_connection import SessionLocal
         from models import Utilisateur
@@ -367,24 +390,33 @@ async def manual_promote(interaction: discord.Interaction, member: discord.Membe
         await onboarding_manager._create_group_channels(interaction.guild, new_groupe, new_role)
         
         # Notification
-        await member.send(
-            f"🎉 **Promotion Manuelle**\n\n"
-            f"Tu as été promu manuellement par un administrateur !\n"
-            f"**{old_groupe}** → **{new_groupe}**\n\n"
-            f"Tu as maintenant accès aux salons du Groupe {new_groupe}.\n"
-            f"Bon courage pour la suite ! 💪"
-        )
+        try:
+            await member.send(
+                f"🎉 **Promotion Manuelle**\n\n"
+                f"Tu as été promu manuellement par un administrateur !\n"
+                f"**{old_groupe}** → **{new_groupe}**\n\n"
+                f"Tu as maintenant accès aux salons du Groupe {new_groupe}.\n"
+                f"Bon courage pour la suite ! 💪"
+            )
+        except discord.Forbidden:
+            print(f"⚠️ Impossible d'envoyer un MP à {member.name}")
         
         await interaction.followup.send(
             f"✅ {member.mention} a été promu manuellement !\n"
             f"**{old_groupe}** → **{new_groupe}**"
         )
         
-        db.close()
+        print(f"✅ Promotion manuelle : {member.name} {old_groupe} → {new_groupe}")
         
     except Exception as e:
         await interaction.followup.send(f"❌ Erreur : {e}")
         print(f"❌ Erreur manual_promote: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    finally:
+        if db:
+            db.close()
 
 
 @bot.tree.command(name="my_info", description="Afficher tes informations de progression")
@@ -398,6 +430,7 @@ async def my_info(interaction: discord.Interaction):
     """
     await interaction.response.defer(ephemeral=True)
     
+    db = None
     try:
         from db_connection import SessionLocal
         from models import Utilisateur
@@ -491,11 +524,13 @@ async def my_info(interaction: discord.Interaction):
         
         await interaction.followup.send(embed=embed, ephemeral=True)
         
-        db.close()
-        
     except Exception as e:
         await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
         print(f"❌ Erreur my_info: {e}")
+    
+    finally:
+        if db:
+            db.close()
 
 
 # Gestion des erreurs globales
@@ -508,12 +543,6 @@ async def on_command_error(ctx, error):
         pass  # Ignorer les commandes inconnues
     else:
         print(f"❌ Erreur commande: {error}")
-
-
-# Lancement du bot
-if __name__ == "__main__":
-    print("🚀 Démarrage du bot...")
-    bot.run(token)
 
 
 # Lancement du bot
