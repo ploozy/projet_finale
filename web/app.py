@@ -37,24 +37,30 @@ def index():
             }
             a {
                 display: inline-block;
-                margin-top: 20px;
+                margin: 10px;
                 padding: 15px 30px;
                 background: white;
                 color: #667eea;
                 text-decoration: none;
                 border-radius: 25px;
                 font-weight: bold;
+                transition: all 0.3s;
+            }
+            a:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(255,255,255,0.3);
             }
         </style>
     </head>
     <body>
         <h1>🎓 Formation Python</h1>
-        <p>Plateforme d'examens en ligne</p>
+        <p>Plateforme d'examens et de cours en ligne</p>
         <a href="/courses">📚 Voir les Cours</a>
         <a href="/exams">📝 Accéder aux Examens</a>
     </body>
     </html>
     """
+
 
 @app.route('/courses')
 def courses():
@@ -85,6 +91,45 @@ def courses():
     
     except FileNotFoundError:
         return "Fichier course_content.json introuvable", 404
+
+
+@app.route('/course/<course_id>')
+def course_detail(course_id):
+    """Page d'affichage d'un cours spécifique"""
+    try:
+        with open('course_content.json', 'r', encoding='utf-8') as f:
+            courses_data = json.load(f)
+        
+        # Trouver le cours
+        course = None
+        for c in courses_data['courses']:
+            if c['id'] == course_id:
+                course = c
+                break
+        
+        if not course:
+            return f"Cours '{course_id}' introuvable", 404
+        
+        # Formater le contenu HTML
+        content_html = course['content'].replace('\n\n', '</p><p>')
+        content_html = f'<p>{content_html}</p>'
+        
+        # Remplacer les blocs de code
+        import re
+        code_blocks = re.findall(r'```python\n(.*?)\n```', course['content'], re.DOTALL)
+        for code in code_blocks:
+            content_html = content_html.replace(
+                f'```python\n{code}\n```',
+                f'<pre><code>{code}</code></pre>'
+            )
+        
+        course['content'] = content_html
+        
+        return render_template('course_detail.html', course=course)
+    
+    except FileNotFoundError:
+        return "Fichier course_content.json introuvable", 404
+
 
 @app.route('/exams', methods=['GET', 'POST'])
 def exams():
