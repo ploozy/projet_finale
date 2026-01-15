@@ -1,0 +1,180 @@
+{
+  "courses": [
+    {
+      "id": 1,
+      "title": "Programmation Orientée Objet en Python",
+      "url": "https://site-fromation.onrender.com/course/1",
+      "icon": "🔷",
+      "questions": [
+        {
+          "id": "poo_q1",
+          "question": "Qu'est-ce qu'une classe en Python ?",
+          "options": [
+            "Une fonction spéciale",
+            "Un modèle qui définit les attributs et méthodes d'un objet",
+            "Une variable globale",
+            "Une boucle"
+          ],
+          "correct": 1,
+          "explanation": "Une classe est un modèle qui définit la structure et le comportement des objets."
+        },
+        {
+          "id": "poo_q2",
+          "question": "À quoi sert la méthode __init__ ?",
+          "options": [
+            "À détruire un objet",
+            "À copier un objet",
+            "À initialiser les attributs d'un objet lors de sa création",
+            "À imprimer un objet"
+          ],
+          "correct": 2,
+          "explanation": "__init__ est le constructeur appelé automatiquement lors de la création d'un objet."
+        },
+        {
+          "id": "poo_q3",
+          "question": "Comment rendre un attribut privé en Python ?",
+          "options": [
+            "private nom",
+            "__nom (double underscore)",
+            "nom_ (underscore à la fin)",
+            "Il n'y a pas d'attributs privés en Python"
+          ],
+          "correct": 1,
+          "explanation": "Le double underscore (__) avant le nom rend l'attribut privé par name mangling."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Structures de Données en Python",
+      "url": "https://site-fromation.onrender.com/course/2",
+      "icon": "📊",
+      "questions": [
+        {
+          "id": "struct_q1",
+          "question": "Comment ajouter un élément à la fin d'une liste ?",
+          "options": [
+            "liste.add(element)",
+            "liste.append(element)",
+            "liste.insert(element)",
+            "liste.push(element)"
+          ],
+          "correct": 1,
+          "explanation": "La méthode append() ajoute un élément à la fin de la liste."
+        },
+        {
+          "id": "struct_q2",
+          "question": "Quelle est la différence entre une liste et un tuple ?",
+          "options": [
+            "Aucune différence",
+            "Un tuple est immuable (non modifiable)",
+            "Une liste est plus rapide",
+            "Un tuple ne peut contenir que des nombres"
+          ],
+          "correct": 1,
+          "explanation": "Les tuples sont immuables : on ne peut pas modifier leur contenu après création."
+        },
+        {
+          "id": "struct_q3",
+          "question": "Comment accéder à une valeur dans un dictionnaire ?",
+          "options": [
+            "dict[cle]",
+            "dict.get(cle)",
+            "Les deux réponses ci-dessus",
+            "dict->cle"
+          ],
+          "correct": 2,
+          "explanation": "On peut utiliser dict[cle] ou dict.get(cle), get() étant plus sûr (évite KeyError)."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Gestion des Exceptions en Python",
+      "url": "https://site-fromation.onrender.com/course/3",
+      "icon": "⚠️",
+      "questions": [
+        {
+          "id": "except_q1",
+          "question": "Quel bloc permet de capturer une exception ?",
+          "options": [
+            "catch",
+            "except",
+            "error",
+            "handle"
+          ],
+          "correct": 1,
+          "explanation": "En Python, on utilise except pour capturer les exceptions."
+        },
+        {
+          "id": "except_q2",
+          "question": "Que fait le bloc finally ?",
+          "options": [
+            "S'exécute seulement si une exception se produit",
+            "S'exécute seulement si aucune exception ne se produit",
+            "S'exécute toujours, qu'il y ait une exception ou non",
+            "Relance l'exception"
+          ],
+          "correct": 2,
+          "explanation": "finally s'exécute toujours, même si une exception est levée ou pas."
+        },
+        {
+          "id": "except_q3",
+          "question": "Comment lever manuellement une exception ?",
+          "options": [
+            "throw Exception()",
+            "raise Exception()",
+            "error Exception()",
+            "exception Exception()"
+          ],
+          "correct": 1,
+          "explanation": "Le mot-clé raise permet de lever une exception manuellement."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Algorithmique : Tri et Recherche",
+      "url": "https://site-fromation.onrender.com/course/4",
+      "icon": "🔍",
+      "questions": [
+        {
+          "id": "algo_q1",
+          "question": "Quelle est la complexité du tri à bulles (Bubble Sort) ?",
+          "options": [
+            "O(n)",
+            "O(n log n)",
+            "O(n²)",
+            "O(log n)"
+          ],
+          "correct": 2,
+          "explanation": "Le tri à bulles a une complexité quadratique O(n²) dans le pire cas."
+        },
+        {
+          "id": "algo_q2",
+          "question": "Quel algorithme de tri est le plus rapide en moyenne ?",
+          "options": [
+            "Bubble Sort",
+            "Quick Sort",
+            "Insertion Sort",
+            "Selection Sort"
+          ],
+          "correct": 1,
+          "explanation": "Quick Sort a une complexité moyenne de O(n log n), ce qui en fait l'un des plus rapides."
+        },
+        {
+          "id": "algo_q3",
+          "question": "La recherche binaire nécessite que la liste soit :",
+          "options": [
+            "Vide",
+            "Triée",
+            "Non triée",
+            "De taille paire"
+          ],
+          "correct": 1,
+          "explanation": "La recherche binaire ne fonctionne que sur des listes triées."
+        }
+      ]
+    }
+  ]
+}
