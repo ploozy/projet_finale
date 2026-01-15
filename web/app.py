@@ -103,9 +103,9 @@ def course_detail(course_id):
 @app.route('/exams', methods=['GET', 'POST'])
 def exams():
     """
-    ✅ SYSTÈME D'EXAMEN CORRIGÉ
+    ✅ SYSTÈME D'EXAMEN AVEC INSCRIPTION AUTOMATIQUE
     GET : Formulaire de saisie ID Discord
-    POST : Affiche l'examen si disponible dans la tranche horaire
+    POST : Inscrit automatiquement l'utilisateur et affiche l'examen
     """
     if request.method == 'GET':
         return render_template('exams.html')
@@ -278,10 +278,6 @@ def api_mark_notified():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
 
 
 if __name__ == '__main__':
