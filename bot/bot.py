@@ -168,6 +168,10 @@ async def check_results_task():
                     
                     # Créer les salons si nécessaire
                     await create_group_channels(main_guild, new_groupe, new_role)
+                    
+                    # Envoyer les cours du nouveau niveau dans le salon ressources
+                    await on_user_level_change(user_db.user_id, user_db.niveau_actuel, main_guild)
+                    print(f"   📚 Ressources envoyées pour niveau {user_db.niveau_actuel}")
                 
                 # Message en MP
                 if result.passed:
@@ -616,6 +620,140 @@ async def task_status(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed, ephemeral=True)
 
 
+def get_courses_for_level(niveau: int) -> list:
+    """
+    Retourne la liste des IDs de cours pour un niveau donné
+    """
+    courses_map = {
+        1: [1],  # Niveau 1 : POO
+        2: [2],  # Niveau 2 : Structures de données
+        3: [3],  # Niveau 3 : Exceptions
+        4: [4],  # Niveau 4 : Algorithmique
+        5: []    # Niveau 5 : Pas de cours (niveau final)
+    }
+    return courses_map.get(niveau, [])
+
+
+async def setup_resources_channels():
+    """
+    Crée les salons #ressources-niveau-X et envoie les cours automatiquement
+    """
+    from db_connection import SessionLocal
+    from models import Utilisateur
+    
+    db = SessionLocal()
+    try:
+        # Récupérer tous les niveaux actifs
+        niveaux_actifs = db.query(Utilisateur.niveau_actuel).distinct().all()
+        niveaux_actifs = [n[0] for n in niveaux_actifs]
+        
+        print(f"📚 Niveaux actifs détectés : {niveaux_actifs}")
+        
+        for guild in bot.guilds:
+            for niveau in niveaux_actifs:
+                channel_name = f"ressources-niveau-{niveau}"
+                
+                # Vérifier si le salon existe déjà
+                existing_channel = discord.utils.get(guild.text_channels, name=channel_name)
+                
+                if not existing_channel:
+                    # Créer le salon
+                    print(f"🔨 Création du salon {channel_name}...")
+                    
+                    # Trouver la catégorie "Niveau X" si elle existe
+                    category = discord.utils.get(guild.categories, name=f"Niveau {niveau}")
+                    
+                    existing_channel = await guild.create_text_channel(
+                        channel_name,
+                        category=category,
+                        topic=f"📚 Ressources et cours pour le niveau {niveau}"
+                    )
+                    print(f"✅ Salon {channel_name} créé")
+                
+                # Envoyer les cours pour ce niveau
+                course_ids = get_courses_for_level(niveau)
+                
+                if not course_ids:
+                    print(f"ℹ️ Pas de cours pour le niveau {niveau}")
+                    continue
+                
+                print(f"📤 Envoi de {len(course_ids)} cours dans {channel_name}...")
+                
+                for course_id in course_ids:
+                    await send_course_to_channel(course_id, existing_channel)
+                    await asyncio.sleep(1)  # Pause entre chaque message
+                
+                print(f"✅ Cours envoyés dans {channel_name}")
+    
+    finally:
+        db.close()
+
+
+async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
+    """
+    Envoie un cours avec son bouton quiz dans un salon
+    """
+    try:
+        # Charger les infos du quiz
+        quiz_path = f'quizzes/quiz_{course_id}.json'
+        with open(quiz_path, 'r', encoding='utf-8') as f:
+            quiz_data = json.load(f)
+            course_title = quiz_data['course_title']
+        
+        # Créer l'embed
+        embed = discord.Embed(
+            title=f"📚 {course_title}",
+            description=f"Accède au cours en ligne et teste tes connaissances !",
+            color=discord.Color.blue()
+        )
+        
+        # URL vers la page du cours
+        course_url = f"https://site-fromation.onrender.com/course/{course_id}"
+        
+        embed.add_field(
+            name="🌐 Lien du cours",
+            value=f"[Cliquez ici pour accéder au cours]({course_url})",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="📝 Quiz Interactif",
+            value="Clique sur le bouton ci-dessous pour faire le quiz en MP !",
+            inline=False
+        )
+        
+        # Créer la vue avec le bouton
+        view = QuizButton(course_id)
+        
+        # Envoyer dans le salon
+        await channel.send(embed=embed, view=view)
+        print(f"  ✅ Cours {course_id} envoyé")
+    
+    except FileNotFoundError:
+        print(f"  ❌ Quiz {course_id} introuvable")
+    except Exception as e:
+        print(f"  ❌ Erreur lors de l'envoi du cours {course_id}: {e}")
+
+
+@bot.event
+async def on_ready():
+    """Appelé quand le bot est prêt"""
+    print(f'✅ {bot.user} connecté')
+    print(f'🔗 Connecté à {len(bot.guilds)} serveur(s)')
+    
+    # Synchroniser les commandes
+    try:
+        synced = await bot.tree.sync()
+        print(f'✅ {len(synced)} commande(s) synchronisée(s)')
+    except Exception as e:
+        print(f'❌ Erreur sync: {e}')
+    
+    # Configurer les salons de ressources et envoyer les cours
+    print("🔧 Configuration des salons de ressources...")
+    await setup_resources_channels()
+    print("✅ Configuration terminée")
+
+
 class QuizButton(discord.ui.View):
     """Vue avec bouton pour démarrer le quiz"""
     
@@ -862,69 +1000,51 @@ async def start_quiz_sm2(member: discord.Member, course_id: int, questions: list
     )
 
 
-@bot.tree.command(name="send_course", description="[ADMIN] Envoyer un lien vers un cours")
-@commands.has_permissions(administrator=True)
-async def send_course(
-    interaction: discord.Interaction,
-    course_id: int,
-    channel: discord.TextChannel
-):
+async def on_user_level_change(user_id: int, new_level: int, guild: discord.Guild):
     """
-    Envoie un lien vers la page du cours sur le site web avec bouton quiz
+    Appelé quand un utilisateur change de niveau
+    Envoie les cours du nouveau niveau dans le salon ressources
+    """
+    channel_name = f"ressources-niveau-{new_level}"
+    channel = discord.utils.get(guild.text_channels, name=channel_name)
     
-    Args:
-        course_id: ID du cours (1, 2, 3, 4)
-        channel: Salon où envoyer le lien
+    if not channel:
+        # Créer le salon s'il n'existe pas
+        category = discord.utils.get(guild.categories, name=f"Niveau {new_level}")
+        channel = await guild.create_text_channel(
+            channel_name,
+            category=category,
+            topic=f"📚 Ressources et cours pour le niveau {new_level}"
+        )
+    
+    # Vérifier si les cours ont déjà été envoyés
+    # (pour éviter les doublons)
+    async for message in channel.history(limit=50):
+        if message.author == bot.user and message.embeds:
+            # Les cours sont déjà là
+            return
+    
+    # Envoyer les cours
+    course_ids = get_courses_for_level(new_level)
+    for course_id in course_ids:
+        await send_course_to_channel(course_id, channel)
+        await asyncio.sleep(1)
+
+
+@bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
+@commands.has_permissions(administrator=True)
+async def setup_resources_command(interaction: discord.Interaction):
+    """
+    Force la création des salons de ressources et l'envoi des cours
     """
     await interaction.response.defer(ephemeral=True)
     
     try:
-        # Vérifier que le quiz existe
-        quiz_path = f'quizzes/quiz_{course_id}.json'
-        try:
-            with open(quiz_path, 'r', encoding='utf-8') as f:
-                quiz_data = json.load(f)
-                course_title = quiz_data['course_title']
-        except FileNotFoundError:
-            await interaction.followup.send(
-                f"❌ Quiz {course_id} introuvable",
-                ephemeral=True
-            )
-            return
-        
-        # Créer l'embed
-        embed = discord.Embed(
-            title=f"📚 {course_title}",
-            description=f"Accède au cours en ligne et teste tes connaissances !",
-            color=discord.Color.blue()
-        )
-        
-        # URL vers la page des cours
-        course_url = f"https://site-fromation.onrender.com/course/{course_id}"
-        
-        embed.add_field(
-            name="🌐 Lien du cours",
-            value=f"[Cliquez ici pour accéder au cours]({course_url})",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="📝 Quiz Interactif",
-            value="Clique sur le bouton ci-dessous pour faire le quiz en MP !",
-            inline=False
-        )
-        
-        # Créer la vue avec le bouton
-        view = QuizButton(course_id)
-        
-        # Envoyer dans le salon
-        await channel.send(embed=embed, view=view)
-        
+        await setup_resources_channels()
         await interaction.followup.send(
-            f"✅ Cours **{course_title}** envoyé dans {channel.mention}",
+            "✅ Salons de ressources configurés avec succès !",
             ephemeral=True
         )
-    
     except Exception as e:
         await interaction.followup.send(
             f"❌ Erreur : {e}",
