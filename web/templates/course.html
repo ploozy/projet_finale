@@ -190,6 +190,52 @@
             overflow-x: auto;
             margin: 15px 0;
         }
+        
+        .modal-content .code-inline {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+        
+        .section-title {
+            color: #667eea;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .modal-content h3 {
+            color: #2c3e50;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-content ul {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        
+        .modal-content li {
+            margin: 8px 0;
+        }
+        
+        .example-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .example-title {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -201,7 +247,7 @@
             {% for course in courses %}
             <div class="course-card" onclick="openModal('{{ course.id }}')">
                 <div class="course-header">
-                    <div class="course-icon">{{ course.icon }}</div>
+                    <div class="course-icon">{{ course.icon if course.icon else '📚' }}</div>
                     <div class="course-title">{{ course.title }}</div>
                 </div>
                 
@@ -210,7 +256,7 @@
                 </div>
                 
                 <div class="course-footer">
-                    <span class="course-level">Niveau {{ course.niveau }}</span>
+                    <span class="course-level">{{ course.level }} • {{ course.duration }}</span>
                     <button class="view-btn">Voir le cours →</button>
                 </div>
             </div>
@@ -219,7 +265,7 @@
             <div id="modal-{{ course.id }}" class="modal">
                 <div class="modal-content">
                     <span class="close" onclick="closeModal('{{ course.id }}')">&times;</span>
-                    <h2>{{ course.icon }} {{ course.title }}</h2>
+                    <h2>{{ course.icon if course.icon else '📚' }} {{ course.title }}</h2>
                     <div>
                         {{ course.content | safe }}
                     </div>
