@@ -62,35 +62,82 @@ def index():
     """
 
 
+def parse_course_content(content):
+    """
+    Parse la structure complexe du cours en HTML
+    """
+    html = ""
+    
+    for section in content:
+        # Titre de section
+        if 'section_title' in section:
+            html += f'<h2 class="section-title">{section["section_title"]}</h2>'
+        
+        # Items de la section
+        if 'items' in section:
+            for item in section['items']:
+                item_type = item.get('type', '')
+                
+                if item_type == 'paragraph':
+                    html += f'<p>{item["text"]}</p>'
+                
+                elif item_type == 'heading':
+                    html += f'<h3>{item["text"]}</h3>'
+                
+                elif item_type == 'list':
+                    html += '<ul>'
+                    for list_item in item['items']:
+                        html += f'<li>{list_item}</li>'
+                    html += '</ul>'
+                
+                elif item_type == 'code':
+                    html += f'<pre><code>{item["code"]}</code></pre>'
+                
+                elif item_type == 'example':
+                    html += '<div class="example-box">'
+                    if 'title' in item:
+                        html += f'<h4 class="example-title">{item["title"]}</h4>'
+                    if 'text' in item:
+                        html += f'<p>{item["text"]}</p>'
+                    if 'code' in item:
+                        html += f'<pre><code>{item["code"]}</code></pre>'
+                    html += '</div>'
+    
+    return html
+
+
 @app.route('/courses')
 def courses():
     """Page d'affichage des cours"""
-    # Charger les cours depuis course_content.json
     try:
         with open('course_content.json', 'r', encoding='utf-8') as f:
             courses_data = json.load(f)
         
-        # Formater le contenu HTML
+        # Parser le contenu de chaque cours
         for course in courses_data['courses']:
-            # Convertir le contenu texte en HTML
-            content_html = course['content'].replace('\n\n', '</p><p>')
-            content_html = f'<p>{content_html}</p>'
-            
-            # Remplacer les blocs de code
-            import re
-            code_blocks = re.findall(r'```python\n(.*?)\n```', course['content'], re.DOTALL)
-            for code in code_blocks:
-                content_html = content_html.replace(
-                    f'```python\n{code}\n```',
-                    f'<pre><code>{code}</code></pre>'
-                )
-            
-            course['content'] = content_html
+            # Vérifier si content est une liste complexe
+            if isinstance(course['content'], list) and course['content'] and isinstance(course['content'][0], dict):
+                # Structure complexe avec sections
+                course['content'] = parse_course_content(course['content'])
+            elif isinstance(course['content'], list):
+                # Liste simple de strings
+                content_text = '\n\n'.join(course['content'])
+                content_html = content_text.replace('\n\n', '</p><p>')
+                course['content'] = f'<p>{content_html}</p>'
+            else:
+                # String simple
+                content_html = course['content'].replace('\n\n', '</p><p>')
+                course['content'] = f'<p>{content_html}</p>'
         
         return render_template('courses.html', courses=courses_data['courses'])
     
     except FileNotFoundError:
         return "Fichier course_content.json introuvable", 404
+    except Exception as e:
+        print(f"Erreur /courses: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Erreur : {e}", 500
 
 
 @app.route('/course/<course_id>')
@@ -100,35 +147,47 @@ def course_detail(course_id):
         with open('course_content.json', 'r', encoding='utf-8') as f:
             courses_data = json.load(f)
         
-        # Trouver le cours
+        # Trouver le cours (par ID)
         course = None
         for c in courses_data['courses']:
-            if c['id'] == course_id:
-                course = c
-                break
+            # Convertir course_id en int si c'est un nombre
+            try:
+                search_id = int(course_id)
+                if c['id'] == search_id:
+                    course = c
+                    break
+            except ValueError:
+                # Si course_id n'est pas un nombre, chercher par string
+                if str(c.get('id')) == course_id:
+                    course = c
+                    break
         
         if not course:
             return f"Cours '{course_id}' introuvable", 404
         
-        # Formater le contenu HTML
-        content_html = course['content'].replace('\n\n', '</p><p>')
-        content_html = f'<p>{content_html}</p>'
-        
-        # Remplacer les blocs de code
-        import re
-        code_blocks = re.findall(r'```python\n(.*?)\n```', course['content'], re.DOTALL)
-        for code in code_blocks:
-            content_html = content_html.replace(
-                f'```python\n{code}\n```',
-                f'<pre><code>{code}</code></pre>'
-            )
-        
-        course['content'] = content_html
+        # Parser le contenu
+        if isinstance(course['content'], list) and course['content'] and isinstance(course['content'][0], dict):
+            # Structure complexe avec sections
+            course['content'] = parse_course_content(course['content'])
+        elif isinstance(course['content'], list):
+            # Liste simple de strings
+            content_text = '\n\n'.join(course['content'])
+            content_html = content_text.replace('\n\n', '</p><p>')
+            course['content'] = f'<p>{content_html}</p>'
+        else:
+            # String simple
+            content_html = course['content'].replace('\n\n', '</p><p>')
+            course['content'] = f'<p>{content_html}</p>'
         
         return render_template('course_detail.html', course=course)
     
     except FileNotFoundError:
         return "Fichier course_content.json introuvable", 404
+    except Exception as e:
+        print(f"Erreur /course/{course_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Erreur : {e}", 500
 
 
 @app.route('/exams', methods=['GET', 'POST'])
