@@ -1505,16 +1505,18 @@ async def create_exam_period(
         # Parser la date
         start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
         end = start + timedelta(hours=6)
-        
+        vote_start = start - timedelta(days=1)  # Votes ouverts 24h avant
+
         # Générer l'ID
         period_id = f"{start.strftime('%Y-%m-%d')}_group{group}"
-        
+
         # Créer la période
         db = SessionLocal()
         try:
             period = ExamPeriod(
                 id=period_id,
                 group_number=group,
+                vote_start_time=vote_start,
                 start_time=start,
                 end_time=end,
                 votes_closed=False,
@@ -1528,11 +1530,12 @@ async def create_exam_period(
                 title="✅ Période d'Examen Créée",
                 color=discord.Color.green()
             )
-            
+
             embed.add_field(name="🆔 ID", value=period_id, inline=False)
             embed.add_field(name="📊 Groupe", value=f"Niveau {group}", inline=True)
-            embed.add_field(name="⏰ Début", value=start.strftime("%d/%m/%Y %H:%M"), inline=True)
-            embed.add_field(name="🏁 Fin", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
+            embed.add_field(name="🗳️ Votes ouverts", value=vote_start.strftime("%d/%m/%Y %H:%M"), inline=False)
+            embed.add_field(name="⏰ Début examen", value=start.strftime("%d/%m/%Y %H:%M"), inline=True)
+            embed.add_field(name="🏁 Fin examen", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
             
             await interaction.followup.send(embed=embed, ephemeral=True)
         

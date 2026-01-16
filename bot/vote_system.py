@@ -18,15 +18,15 @@ class VoteSystem:
         self.bot = bot
     
     def get_active_exam_period(self, group_number: int):
-        """Récupère la période d'examen active pour un groupe"""
+        """Récupère la période d'examen active pour un groupe (votes 24h avant)"""
         db = SessionLocal()
         try:
             now = datetime.now()
-            # Cherche une période active : commencée, pas finie, votes ouverts
+            # Cherche une période active : votes ouverts (24h avant), pas encore fermés
             period = db.query(ExamPeriod).filter(
                 ExamPeriod.group_number == group_number,
-                ExamPeriod.start_time <= now,
-                ExamPeriod.end_time >= now,
+                ExamPeriod.vote_start_time <= now,  # Votes ouverts 24h avant
+                ExamPeriod.end_time >= now,  # Pas encore finie
                 ExamPeriod.votes_closed == False
             ).first()
             return period
