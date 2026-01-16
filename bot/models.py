@@ -183,11 +183,12 @@ class Vote(Base):
 class ExamPeriod(Base):
     """Table des périodes d'examen (6h fixes par groupe)"""
     __tablename__ = 'exam_periods'
-    
+
     id = Column(String(50), primary_key=True)  # Ex: "2026-01-15_group1"
     group_number = Column(Integer, nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
+    vote_start_time = Column(DateTime, nullable=False)  # Votes ouverts 24h avant
+    start_time = Column(DateTime, nullable=False)  # Début de l'examen
+    end_time = Column(DateTime, nullable=False)  # Fin de l'examen (6h après start_time)
     votes_closed = Column(Boolean, nullable=False, default=False)
     bonuses_applied = Column(Boolean, nullable=False, default=False)
     

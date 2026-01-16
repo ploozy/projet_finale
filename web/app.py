@@ -9,7 +9,8 @@ import json
 from datetime import datetime
 import os
 from db_connection import SessionLocal
-from models import Utilisateur, ExamResult
+from models import Utilisateur, ExamResult, ExamPeriod
+from sqlalchemy import func
 
 app = Flask(__name__)
 app.secret_key = 'secret'
@@ -17,6 +18,28 @@ app.secret_key = 'secret'
 # Charger les examens
 with open('exam.json', 'r', encoding='utf-8') as f:
     exams_data = json.load(f)
+
+
+def find_available_group(niveau: int, db) -> str:
+    """
+    Trouve le premier groupe disponible pour un niveau donné (< 15 membres)
+    Retourne: "1-A", "2-B", etc.
+    """
+    letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+
+    for letter in letters:
+        groupe_name = f"{niveau}-{letter}"
+
+        # Compter combien d'utilisateurs sont dans ce groupe
+        count = db.query(func.count(Utilisateur.user_id)).filter(
+            Utilisateur.groupe == groupe_name
+        ).scalar()
+
+        if count < 15:
+            return groupe_name
+
+    # Si tous les groupes A-J sont pleins, retourner K
+    return f"{niveau}-K"
 
 
 def parse_course_content(content):
@@ -444,11 +467,11 @@ def submit_exam():
             if user and user.niveau_actuel < 5:
                 old_niveau = user.niveau_actuel
                 old_groupe = user.groupe
-                
+
                 # Nouveau niveau et groupe
                 new_niveau = old_niveau + 1
-                new_groupe = f"{new_niveau}-A"  # Toujours mettre dans le groupe A du niveau suivant
-                
+                new_groupe = find_available_group(new_niveau, db)  # Chercher groupe disponible
+
                 user.niveau_actuel = new_niveau
                 user.groupe = new_groupe
                 user.examens_reussis += 1

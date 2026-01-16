@@ -18,15 +18,15 @@ class VoteSystem:
         self.bot = bot
     
     def get_active_exam_period(self, group_number: int):
-        """Récupère la période d'examen active pour un groupe"""
+        """Récupère la période d'examen active pour un groupe (votes 24h avant)"""
         db = SessionLocal()
         try:
             now = datetime.now()
-            # Cherche une période active : commencée, pas finie, votes ouverts
+            # Cherche une période active : votes ouverts (24h avant), pas encore fermés
             period = db.query(ExamPeriod).filter(
                 ExamPeriod.group_number == group_number,
-                ExamPeriod.start_time <= now,
-                ExamPeriod.end_time >= now,
+                ExamPeriod.vote_start_time <= now,  # Votes ouverts 24h avant
+                ExamPeriod.end_time >= now,  # Pas encore finie
                 ExamPeriod.votes_closed == False
             ).first()
             return period
@@ -78,9 +78,9 @@ class VoteSystem:
             
             # Dédoublonner si l'utilisateur a mis 2 fois la même personne
             voted_users_unique = list(set(potential_votes))
-            
-            if not voted_users_unique:
-                await interaction.followup.send("❌ Tu dois sélectionner au moins une personne.", ephemeral=True)
+
+            if len(voted_users_unique) != 3:
+                await interaction.followup.send("❌ Tu dois voter pour EXACTEMENT 3 personnes différentes.", ephemeral=True)
                 return
 
             # 5. Vérifications sur les candidats
@@ -163,15 +163,15 @@ class VoteSystem:
     def calculate_bonus(self, vote_count: int):
         """
         Calcule le bonus selon les paliers définis :
-        - Or (8+) : 20%
-        - Argent (5-7) : 12%
-        - Bronze (3-4) : 6%
+        - Or (7+) : 10%
+        - Argent (4-6) : 8%
+        - Bronze (1-3) : 5%
         """
-        if vote_count >= 8:
-            return 20.0, "Or 🥇"
-        elif vote_count >= 5:
-            return 12.0, "Argent 🥈"
-        elif vote_count >= 3:
-            return 6.0, "Bronze 🥉"
+        if vote_count >= 7:
+            return 10.0, "Or 🥇"
+        elif vote_count >= 4:
+            return 8.0, "Argent 🥈"
+        elif vote_count >= 1:
+            return 5.0, "Bronze 🥉"
         else:
             return 0.0, None
