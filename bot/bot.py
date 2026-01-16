@@ -112,6 +112,78 @@ async def on_ready():
         check_finished_exam_periods.start()
         print("✅ Système de bonus automatique démarré")
 
+# ... vos imports existants ...
+from discord.ext import tasks # Assurez-vous d'avoir cet import
+from bonus_system import BonusSystem # Importez juste la classe
+
+# ... (le début de votre fichier bot.py reste pareil) ...
+
+# ✅ AJOUTEZ CETTE TÂCHE DANS BOT.PY (pas dans bonus_system.py)
+@tasks.loop(minutes=5)
+async def check_finished_exam_periods():
+    """
+    Vérifie toutes les 5 minutes s'il y a des périodes d'examen terminées
+    et applique les bonus automatiquement
+    """
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+    
+    db = SessionLocal()
+    try:
+        now = datetime.now()
+        
+        # Trouver les périodes terminées mais non traitées
+        finished_periods = db.query(ExamPeriod).filter(
+            ExamPeriod.end_time <= now,
+            ExamPeriod.bonuses_applied == False
+        ).all()
+        
+        if not finished_periods:
+            return
+        
+        print(f"\n🔔 {len(finished_periods)} période(s) d'examen terminée(s) détectée(s)")
+        
+        # On instancie le système avec le bot disponible ici
+        bonus_system = BonusSystem(bot)
+        
+        for period in finished_periods:
+            # Récupérer le guild (serveur Discord)
+            guild = bot.guilds[0] if bot.guilds else None
+            
+            if not guild:
+                print(f"❌ Aucun serveur Discord disponible")
+                continue
+            
+            await bonus_system.apply_bonuses_for_period(period, guild)
+    
+    except Exception as e:
+        print(f"❌ Erreur check_finished_exam_periods: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    finally:
+        db.close()
+
+# ✅ ATTENDRE QUE LE BOT SOIT PRÊT AVANT DE LANCER
+@check_finished_exam_periods.before_loop
+async def before_check_finished_exam_periods():
+    await bot.wait_until_ready()
+    print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
+
+# ... (reste du code) ...
+
+@bot.event
+async def on_ready():
+    global discord_group_manager
+    
+    print(f'✅ Bot connecté en tant que {bot.user}')
+    
+    # ... (vos autres initialisations) ...
+    
+    # ✅ DÉMARRAGE DE LA TÂCHE ICI
+    if not check_finished_exam_periods.is_running():
+        check_finished_exam_periods.start()
+        print("✅ Système de bonus automatique démarré")
 
 @tasks.loop(seconds=30)
 async def check_results_task():
