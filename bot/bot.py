@@ -30,7 +30,7 @@ try:
     Base.metadata.create_all(engine)
     print("✅ Tables créées")
     
-    # Ajouter colonne 'groupe' si nécessaire
+       # Ajouter colonne 'groupe' si nécessaire
     db = SessionLocal()
     try:
         check = text("SELECT column_name FROM information_schema.columns WHERE table_name='utilisateurs' AND column_name='groupe'")
@@ -42,13 +42,36 @@ try:
         pass
     finally:
         db.close()
-    
-    print("✅ Base de données prête")
-    
-except Exception as e:
-    print(f"⚠️ Erreur DB: {e}")
 
-print("=" * 50)
+    # Ajouter colonne 'vote_start_time' dans exam_periods si nécessaire
+    db = SessionLocal()
+    try:
+        check = text("SELECT column_name FROM information_schema.columns WHERE table_name='exam_periods' AND column_name='vote_start_time'")
+        if not db.execute(check).fetchone():
+            print("📝 Ajout colonne vote_start_time...")
+            # Ajouter la colonne (nullable temporairement)
+            db.execute(text("ALTER TABLE exam_periods ADD COLUMN vote_start_time TIMESTAMP NULL"))
+            db.commit()
+
+            # Calculer vote_start_time pour les périodes existantes (start_time - 24h)
+            db.execute(text("""
+                UPDATE exam_periods
+                SET vote_start_time = start_time - INTERVAL '1 day'
+                WHERE vote_start_time IS NULL
+            """))
+            db.commit()
+
+            # Rendre la colonne NOT NULL
+            db.execute(text("ALTER TABLE exam_periods ALTER COLUMN vote_start_time SET NOT NULL"))
+            db.commit()
+            print("✅ Colonne 'vote_start_time' ajoutée")
+    except Exception as e:
+        print(f"⚠️ Migration vote_start_time: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+    print("✅ Base de données prête")
 
 # Configuration du bot
 token = os.getenv('DISCORD_TOKEN')
