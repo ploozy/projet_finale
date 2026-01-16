@@ -6,8 +6,6 @@
       "group": 1,
       "duration_minutes": 30,
       "passing_score": 70,
-      "start_date": "2026-01-15T09:00:00",
-      "end_date": "2026-01-30T23:59:59",
       "questions": [
         {
           "id": 1,
@@ -77,8 +75,6 @@
       "group": 2,
       "duration_minutes": 40,
       "passing_score": 70,
-      "start_date": "2026-01-29T09:00:00",
-      "end_date": "2026-02-13T23:59:59",
       "questions": [
         {
           "id": 6,
@@ -148,8 +144,6 @@
       "group": 3,
       "duration_minutes": 35,
       "passing_score": 70,
-      "start_date": "2026-02-12T09:00:00",
-      "end_date": "2026-02-27T23:59:59",
       "questions": [
         {
           "id": 11,
@@ -219,8 +213,6 @@
       "group": 4,
       "duration_minutes": 45,
       "passing_score": 70,
-      "start_date": "2026-02-26T09:00:00",
-      "end_date": "2026-03-13T23:59:59",
       "questions": [
         {
           "id": 16,
@@ -290,8 +282,6 @@
       "group": 5,
       "duration_minutes": 60,
       "passing_score": 75,
-      "start_date": "2026-03-12T09:00:00",
-      "end_date": "2026-03-27T23:59:59",
       "questions": [
         {
           "id": 21,
