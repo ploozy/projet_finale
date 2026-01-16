@@ -9,6 +9,7 @@ import discord
 import os
 from dotenv import load_dotenv
 from discord.ext import commands, tasks
+from discord import app_commands
 from datetime import datetime, timedelta
 import asyncio
 import json
