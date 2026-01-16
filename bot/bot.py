@@ -73,6 +73,14 @@ try:
 
     print("✅ Base de données prête")
 
+except Exception as e:
+    print(f"⚠️ Erreur DB: {e}")
+
+print("=" * 50)
+
+# Configuration du bot
+
+
 # Configuration du bot
 token = os.getenv('DISCORD_TOKEN')
 intents = discord.Intents.default()
@@ -1128,10 +1136,24 @@ class QuizButton(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         
         try:
-            # Charger le quiz
-            quiz_path = f'quizzes/quiz_{self.course_id}.json'
-            with open(quiz_path, 'r', encoding='utf-8') as f:
-                quiz_data = json.load(f)
+            # Trouver le cours dans QUIZZES_DATA (déjà chargé en mémoire)
+            course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == self.course_id), None)
+
+            if not course:
+                await interaction.followup.send(
+                    f"❌ Cours {self.course_id} introuvable",
+                    ephemeral=True
+                )
+                return
+
+            # Préparer les données du quiz
+            quiz_data = {
+                'course_title': course['title'],
+                'questions': course['questions']
+            }
+
+            # Vérifier l'utilisateur en DB
+
             
             # Vérifier l'utilisateur en DB
             from db_connection import SessionLocal
@@ -1209,11 +1231,7 @@ class QuizButton(discord.ui.View):
             finally:
                 db.close()
         
-        except FileNotFoundError:
-            await interaction.followup.send(
-                f"❌ Quiz introuvable pour le cours {self.course_id}",
-                ephemeral=True
-            )
+
         except discord.Forbidden:
             await interaction.followup.send(
                 "❌ Je ne peux pas t'envoyer de MP. Active tes messages privés !",
