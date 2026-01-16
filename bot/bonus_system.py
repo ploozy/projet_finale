@@ -431,9 +431,5 @@ async def before_check_finished_exam_periods():
 
 
 # ==================== DÉMARRER LA TÂCHE DANS on_ready ====================
-# Ajouter dans la fonction on_ready() de bot.py:
-
-# Dans on_ready():
-if not check_finished_exam_periods.is_running():
-    check_finished_exam_periods.start()
-    print("✅ Système de bonus automatique démarré")
+# Cette tâche est démarrée automatiquement dans bot.py (ligne 87-89)
+# NE PAS démarrer ici - ça causerait "RuntimeError: no running event loop"
