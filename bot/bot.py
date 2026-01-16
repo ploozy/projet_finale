@@ -809,49 +809,29 @@ async def save_quiz_result(user_id: int, course_id: int, question_id: str, quali
 async def send_course(interaction: discord.Interaction, course_id: int, channel: discord.TextChannel = None):
     """
     Envoie un cours avec bouton quiz
-    
+
     Args:
         course_id: ID du cours (1, 2, 3, 4)
-        channel: Salon où envoyer (optionnel)
+        channel: Salon où envoyer (optionnel, défaut = salon actuel)
     """
     await interaction.response.defer(ephemeral=True)
-    
+
     if channel is None:
         channel = interaction.channel
-    
-    # Trouver le cours
+
+    # Vérifier que le cours existe
     course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == course_id), None)
-    
+
     if not course:
         await interaction.followup.send(
             f"❌ Cours {course_id} introuvable. IDs disponibles : 1, 2, 3, 4",
             ephemeral=True
         )
         return
-    
-    # Créer l'embed
-    embed = discord.Embed(
-        title=f"{course['icon']} {course['title']}",
-        description="Accède au cours en ligne et teste tes connaissances !",
-        color=discord.Color.blue()
-    )
-    
-    embed.add_field(
-        name="🌐 Lien du cours",
-        value=f"[Cliquez ici pour accéder au cours]({course['url']})",
-        inline=False
-    )
-    
-    embed.add_field(
-        name="📝 Quiz Interactif",
-        value=f"**{len(course['questions'])} questions** - Clique sur le bouton ci-dessous !",
-        inline=False
-    )
-    
-    # Envoyer avec bouton
-    view = QuizButton(course_id)
-    await channel.send(embed=embed, view=view)
-    
+
+    # Utiliser la fonction helper pour envoyer le cours
+    await send_course_to_channel(course_id, channel)
+
     await interaction.followup.send(
         f"✅ Cours **{course['title']}** envoyé dans {channel.mention}",
         ephemeral=True
@@ -995,22 +975,14 @@ async def setup_resources_channels():
 async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
     """
     Envoie un cours avec son bouton quiz dans un salon
-    CORRECTION : Utilise quizzes.json au lieu de fichiers séparés
+    Utilise QUIZZES_DATA (déjà chargé en mémoire)
     """
     try:
-        # Charger les infos du quiz depuis quizzes.json
-        with open('quizzes.json', 'r', encoding='utf-8') as f:
-            quizzes_data = json.load(f)
-        
-        # Trouver le cours correspondant
-        course = None
-        for c in quizzes_data['courses']:
-            if c['id'] == course_id:
-                course = c
-                break
-        
+        # Trouver le cours dans les données déjà chargées
+        course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == course_id), None)
+
         if not course:
-            print(f"  ❌ Cours {course_id} introuvable dans quizzes.json")
+            print(f"  ❌ Cours {course_id} introuvable")
             return
         
         course_title = course['title']
@@ -1043,9 +1015,7 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
         # Envoyer dans le salon
         await channel.send(embed=embed, view=view)
         print(f"  ✅ Cours {course_id} envoyé")
-    
-    except FileNotFoundError:
-        print(f"  ❌ Fichier quizzes.json introuvable")
+
     except Exception as e:
         print(f"  ❌ Erreur lors de l'envoi du cours {course_id}: {e}")
 
@@ -1409,40 +1379,6 @@ async def on_user_level_change(user_id: int, new_level: int, new_groupe: str, gu
         await asyncio.sleep(1)
     
     print(f"✅ Cours envoyés dans {category_name} 📖-ressources")
-
-
-@bot.tree.command(name="send_course_manual", description="[ADMIN] Envoyer un cours manuellement")
-@commands.has_permissions(administrator=True)
-async def send_course_manual(
-    interaction: discord.Interaction,
-    course_id: int,
-    channel: discord.TextChannel
-):
-    """
-    Envoie un cours avec bouton quiz dans le salon choisi
-    
-    Args:
-        course_id: ID du cours (1=POO, 2=Structures, 3=Exceptions, 4=Algo)
-        channel: Salon où envoyer (#📖-ressources par exemple)
-    """
-    await interaction.response.defer(ephemeral=True)
-    
-    try:
-        await send_course_to_channel(course_id, channel)
-        await interaction.followup.send(
-            f"✅ Cours {course_id} envoyé dans {channel.mention}",
-            ephemeral=True
-        )
-    except FileNotFoundError:
-        await interaction.followup.send(
-            f"❌ Quiz {course_id} introuvable. IDs disponibles : 1, 2, 3, 4",
-            ephemeral=True
-        )
-    except Exception as e:
-        await interaction.followup.send(
-            f"❌ Erreur : {e}",
-            ephemeral=True
-        )
 
 
 @bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
