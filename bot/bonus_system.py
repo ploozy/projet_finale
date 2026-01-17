@@ -375,15 +375,9 @@ class BonusSystem:
             print(f"  ❌ Erreur promotion {promo['user_id']}: {e}")
 
 
-# ==================== TÂCHE AUTOMATIQUE : Vérifier les périodes terminées ====================
-# À ajouter dans bot.py
+@check_finished_exam_periods.before_loop
+async def before_check_finished_exam_periods():
+    """Attend que le bot soit prêt"""
+    await bot.wait_until_ready()
+    print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
 
-
-
-# ==================== DÉMARRER LA TÂCHE DANS on_ready ====================
-# Ajouter dans la fonction on_ready() de bot.py:
-
-# Dans on_ready():
-if not check_finished_exam_periods.is_running():
-    check_finished_exam_periods.start()
-    print("✅ Système de bonus automatique démarré")
