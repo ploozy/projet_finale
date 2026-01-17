@@ -375,9 +375,58 @@ class BonusSystem:
             print(f"  ❌ Erreur promotion {promo['user_id']}: {e}")
 
 
+# ==================== TÂCHE AUTOMATIQUE : Vérifier les périodes terminées ====================
+# À ajouter dans bot.py
+
+@tasks.loop(minutes=5)
+async def check_finished_exam_periods():
+    """
+    Vérifie toutes les 5 minutes s'il y a des périodes d'examen terminées
+    et applique les bonus automatiquement
+    """
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+    
+    db = SessionLocal()
+    try:
+        now = datetime.now()
+        
+        # Trouver les périodes terminées mais non traitées
+        finished_periods = db.query(ExamPeriod).filter(
+            ExamPeriod.end_time <= now,
+            ExamPeriod.bonuses_applied == False
+        ).all()
+        
+        if not finished_periods:
+            return
+        
+        print(f"\n🔔 {len(finished_periods)} période(s) d'examen terminée(s) détectée(s)")
+        
+        bonus_system = BonusSystem(bot)
+        
+        for period in finished_periods:
+            # Récupérer le guild (serveur Discord)
+            guild = bot.guilds[0] if bot.guilds else None
+            
+            if not guild:
+                print(f"❌ Aucun serveur Discord disponible")
+                continue
+            
+            await bonus_system.apply_bonuses_for_period(period, guild)
+    
+    except Exception as e:
+        print(f"❌ Erreur check_finished_exam_periods: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    finally:
+        db.close()
+
+
 @check_finished_exam_periods.before_loop
 async def before_check_finished_exam_periods():
     """Attend que le bot soit prêt"""
     await bot.wait_until_ready()
     print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
+
 
