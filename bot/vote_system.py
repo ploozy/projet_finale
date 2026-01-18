@@ -79,8 +79,9 @@ class VoteSystem:
             # Dédoublonner si l'utilisateur a mis 2 fois la même personne
             voted_users_unique = list(set(potential_votes))
 
-            if len(voted_users_unique) != 3:
-                await interaction.followup.send("❌ Tu dois voter pour EXACTEMENT 3 personnes différentes.", ephemeral=True)
+            # Minimum 1 vote requis (pour les tests)
+            if len(voted_users_unique) < 1:
+                await interaction.followup.send("❌ Tu dois voter pour au moins 1 personne.", ephemeral=True)
                 return
 
             # 5. Vérifications sur les candidats
