@@ -1069,125 +1069,125 @@ async def on_ready():
  class QuizButton(discord.ui.View):
     """Vue avec bouton pour démarrer le quiz"""
     
-    def __init__(self, course_id: int):
-        super().__init__(timeout=None)
-        self.course_id = course_id
-    
-    @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary, custom_id="quiz_button")
-    async def quiz_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Envoie le quiz en MP"""
-        await interaction.response.defer(ephemeral=True)
+        def __init__(self, course_id: int):
+            super().__init__(timeout=None)
+            self.course_id = course_id
         
-        try:
-            # Trouver le cours dans QUIZZES_DATA (déjà chargé en mémoire)
-            course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == self.course_id), None)
-
-            if not course:
-                await interaction.followup.send(
-                    f"❌ Cours {self.course_id} introuvable",
-                    ephemeral=True
-                )
-                return
-
-            # Préparer les données du quiz
-            quiz_data = {
-                'course_title': course['title'],
-                'questions': course['questions']
-            }
-
-            # Vérifier l'utilisateur en DB
-
+        @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary, custom_id="quiz_button")
+        async def quiz_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+            """Envoie le quiz en MP"""
+            await interaction.response.defer(ephemeral=True)
             
-            # Vérifier l'utilisateur en DB
-            from db_connection import SessionLocal
-            from models import Utilisateur, Review
-            from datetime import datetime, timedelta
-            
-            db = SessionLocal()
             try:
-                user = db.query(Utilisateur).filter(
-                    Utilisateur.user_id == interaction.user.id
-                ).first()
-                
-                if not user:
+                # Trouver le cours dans QUIZZES_DATA (déjà chargé en mémoire)
+                course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == self.course_id), None)
+    
+                if not course:
                     await interaction.followup.send(
-                        "❌ Tu dois d'abord t'inscrire avec `/register`",
+                        f"❌ Cours {self.course_id} introuvable",
                         ephemeral=True
                     )
                     return
+    
+                # Préparer les données du quiz
+                quiz_data = {
+                    'course_title': course['title'],
+                    'questions': course['questions']
+                }
+    
+                # Vérifier l'utilisateur en DB
+    
                 
-                # Filtrer les questions selon SM-2
-                now = datetime.now()
-                questions_to_review = []
+                # Vérifier l'utilisateur en DB
+                from db_connection import SessionLocal
+                from models import Utilisateur, Review
+                from datetime import datetime, timedelta
                 
-                for question in quiz_data['questions']:
-                    q_id = question['id']
-                    
-                    # Vérifier si une review existe
-                    review = db.query(Review).filter(
-                        Review.user_id == interaction.user.id,
-                        Review.question_id == q_id
+                db = SessionLocal()
+                try:
+                    user = db.query(Utilisateur).filter(
+                        Utilisateur.user_id == interaction.user.id
                     ).first()
                     
-                    if not review:
-                        # Nouvelle question
-                        questions_to_review.append(question)
-                    elif review.next_review <= now:
-                        # Question à réviser
-                        questions_to_review.append(question)
-                
-                if not questions_to_review:
+                    if not user:
+                        await interaction.followup.send(
+                            "❌ Tu dois d'abord t'inscrire avec `/register`",
+                            ephemeral=True
+                        )
+                        return
+                    
+                    # Filtrer les questions selon SM-2
+                    now = datetime.now()
+                    questions_to_review = []
+                    
+                    for question in quiz_data['questions']:
+                        q_id = question['id']
+                        
+                        # Vérifier si une review existe
+                        review = db.query(Review).filter(
+                            Review.user_id == interaction.user.id,
+                            Review.question_id == q_id
+                        ).first()
+                        
+                        if not review:
+                            # Nouvelle question
+                            questions_to_review.append(question)
+                        elif review.next_review <= now:
+                            # Question à réviser
+                            questions_to_review.append(question)
+                    
+                    if not questions_to_review:
+                        await interaction.followup.send(
+                            "✅ Tu as déjà révisé toutes les questions récemment !\n"
+                            "Reviens plus tard pour continuer.",
+                            ephemeral=True
+                        )
+                        return
+                    
+                    # Envoyer le quiz en MP
+                    embed = discord.Embed(
+                        title=f"📝 Quiz : {quiz_data['course_title']}",
+                        description=f"Tu as **{len(questions_to_review)} question(s)** à réviser.",
+                        color=discord.Color.green()
+                    )
+                    
+                    embed.add_field(
+                        name="Instructions",
+                        value=(
+                            "Je vais te poser les questions une par une.\n"
+                            "Réponds avec **A**, **B**, **C** ou **D**.\n\n"
+                            "Ton score déterminera quand tu reverras cette question (SM-2)."
+                        ),
+                        inline=False
+                    )
+                    
+                    await interaction.user.send(embed=embed)
+                    
+                    # Démarrer le quiz
+                    await start_quiz_sm2(interaction.user, self.course_id, questions_to_review, db)
+                    
                     await interaction.followup.send(
-                        "✅ Tu as déjà révisé toutes les questions récemment !\n"
-                        "Reviens plus tard pour continuer.",
+                        f"✅ Quiz envoyé en MP ! Vérifie tes messages privés.",
                         ephemeral=True
                     )
-                    return
                 
-                # Envoyer le quiz en MP
-                embed = discord.Embed(
-                    title=f"📝 Quiz : {quiz_data['course_title']}",
-                    description=f"Tu as **{len(questions_to_review)} question(s)** à réviser.",
-                    color=discord.Color.green()
-                )
-                
-                embed.add_field(
-                    name="Instructions",
-                    value=(
-                        "Je vais te poser les questions une par une.\n"
-                        "Réponds avec **A**, **B**, **C** ou **D**.\n\n"
-                        "Ton score déterminera quand tu reverras cette question (SM-2)."
-                    ),
-                    inline=False
-                )
-                
-                await interaction.user.send(embed=embed)
-                
-                # Démarrer le quiz
-                await start_quiz_sm2(interaction.user, self.course_id, questions_to_review, db)
-                
+                finally:
+                    db.close()
+            
+    
+            except discord.Forbidden:
                 await interaction.followup.send(
-                    f"✅ Quiz envoyé en MP ! Vérifie tes messages privés.",
+                    "❌ Je ne peux pas t'envoyer de MP. Active tes messages privés !",
                     ephemeral=True
                 )
-            
-            finally:
-                db.close()
-        
-
-        except discord.Forbidden:
-            await interaction.followup.send(
-                "❌ Je ne peux pas t'envoyer de MP. Active tes messages privés !",
-                ephemeral=True
-            )
-        except Exception as e:
-            print(f"❌ Erreur quiz: {e}")
-            import traceback
-            traceback.print_exc()
-            await interaction.followup.send(
-                f"❌ Erreur : {e}",
-                ephemeral=True
-            )
+            except Exception as e:
+                print(f"❌ Erreur quiz: {e}")
+                import traceback
+                traceback.print_exc()
+                await interaction.followup.send(
+                    f"❌ Erreur : {e}",
+                    ephemeral=True
+                )
 
 
 async def start_quiz_sm2(member: discord.Member, course_id: int, questions: list, db):
