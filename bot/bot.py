@@ -722,24 +722,11 @@ class QuizButton(discord.ui.View):
             )
             return
 
-        # Envoyer en MP
+        # Envoyer en MP sans intro
         try:
-            embed = discord.Embed(
-                title=f"📝 Quiz : {course['title']}",
-                description=f"Tu as **{len(questions_to_review)} question(s)** à réviser.",
-                color=discord.Color.green()
-            )
-            embed.add_field(
-                name="Instructions",
-                value="Je vais te poser les questions une par une.\nRéponds avec **A**, **B**, **C** ou **D**.",
-                inline=False
-            )
-            await interaction.user.send(embed=embed)
-
-            # Démarrer le quiz
+            # Démarrer le quiz directement
             await start_quiz_interactive(interaction.user, course['title'], questions_to_review)
-
-            await interaction.followup.send("✅ Quiz envoyé en MP ! Vérifie tes messages privés.", ephemeral=True)
+            await interaction.followup.send("✅ Quiz envoyé en MP !", ephemeral=True)
 
         except discord.Forbidden:
             await interaction.followup.send("❌ Active tes messages privés !", ephemeral=True)
@@ -763,9 +750,11 @@ async def start_quiz_interactive(member: discord.Member, course_title: str, ques
             color=discord.Color.blue()
         )
 
+        # Les options sont une liste, pas un dict
         options_text = ""
-        for key, value in question['options'].items():
-            options_text += f"**{key}.** {value}\n"
+        for idx, option in enumerate(question['options']):
+            letter = chr(65 + idx)  # A, B, C, D
+            options_text += f"**{letter}.** {option}\n"
 
         embed.add_field(
             name="Options",
@@ -786,10 +775,13 @@ async def start_quiz_interactive(member: discord.Member, course_title: str, ques
         try:
             msg = await bot.wait_for('message', check=check, timeout=300)  # 5 minutes
             user_answer = msg.content.upper()
-            correct_answer = question['correct']
+
+            # Convertir la lettre en index (A=0, B=1, C=2, D=3)
+            answer_index = ord(user_answer) - 65
+            correct_index = question['correct']
 
             # Vérifier la réponse
-            if user_answer == correct_answer:
+            if answer_index == correct_index:
                 quality = 5  # Parfait
                 correct_count += 1
                 result_embed = discord.Embed(
@@ -799,11 +791,11 @@ async def start_quiz_interactive(member: discord.Member, course_title: str, ques
                 )
             else:
                 quality = 0  # Échec
+                correct_letter = chr(65 + correct_index)
                 result_embed = discord.Embed(
                     title="❌ Incorrect",
                     description=(
-                        f"La bonne réponse était : **{correct_answer}**\n\n"
-                        f"{question['options'][correct_answer]}\n\n"
+                        f"La bonne réponse était : **{correct_letter}. {question['options'][correct_index]}**\n\n"
                         f"{question.get('explanation', '')}"
                     ),
                     color=discord.Color.red()
@@ -1064,44 +1056,6 @@ async def on_ready():
     print("🔧 Configuration des salons de ressources...")
     await setup_resources_channels()
     print("✅ Configuration terminée")
-
-
-    category_name = f"📚 Groupe {new_groupe}"
-    category = discord.utils.get(guild.categories, name=category_name)
-    
-    if not category:
-        print(f"⚠️ Catégorie '{category_name}' introuvable")
-        return
-    
-    # Chercher le salon 📖-ressources (livre ouvert)
-    resources_channel = None
-    for channel in category.text_channels:
-        if channel.name == "📖-ressources":
-            resources_channel = channel
-            break
-    
-    if not resources_channel:
-        print(f"⚠️ Salon 📖-ressources introuvable dans {category_name}")
-        return
-    
-    # Vérifier si les cours ont déjà été envoyés
-    messages_count = 0
-    async for message in resources_channel.history(limit=50):
-        if message.author == bot.user and message.embeds:
-            messages_count += 1
-    
-    course_ids = get_courses_for_level(new_level)
-    
-    if messages_count >= len(course_ids) and messages_count > 0:
-        print(f"✅ Cours déjà présents dans {category_name}")
-        return
-    
-    # Envoyer les cours
-    for course_id in course_ids:
-        await send_course_to_channel(course_id, resources_channel)
-        await asyncio.sleep(1)
-    
-    print(f"✅ Cours envoyés dans {category_name} 📖-ressources")
 
 
 @bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
