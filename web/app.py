@@ -345,16 +345,32 @@ def exams():
         ).first()
         
         if not exam_period:
-            return render_template('exams_id.html',
-                error=f"Aucune période d'examen active pour le niveau {user.niveau_actuel}.")
-        
-        # 3. NOUVEAU : Vérifier que l'utilisateur a voté
+            # Chercher la prochaine période d'examen
+            next_period = db.query(ExamPeriod).filter(
+                ExamPeriod.group_number == user.niveau_actuel,
+                ExamPeriod.start_time > now
+            ).order_by(ExamPeriod.start_time).first()
+
+            if next_period:
+                start_str = next_period.start_time.strftime("%d/%m/%Y à %H:%M")
+                end_str = next_period.end_time.strftime("%H:%M")
+                return render_template('exams_id.html',
+                    error=f"⏰ Examen pas encore disponible\n\n"
+                          f"📅 Niveau {user.niveau_actuel}\n"
+                          f"🟢 Début: {start_str}\n"
+                          f"🔴 Fin: {end_str}\n\n"
+                          f"Reviens à cette heure!")
+            else:
+                return render_template('exams_id.html',
+                    error=f"Aucune période d'examen planifiée pour le niveau {user.niveau_actuel}.\n"
+                          f"Contacte un administrateur.")
+                # 3. NOUVEAU : Vérifier que l'utilisateur a voté
         if not user.has_voted or user.current_exam_period != exam_period.id:
             return render_template('exams_id.html',
                 error=f"⚠️ Tu dois voter avant de passer l'examen !\n\n"
                       f"Utilise la commande Discord :\n"
                       f"/vote @user1 @user2 @user3")
-        
+            
         # 4. Trouver l'examen
         exam = None
         for e in exams_data['exams']:

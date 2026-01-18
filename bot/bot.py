@@ -9,6 +9,7 @@ import discord
 import os
 from dotenv import load_dotenv
 from discord.ext import commands, tasks
+from discord import app_commands
 from datetime import datetime, timedelta
 import asyncio
 import json
@@ -29,7 +30,7 @@ try:
     Base.metadata.create_all(engine)
     print("✅ Tables créées")
     
-    # Ajouter colonne 'groupe' si nécessaire
+       # Ajouter colonne 'groupe' si nécessaire
     db = SessionLocal()
     try:
         check = text("SELECT column_name FROM information_schema.columns WHERE table_name='utilisateurs' AND column_name='groupe'")
@@ -41,13 +42,44 @@ try:
         pass
     finally:
         db.close()
-    
+
+    # Ajouter colonne 'vote_start_time' dans exam_periods si nécessaire
+    db = SessionLocal()
+    try:
+        check = text("SELECT column_name FROM information_schema.columns WHERE table_name='exam_periods' AND column_name='vote_start_time'")
+        if not db.execute(check).fetchone():
+            print("📝 Ajout colonne vote_start_time...")
+            # Ajouter la colonne (nullable temporairement)
+            db.execute(text("ALTER TABLE exam_periods ADD COLUMN vote_start_time TIMESTAMP NULL"))
+            db.commit()
+
+            # Calculer vote_start_time pour les périodes existantes (start_time - 24h)
+            db.execute(text("""
+                UPDATE exam_periods
+                SET vote_start_time = start_time - INTERVAL '1 day'
+                WHERE vote_start_time IS NULL
+            """))
+            db.commit()
+
+            # Rendre la colonne NOT NULL
+            db.execute(text("ALTER TABLE exam_periods ALTER COLUMN vote_start_time SET NOT NULL"))
+            db.commit()
+            print("✅ Colonne 'vote_start_time' ajoutée")
+    except Exception as e:
+        print(f"⚠️ Migration vote_start_time: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
     print("✅ Base de données prête")
-    
+
 except Exception as e:
     print(f"⚠️ Erreur DB: {e}")
 
 print("=" * 50)
+
+# Configuration du bot
+
 
 # Configuration du bot
 token = os.getenv('DISCORD_TOKEN')
@@ -88,6 +120,78 @@ async def on_ready():
         check_finished_exam_periods.start()
         print("✅ Système de bonus automatique démarré")
 
+# ... vos imports existants ...
+from discord.ext import tasks # Assurez-vous d'avoir cet import
+from bonus_system import BonusSystem # Importez juste la classe
+
+# ... (le début de votre fichier bot.py reste pareil) ...
+
+# ✅ AJOUTEZ CETTE TÂCHE DANS BOT.PY (pas dans bonus_system.py)
+@tasks.loop(minutes=5)
+async def check_finished_exam_periods():
+    """
+    Vérifie toutes les 5 minutes s'il y a des périodes d'examen terminées
+    et applique les bonus automatiquement
+    """
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+    
+    db = SessionLocal()
+    try:
+        now = datetime.now()
+        
+        # Trouver les périodes terminées mais non traitées
+        finished_periods = db.query(ExamPeriod).filter(
+            ExamPeriod.end_time <= now,
+            ExamPeriod.bonuses_applied == False
+        ).all()
+        
+        if not finished_periods:
+            return
+        
+        print(f"\n🔔 {len(finished_periods)} période(s) d'examen terminée(s) détectée(s)")
+        
+        # On instancie le système avec le bot disponible ici
+        bonus_system = BonusSystem(bot)
+        
+        for period in finished_periods:
+            # Récupérer le guild (serveur Discord)
+            guild = bot.guilds[0] if bot.guilds else None
+            
+            if not guild:
+                print(f"❌ Aucun serveur Discord disponible")
+                continue
+            
+            await bonus_system.apply_bonuses_for_period(period, guild)
+    
+    except Exception as e:
+        print(f"❌ Erreur check_finished_exam_periods: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    finally:
+        db.close()
+
+# ✅ ATTENDRE QUE LE BOT SOIT PRÊT AVANT DE LANCER
+@check_finished_exam_periods.before_loop
+async def before_check_finished_exam_periods():
+    await bot.wait_until_ready()
+    print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
+
+# ... (reste du code) ...
+
+@bot.event
+async def on_ready():
+    global discord_group_manager
+    
+    print(f'✅ Bot connecté en tant que {bot.user}')
+    
+    # ... (vos autres initialisations) ...
+    
+    # ✅ DÉMARRAGE DE LA TÂCHE ICI
+    if not check_finished_exam_periods.is_running():
+        check_finished_exam_periods.start()
+        print("✅ Système de bonus automatique démarré")
 
 @tasks.loop(seconds=30)
 async def check_results_task():
@@ -962,7 +1066,261 @@ async def on_ready():
     print("✅ Configuration terminée")
 
 
-# ==================== FONCTIONS UTILITAIRES ====================
+ class QuizButton(discord.ui.View):
+    """Vue avec bouton pour démarrer le quiz"""
+    
+    def __init__(self, course_id: int):
+        super().__init__(timeout=None)
+        self.course_id = course_id
+    
+    @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary, custom_id="quiz_button")
+    async def quiz_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Envoie le quiz en MP"""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # Trouver le cours dans QUIZZES_DATA (déjà chargé en mémoire)
+            course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == self.course_id), None)
+
+            if not course:
+                await interaction.followup.send(
+                    f"❌ Cours {self.course_id} introuvable",
+                    ephemeral=True
+                )
+                return
+
+            # Préparer les données du quiz
+            quiz_data = {
+                'course_title': course['title'],
+                'questions': course['questions']
+            }
+
+            # Vérifier l'utilisateur en DB
+
+            
+            # Vérifier l'utilisateur en DB
+            from db_connection import SessionLocal
+            from models import Utilisateur, Review
+            from datetime import datetime, timedelta
+            
+            db = SessionLocal()
+            try:
+                user = db.query(Utilisateur).filter(
+                    Utilisateur.user_id == interaction.user.id
+                ).first()
+                
+                if not user:
+                    await interaction.followup.send(
+                        "❌ Tu dois d'abord t'inscrire avec `/register`",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Filtrer les questions selon SM-2
+                now = datetime.now()
+                questions_to_review = []
+                
+                for question in quiz_data['questions']:
+                    q_id = question['id']
+                    
+                    # Vérifier si une review existe
+                    review = db.query(Review).filter(
+                        Review.user_id == interaction.user.id,
+                        Review.question_id == q_id
+                    ).first()
+                    
+                    if not review:
+                        # Nouvelle question
+                        questions_to_review.append(question)
+                    elif review.next_review <= now:
+                        # Question à réviser
+                        questions_to_review.append(question)
+                
+                if not questions_to_review:
+                    await interaction.followup.send(
+                        "✅ Tu as déjà révisé toutes les questions récemment !\n"
+                        "Reviens plus tard pour continuer.",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Envoyer le quiz en MP
+                embed = discord.Embed(
+                    title=f"📝 Quiz : {quiz_data['course_title']}",
+                    description=f"Tu as **{len(questions_to_review)} question(s)** à réviser.",
+                    color=discord.Color.green()
+                )
+                
+                embed.add_field(
+                    name="Instructions",
+                    value=(
+                        "Je vais te poser les questions une par une.\n"
+                        "Réponds avec **A**, **B**, **C** ou **D**.\n\n"
+                        "Ton score déterminera quand tu reverras cette question (SM-2)."
+                    ),
+                    inline=False
+                )
+                
+                await interaction.user.send(embed=embed)
+                
+                # Démarrer le quiz
+                await start_quiz_sm2(interaction.user, self.course_id, questions_to_review, db)
+                
+                await interaction.followup.send(
+                    f"✅ Quiz envoyé en MP ! Vérifie tes messages privés.",
+                    ephemeral=True
+                )
+            
+            finally:
+                db.close()
+        
+
+        except discord.Forbidden:
+            await interaction.followup.send(
+                "❌ Je ne peux pas t'envoyer de MP. Active tes messages privés !",
+                ephemeral=True
+            )
+        except Exception as e:
+            print(f"❌ Erreur quiz: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(
+                f"❌ Erreur : {e}",
+                ephemeral=True
+            )
+
+
+async def start_quiz_sm2(member: discord.Member, course_id: int, questions: list, db):
+    """
+    Démarre un quiz interactif en MP avec SM-2
+    """
+    from models import Review, CourseQuizResult
+    from datetime import datetime, timedelta
+    
+    total_questions = len(questions)
+    
+    for i, question in enumerate(questions):
+        # Envoyer la question
+        embed = discord.Embed(
+            title=f"Question {i+1}/{total_questions}",
+            description=question['question'],
+            color=discord.Color.blue()
+        )
+        
+        options_text = ""
+        for key, value in question['options'].items():
+            options_text += f"**{key}.** {value}\n"
+        
+        embed.add_field(
+            name="Options",
+            value=options_text,
+            inline=False
+        )
+        
+        await member.send(embed=embed)
+        
+        # Attendre la réponse
+        def check(m):
+            return (
+                m.author.id == member.id and 
+                isinstance(m.channel, discord.DMChannel) and 
+                m.content.upper() in ['A', 'B', 'C', 'D']
+            )
+        
+        try:
+            msg = await bot.wait_for('message', check=check, timeout=300)  # 5 minutes
+            user_answer = msg.content.upper()
+            correct_answer = question['correct']
+            
+            # Vérifier la réponse
+            if user_answer == correct_answer:
+                quality = 5  # Parfait
+                result_embed = discord.Embed(
+                    title="✅ Correct !",
+                    description=question.get('explanation', ''),
+                    color=discord.Color.green()
+                )
+            else:
+                quality = 0  # Échec
+                result_embed = discord.Embed(
+                    title="❌ Incorrect",
+                    description=(
+                        f"La bonne réponse était : **{correct_answer}**\n\n"
+                        f"{question['options'][correct_answer]}\n\n"
+                        f"{question.get('explanation', '')}"
+                    ),
+                    color=discord.Color.red()
+                )
+            
+            await member.send(embed=result_embed)
+            
+            # Appliquer l'algorithme SM-2
+            review = db.query(Review).filter(
+                Review.user_id == member.id,
+                Review.question_id == question['id']
+            ).first()
+            
+            if not review:
+                # Nouvelle question
+                review = Review(
+                    user_id=member.id,
+                    question_id=question['id'],
+                    next_review=datetime.now(),
+                    interval_days=1.0,
+                    repetitions=0,
+                    easiness_factor=2.5
+                )
+                db.add(review)
+            
+            # Algorithme SM-2
+            if quality >= 3:
+                # Bonne réponse
+                if review.repetitions == 0:
+                    review.interval_days = 1
+                elif review.repetitions == 1:
+                    review.interval_days = 6
+                else:
+                    review.interval_days = review.interval_days * review.easiness_factor
+                
+                review.repetitions += 1
+            else:
+                # Mauvaise réponse
+                review.repetitions = 0
+                review.interval_days = 1
+            
+            # Ajuster easiness_factor
+            review.easiness_factor = max(
+                1.3,
+                review.easiness_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+            )
+            
+            # Prochaine révision
+            review.next_review = datetime.now() + timedelta(days=review.interval_days)
+            
+            # Sauvegarder le résultat
+            quiz_result = CourseQuizResult(
+                user_id=member.id,
+                course_id=course_id,
+                quiz_question_id=question['id'],
+                quality=quality,
+                date=datetime.now()
+            )
+            db.add(quiz_result)
+            db.commit()
+            
+            await asyncio.sleep(2)
+        
+        except asyncio.TimeoutError:
+            await member.send("⏱️ Temps écoulé ! Quiz annulé.")
+            return
+    
+    # Fin du quiz
+    await member.send(
+        f"🎉 **Quiz terminé !**\n\n"
+        f"Tu as répondu à **{total_questions} question(s)**.\n"
+        f"Continue à réviser pour maîtriser le sujet ! 💪"
+    )
+
 
 async def on_user_level_change(user_id: int, new_level: int, new_groupe: str, guild: discord.Guild):
     """

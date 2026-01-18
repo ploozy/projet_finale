@@ -430,6 +430,3 @@ async def before_check_finished_exam_periods():
     print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
 
 
-# ==================== DÉMARRER LA TÂCHE DANS on_ready ====================
-# Cette tâche est démarrée automatiquement dans bot.py (ligne 87-89)
-# NE PAS démarrer ici - ça causerait "RuntimeError: no running event loop"
