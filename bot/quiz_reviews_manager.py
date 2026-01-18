@@ -57,7 +57,7 @@ def should_review(user_id: int, question_id: str):
     return datetime.now() >= next_review
 
 
-def update_review_sm2(user_id: int, question_id: str, quality: int):
+def update_review_sm2(user_id: int, question_id: str, quality: int, schedule_callback=None):
     """
     Met à jour la révision selon l'algorithme SM-2
 
@@ -65,6 +65,10 @@ def update_review_sm2(user_id: int, question_id: str, quality: int):
         user_id: ID Discord de l'utilisateur
         question_id: ID de la question (ex: 'struct_q1')
         quality: 0-5 (0 = mauvais, 5 = parfait)
+        schedule_callback: Fonction optionnelle pour planifier le rappel (bot, user_id, question_data, next_review_date)
+
+    Returns:
+        dict: Données de révision mises à jour avec next_review_date (datetime)
     """
     reviews = load_reviews()
     user_key = str(user_id)
@@ -114,7 +118,11 @@ def update_review_sm2(user_id: int, question_id: str, quality: int):
     reviews[user_key][question_id] = review
     save_reviews(reviews)
 
-    return review
+    # Retourner les données avec la date comme datetime
+    return {
+        **review,
+        'next_review_date': next_review_date
+    }
 
 
 def get_questions_to_review(user_id: int, all_questions: list):
