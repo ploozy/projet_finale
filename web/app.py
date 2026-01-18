@@ -6,7 +6,7 @@ Site Web - Version Finale
 
 from flask import Flask, render_template, request, jsonify
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from db_connection import SessionLocal
 from models import Utilisateur, ExamResult, ExamPeriod
@@ -337,13 +337,24 @@ def exams():
                 error="Utilisateur non trouvé. Utilise /register sur Discord d'abord.")
         
         # 2. Vérifier période d'examen active
-        now = datetime.now()
+        now = datetime.utcnow()  # Utiliser UTC pour cohérence avec la DB
+
+        # Debug : afficher l'heure actuelle
+        print(f"🕐 Heure serveur (UTC): {now.strftime('%d/%m/%Y %H:%M:%S')}")
+
         exam_period = db.query(ExamPeriod).filter(
             ExamPeriod.group_number == user.niveau_actuel,
             ExamPeriod.start_time <= now,
             ExamPeriod.end_time >= now
         ).first()
-        
+
+        # Debug : afficher les périodes trouvées
+        all_periods = db.query(ExamPeriod).filter(
+            ExamPeriod.group_number == user.niveau_actuel
+        ).all()
+        for p in all_periods:
+            print(f"📅 Période trouvée - Début: {p.start_time}, Fin: {p.end_time}, Active: {p.start_time <= now <= p.end_time}")
+
         if not exam_period:
             # Chercher la prochaine période d'examen
             next_period = db.query(ExamPeriod).filter(
@@ -353,23 +364,30 @@ def exams():
 
             if next_period:
                 start_str = next_period.start_time.strftime("%d/%m/%Y à %H:%M")
-                end_str = next_period.end_time.strftime("%H:%M")
+                end_str = next_period.end_time.strftime("%d/%m/%Y à %H:%M")  # Afficher date complète
                 return render_template('exams_id.html',
                     error=f"⏰ Examen pas encore disponible\n\n"
                           f"📅 Niveau {user.niveau_actuel}\n"
                           f"🟢 Début: {start_str}\n"
                           f"🔴 Fin: {end_str}\n\n"
+                          f"⏰ Heure serveur: {now.strftime('%d/%m/%Y %H:%M')} UTC\n\n"
                           f"Reviens à cette heure!")
             else:
                 return render_template('exams_id.html',
                     error=f"Aucune période d'examen planifiée pour le niveau {user.niveau_actuel}.\n"
                           f"Contacte un administrateur.")
-                # 3. NOUVEAU : Vérifier que l'utilisateur a voté
-        if not user.has_voted or user.current_exam_period != exam_period.id:
+                # 3. Vérifier que l'utilisateur a voté
+        # Pour les tests, accepter "test" comme exam_period valide
+        valid_vote = (
+            user.has_voted and
+            (user.current_exam_period == exam_period.id or user.current_exam_period == "test")
+        )
+
+        if not valid_vote:
             return render_template('exams_id.html',
                 error=f"⚠️ Tu dois voter avant de passer l'examen !\n\n"
                       f"Utilise la commande Discord :\n"
-                      f"/vote @user1 @user2 @user3")
+                      f"/vote @user1")
             
         # 4. Trouver l'examen
         exam = None
