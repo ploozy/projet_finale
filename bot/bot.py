@@ -680,24 +680,26 @@ with open('quizzes.json', 'r', encoding='utf-8') as f:
     QUIZZES_DATA = json.load(f)
 
 
+# ==================== SYSTÈME DE QUIZ (AVEC JSON UNIQUEMENT) ====================
+
 class QuizButton(discord.ui.View):
-    """Bouton pour démarrer le quiz"""
-    
+    """Bouton pour démarrer le quiz - VERSION SIMPLIFIÉE AVEC JSON"""
+
     def __init__(self, course_id: int):
         super().__init__(timeout=None)
         self.course_id = course_id
-    
-    @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary)
+
+    @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary, custom_id="quiz_button")
     async def start_quiz(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Démarre le quiz en MP"""
         await interaction.response.defer(ephemeral=True)
-        
+
         # Trouver le cours
         course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == self.course_id), None)
         if not course:
             await interaction.followup.send("❌ Cours introuvable", ephemeral=True)
             return
-        
+
         # Vérifier inscription
         db = SessionLocal()
         try:
@@ -705,208 +707,129 @@ class QuizButton(discord.ui.View):
             if not user:
                 await interaction.followup.send("❌ Tu dois d'abord t'inscrire avec `/register`", ephemeral=True)
                 return
-            
-            # Filtrer avec SM-2
-            from models import Review
-            now = datetime.now()
-            questions_to_review = []
-            
-            for question in course['questions']:
-                review = db.query(Review).filter(
-                    Review.user_id == interaction.user.id,
-                    Review.question_id == question['id']
-                ).first()
-                
-                if not review or review.next_review <= now:
-                    questions_to_review.append(question)
-            
-            if not questions_to_review:
-                await interaction.followup.send("✅ Tu as déjà révisé toutes les questions !", ephemeral=True)
-                return
-            
-            # Envoyer en MP
-            try:
-                embed = discord.Embed(
-                    title=f"📝 Quiz : {course['title']}",
-                    description=f"Tu as **{len(questions_to_review)} question(s)** à réviser.",
-                    color=discord.Color.green()
-                )
-                await interaction.user.send(embed=embed)
-                
-                # Démarrer le quiz
-                await start_interactive_quiz(interaction.user, self.course_id, questions_to_review)
-                
-                await interaction.followup.send("✅ Quiz envoyé en MP !", ephemeral=True)
-            
-            except discord.Forbidden:
-                await interaction.followup.send("❌ Active tes messages privés !", ephemeral=True)
-        
         finally:
             db.close()
 
+        # Filtrer avec SM-2 (JSON uniquement, pas de SQL!)
+        from quiz_reviews_manager import get_questions_to_review
+        questions_to_review = get_questions_to_review(interaction.user.id, course['questions'])
 
-class QuizAnswerButton(discord.ui.View):
-    """Boutons pour répondre aux questions"""
-    
-    def __init__(self, question_data, user_id, course_id):
-        super().__init__(timeout=300)
-        self.question_data = question_data
-        self.user_id = user_id
-        self.course_id = course_id
-        self.answered = False
-        
-        # Créer les boutons A, B, C, D
-        for i, option in enumerate(question_data['options']):
-            button = discord.ui.Button(
-                label=f"{chr(65+i)}",  # A, B, C, D
-                style=discord.ButtonStyle.primary,
-                custom_id=f"answer_{i}"
+        if not questions_to_review:
+            await interaction.followup.send(
+                "✅ Tu as déjà révisé toutes les questions !\n"
+                "Reviens plus tard pour continuer. 📚",
+                ephemeral=True
             )
-            button.callback = self.create_callback(i)
-            self.add_item(button)
-    
-    def create_callback(self, answer_index):
-        async def callback(interaction: discord.Interaction):
-            if interaction.user.id != self.user_id:
-                await interaction.response.send_message("❌ Ce n'est pas ton quiz !", ephemeral=True)
-                return
-            
-            if self.answered:
-                await interaction.response.send_message("❌ Tu as déjà répondu !", ephemeral=True)
-                return
-            
-            self.answered = True
-            await interaction.response.defer()
-            
-            # Vérifier la réponse
-            correct_answer = self.question_data['correct']
-            is_correct = answer_index == correct_answer
-            
-            # Désactiver tous les boutons
-            for item in self.children:
-                item.disabled = True
-                if int(item.custom_id.split('_')[1]) == correct_answer:
-                    item.style = discord.ButtonStyle.success
-                elif int(item.custom_id.split('_')[1]) == answer_index and not is_correct:
-                    item.style = discord.ButtonStyle.danger
-            
-            await interaction.edit_original_response(view=self)
-            
-            # Feedback
-            if is_correct:
-                quality = 5
-                embed = discord.Embed(
-                    title="✅ Correct !",
-                    description=self.question_data.get('explanation', ''),
-                    color=discord.Color.green()
-                )
-            else:
-                quality = 0
-                correct_letter = chr(65 + correct_answer)
-                embed = discord.Embed(
-                    title="❌ Incorrect",
-                    description=(
-                        f"La bonne réponse était : **{correct_letter}. {self.question_data['options'][correct_answer]}**\n\n"
-                        f"{self.question_data.get('explanation', '')}"
-                    ),
-                    color=discord.Color.red()
-                )
-            
-            await interaction.followup.send(embed=embed)
-            
-            # Sauvegarder avec SM-2
-            await save_quiz_result(self.user_id, self.course_id, self.question_data['id'], quality)
-        
-        return callback
+            return
+
+        # Envoyer en MP
+        try:
+            embed = discord.Embed(
+                title=f"📝 Quiz : {course['title']}",
+                description=f"Tu as **{len(questions_to_review)} question(s)** à réviser.",
+                color=discord.Color.green()
+            )
+            embed.add_field(
+                name="Instructions",
+                value="Je vais te poser les questions une par une.\nRéponds avec **A**, **B**, **C** ou **D**.",
+                inline=False
+            )
+            await interaction.user.send(embed=embed)
+
+            # Démarrer le quiz
+            await start_quiz_interactive(interaction.user, course['title'], questions_to_review)
+
+            await interaction.followup.send("✅ Quiz envoyé en MP ! Vérifie tes messages privés.", ephemeral=True)
+
+        except discord.Forbidden:
+            await interaction.followup.send("❌ Active tes messages privés !", ephemeral=True)
 
 
-async def start_interactive_quiz(user: discord.User, course_id: int, questions: list):
-    """Lance un quiz interactif avec boutons"""
-    
-    total = len(questions)
-    
+async def start_quiz_interactive(member: discord.Member, course_title: str, questions: list):
+    """
+    Quiz interactif en MP avec questions une par une
+    Utilise l'algorithme SM-2 pour planifier les révisions
+    """
+    from quiz_reviews_manager import update_review_sm2
+
+    total_questions = len(questions)
+    correct_count = 0
+
     for i, question in enumerate(questions):
+        # Envoyer la question
         embed = discord.Embed(
-            title=f"Question {i+1}/{total}",
+            title=f"Question {i+1}/{total_questions}",
             description=question['question'],
             color=discord.Color.blue()
         )
-        
-        # Ajouter les options
+
         options_text = ""
-        for j, option in enumerate(question['options']):
-            options_text += f"**{chr(65+j)}.** {option}\n"
-        
-        embed.add_field(name="Options", value=options_text, inline=False)
-        
-        # Envoyer avec boutons
-        view = QuizAnswerButton(question, user.id, course_id)
-        await user.send(embed=embed, view=view)
-        
-        # Attendre que l'utilisateur réponde
-        await asyncio.sleep(3)  # Pause entre questions
-    
-    await user.send(f"🎉 **Quiz terminé !** Tu as répondu à {total} question(s).")
+        for key, value in question['options'].items():
+            options_text += f"**{key}.** {value}\n"
 
+        embed.add_field(
+            name="Options",
+            value=options_text,
+            inline=False
+        )
 
-async def save_quiz_result(user_id: int, course_id: int, question_id: str, quality: int):
-    """Sauvegarde le résultat avec SM-2"""
-    
-    from models import Review, CourseQuizResult
-    db = SessionLocal()
-    
-    try:
-        # Récupérer ou créer la review
-        review = db.query(Review).filter(
-            Review.user_id == user_id,
-            Review.question_id == question_id
-        ).first()
-        
-        if not review:
-            review = Review(
-                user_id=user_id,
-                question_id=question_id,
-                next_review=datetime.now(),
-                interval_days=1.0,
-                repetitions=0,
-                easiness_factor=2.5
+        await member.send(embed=embed)
+
+        # Attendre la réponse
+        def check(m):
+            return (
+                m.author.id == member.id and
+                isinstance(m.channel, discord.DMChannel) and
+                m.content.upper() in ['A', 'B', 'C', 'D']
             )
-            db.add(review)
-        
-        # Algorithme SM-2
-        if quality >= 3:
-            if review.repetitions == 0:
-                review.interval_days = 1
-            elif review.repetitions == 1:
-                review.interval_days = 6
-            else:
-                review.interval_days = review.interval_days * review.easiness_factor
-            review.repetitions += 1
-        else:
-            review.repetitions = 0
-            review.interval_days = 1
-        
-        review.easiness_factor = max(
-            1.3,
-            review.easiness_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
-        )
-        
-        review.next_review = datetime.now() + timedelta(days=review.interval_days)
-        
-        # Sauvegarder le résultat
-        quiz_result = CourseQuizResult(
-            user_id=user_id,
-            course_id=course_id,
-            quiz_question_id=question_id,
-            quality=quality,
-            date=datetime.now()
-        )
-        db.add(quiz_result)
-        db.commit()
-    
-    finally:
-        db.close()
 
+        try:
+            msg = await bot.wait_for('message', check=check, timeout=300)  # 5 minutes
+            user_answer = msg.content.upper()
+            correct_answer = question['correct']
+
+            # Vérifier la réponse
+            if user_answer == correct_answer:
+                quality = 5  # Parfait
+                correct_count += 1
+                result_embed = discord.Embed(
+                    title="✅ Correct !",
+                    description=question.get('explanation', ''),
+                    color=discord.Color.green()
+                )
+            else:
+                quality = 0  # Échec
+                result_embed = discord.Embed(
+                    title="❌ Incorrect",
+                    description=(
+                        f"La bonne réponse était : **{correct_answer}**\n\n"
+                        f"{question['options'][correct_answer]}\n\n"
+                        f"{question.get('explanation', '')}"
+                    ),
+                    color=discord.Color.red()
+                )
+
+            await member.send(embed=result_embed)
+
+            # Mettre à jour SM-2 (JSON seulement!)
+            update_review_sm2(member.id, question['id'], quality)
+
+            await asyncio.sleep(2)
+
+        except asyncio.TimeoutError:
+            await member.send("⏱️ Temps écoulé ! Quiz annulé.")
+            return
+
+    # Fin du quiz
+    score_pct = (correct_count / total_questions) * 100
+    await member.send(
+        f"🎉 **Quiz terminé !**\n\n"
+        f"📊 Score : **{correct_count}/{total_questions}** ({score_pct:.0f}%)\n"
+        f"Continue à réviser pour maîtriser le sujet ! 💪"
+    )
+
+
+# ==================== COMMANDES ADMIN ====================
 
 @bot.tree.command(name="send_course", description="[ADMIN] Envoyer un cours avec quiz")
 @commands.has_permissions(administrator=True)
@@ -1124,58 +1047,6 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
         print(f"  ❌ Erreur lors de l'envoi du cours {course_id}: {e}")
 
 
-# ==================== CORRECTION DE LA CLASSE QuizButton ====================
-# Cette section remplace la classe QuizButton dans bot.py
-
-class QuizButton(discord.ui.View):
-    """Vue avec bouton pour démarrer le quiz - VERSION CORRIGÉE"""
-    
-    def __init__(self, course_id: int):
-        super().__init__(timeout=None)
-        self.course_id = course_id
-    
-    @discord.ui.button(label="📝 Faire le Quiz", style=discord.ButtonStyle.primary, custom_id="quiz_button")
-    async def quiz_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
-        
-        try:
-            # CORRECTION : Charger depuis quizzes.json
-            with open('quizzes.json', 'r', encoding='utf-8') as f:
-                quizzes_data = json.load(f)
-            
-            # Trouver le cours correspondant
-            course = None
-            for c in quizzes_data['courses']:
-                if c['id'] == self.course_id:
-                    course = c
-                    break
-            
-            if not course:
-                await interaction.followup.send(
-                    f"❌ Cours {self.course_id} introuvable",
-                    ephemeral=True
-                )
-                return
-        
-        # ... reste du code identique
-            
-            # Le reste du code reste identique...
-            # [Voir le code complet dans le fichier original]
-            
-        except FileNotFoundError:
-            await interaction.followup.send(
-                f"❌ Fichier quizzes.json introuvable",
-                ephemeral=True
-            )
-        except Exception as e:
-            print(f"❌ Erreur quiz: {e}")
-            import traceback
-            traceback.print_exc()
-            await interaction.followup.send(
-                f"❌ Erreur : {e}",
-                ephemeral=True
-            )
-
 @bot.event
 async def on_ready():
     """Appelé quand le bot est prêt"""
@@ -1195,7 +1066,7 @@ async def on_ready():
     print("✅ Configuration terminée")
 
 
-class QuizButton(discord.ui.View):
+ class QuizButton(discord.ui.View):
     """Vue avec bouton pour démarrer le quiz"""
     
     def __init__(self, course_id: int):
@@ -1563,6 +1434,21 @@ async def create_exam_period(
         # Créer la période
         db = SessionLocal()
         try:
+            # Vérifier si une période existe déjà
+            existing = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
+            if existing:
+                await interaction.followup.send(
+                    f"⚠️ **Une période d'examen existe déjà !**\n\n"
+                    f"🆔 ID: `{period_id}`\n"
+                    f"📊 Groupe: Niveau {existing.group_number}\n"
+                    f"⏰ Début: {existing.start_time.strftime('%d/%m/%Y %H:%M')}\n\n"
+                    f"💡 Pour créer une nouvelle période:\n"
+                    f"• Utilise une date différente, OU\n"
+                    f"• Supprime d'abord l'ancienne avec `/delete_exam_period {period_id}`",
+                    ephemeral=True
+                )
+                return
+
             period = ExamPeriod(
                 id=period_id,
                 group_number=group,
@@ -1572,10 +1458,10 @@ async def create_exam_period(
                 votes_closed=False,
                 bonuses_applied=False
             )
-            
+
             db.add(period)
             db.commit()
-            
+
             embed = discord.Embed(
                 title="✅ Période d'Examen Créée",
                 color=discord.Color.green()
@@ -1586,17 +1472,115 @@ async def create_exam_period(
             embed.add_field(name="🗳️ Votes ouverts", value=vote_start.strftime("%d/%m/%Y %H:%M"), inline=False)
             embed.add_field(name="⏰ Début examen", value=start.strftime("%d/%m/%Y %H:%M"), inline=True)
             embed.add_field(name="🏁 Fin examen", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
-            
+
             await interaction.followup.send(embed=embed, ephemeral=True)
-        
+
         finally:
             db.close()
-    
+
     except ValueError:
         await interaction.followup.send(
             "❌ Format de date incorrect. Utilise : YYYY-MM-DD HH:MM",
             ephemeral=True
         )
+
+
+@bot.tree.command(name="delete_exam_period", description="[ADMIN] Supprimer une période d'examen")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    period_id="ID de la période (format: YYYY-MM-DD_groupX)"
+)
+async def delete_exam_period(
+    interaction: discord.Interaction,
+    period_id: str
+):
+    """Supprime une période d'examen"""
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+
+    db = SessionLocal()
+    try:
+        period = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
+
+        if not period:
+            await interaction.followup.send(
+                f"❌ Aucune période d'examen trouvée avec l'ID `{period_id}`",
+                ephemeral=True
+            )
+            return
+
+        # Afficher les infos avant suppression
+        info_msg = (
+            f"🗑️ **Période d'examen supprimée**\n\n"
+            f"🆔 ID: `{period.id}`\n"
+            f"📊 Groupe: Niveau {period.group_number}\n"
+            f"🗳️ Votes: {period.vote_start_time.strftime('%d/%m/%Y %H:%M')}\n"
+            f"⏰ Début: {period.start_time.strftime('%d/%m/%Y %H:%M')}\n"
+            f"🏁 Fin: {period.end_time.strftime('%d/%m/%Y %H:%M')}"
+        )
+
+        db.delete(period)
+        db.commit()
+
+        await interaction.followup.send(info_msg, ephemeral=True)
+
+    finally:
+        db.close()
+
+
+@bot.tree.command(name="list_exam_periods", description="[ADMIN] Lister toutes les périodes d'examen")
+@commands.has_permissions(administrator=True)
+async def list_exam_periods_command(interaction: discord.Interaction):
+    """Liste toutes les périodes d'examen"""
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+    from datetime import datetime
+
+    db = SessionLocal()
+    try:
+        periods = db.query(ExamPeriod).order_by(ExamPeriod.start_time).all()
+
+        if not periods:
+            await interaction.followup.send(
+                "📋 Aucune période d'examen configurée",
+                ephemeral=True
+            )
+            return
+
+        embed = discord.Embed(
+            title="📋 Périodes d'Examen",
+            color=discord.Color.blue()
+        )
+
+        now = datetime.now()
+
+        for period in periods:
+            status = "🟢 À venir" if period.start_time > now else "🔴 Passée"
+            if period.bonuses_applied:
+                status = "✅ Terminée"
+
+            value = (
+                f"**ID:** `{period.id}`\n"
+                f"**Votes:** {period.vote_start_time.strftime('%d/%m/%Y %H:%M')}\n"
+                f"**Début:** {period.start_time.strftime('%d/%m/%Y %H:%M')}\n"
+                f"**Fin:** {period.end_time.strftime('%d/%m/%Y %H:%M')}\n"
+                f"**Statut:** {status}"
+            )
+
+            embed.add_field(
+                name=f"Groupe {period.group_number}",
+                value=value,
+                inline=False
+            )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    finally:
+        db.close()
 
 
 # ==================== COMMANDE /my_vote_status ====================
