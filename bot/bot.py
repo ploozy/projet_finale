@@ -803,8 +803,15 @@ async def start_quiz_interactive(member: discord.Member, course_title: str, ques
 
             await member.send(embed=result_embed)
 
-            # Mettre à jour SM-2 (JSON seulement!)
-            update_review_sm2(member.id, question['id'], quality)
+            # Mettre à jour SM-2 et planifier le rappel automatique
+            from quiz_reviews_manager import update_review_sm2
+            from review_scheduler import schedule_review
+
+            review_data = update_review_sm2(member.id, question['id'], quality)
+            next_review_date = review_data['next_review_date']
+
+            # Planifier le rappel automatique par MP
+            schedule_review(bot, member.id, question, next_review_date)
 
             await asyncio.sleep(2)
 
@@ -819,6 +826,140 @@ async def start_quiz_interactive(member: discord.Member, course_title: str, ques
         f"📊 Score : **{correct_count}/{total_questions}** ({score_pct:.0f}%)\n"
         f"Continue à réviser pour maîtriser le sujet ! 💪"
     )
+
+
+# ==================== VUE POUR RÉVISIONS AUTOMATIQUES ====================
+
+class ReviewQuestionView(discord.ui.View):
+    """Vue avec boutons A/B/C/D pour répondre aux questions de révision"""
+
+    def __init__(self, question_data: dict, user_id: int):
+        super().__init__(timeout=None)  # Pas de timeout !
+        self.question_data = question_data
+        self.user_id = user_id
+        self.answered = False
+
+        # Créer les boutons A, B, C, D
+        num_options = len(question_data['options'])
+        for i in range(num_options):
+            letter = chr(65 + i)  # A, B, C, D
+            button = discord.ui.Button(
+                label=letter,
+                style=discord.ButtonStyle.primary,
+                custom_id=f"review_answer_{letter}"
+            )
+            button.callback = self.create_callback(i, letter)
+            self.add_item(button)
+
+    def create_callback(self, answer_index: int, letter: str):
+        async def callback(interaction: discord.Interaction):
+            # Vérifier que c'est bien l'utilisateur concerné
+            if interaction.user.id != self.user_id:
+                await interaction.response.send_message(
+                    "❌ Cette question n'est pas pour toi !",
+                    ephemeral=True
+                )
+                return
+
+            # Empêcher les réponses multiples
+            if self.answered:
+                await interaction.response.send_message(
+                    "❌ Tu as déjà répondu à cette question !",
+                    ephemeral=True
+                )
+                return
+
+            self.answered = True
+            await interaction.response.defer()
+
+            # Vérifier la réponse
+            correct_index = self.question_data['correct']
+            is_correct = (answer_index == correct_index)
+
+            # Qualité pour SM-2
+            quality = 5 if is_correct else 0
+
+            # Désactiver tous les boutons et colorer
+            for item in self.children:
+                item.disabled = True
+                if isinstance(item, discord.ui.Button):
+                    # Bouton correct en vert
+                    if item.label == chr(65 + correct_index):
+                        item.style = discord.ButtonStyle.success
+                    # Mauvaise réponse en rouge
+                    elif item.label == letter and not is_correct:
+                        item.style = discord.ButtonStyle.danger
+
+            # Mettre à jour le message avec les boutons colorés
+            await interaction.message.edit(view=self)
+
+            # Créer l'embed de résultat
+            if is_correct:
+                result_embed = discord.Embed(
+                    title="✅ Correct !",
+                    description=self.question_data.get('explanation', 'Bonne réponse !'),
+                    color=discord.Color.green()
+                )
+            else:
+                correct_letter = chr(65 + correct_index)
+                result_embed = discord.Embed(
+                    title="❌ Incorrect",
+                    description=(
+                        f"La bonne réponse était : **{correct_letter}. {self.question_data['options'][correct_index]}**\n\n"
+                        f"{self.question_data.get('explanation', '')}"
+                    ),
+                    color=discord.Color.red()
+                )
+
+            # Mettre à jour SM-2 et planifier la prochaine révision
+            from quiz_reviews_manager import update_review_sm2
+            from review_scheduler import schedule_review, complete_question
+
+            review_data = update_review_sm2(self.user_id, self.question_data['id'], quality)
+            next_review_date = review_data['next_review_date']
+
+            # Planifier la prochaine révision
+            schedule_review(bot, self.user_id, self.question_data, next_review_date)
+
+            # Ajouter info sur la prochaine révision
+            if review_data['interval_days'] < 1:
+                interval_text = f"{int(review_data['interval_days'] * 24)}h"
+            elif review_data['interval_days'] == 1:
+                interval_text = "1 jour"
+            else:
+                interval_text = f"{int(review_data['interval_days'])} jours"
+
+            result_embed.add_field(
+                name="📅 Prochaine révision",
+                value=f"Dans {interval_text} ({next_review_date.strftime('%d/%m/%Y à %H:%M')})",
+                inline=False
+            )
+
+            await interaction.followup.send(embed=result_embed)
+
+            # Marquer la question comme répondue et envoyer la suivante si elle existe
+            next_question = complete_question(self.user_id)
+            if next_question:
+                await asyncio.sleep(2)
+                # Envoyer la question suivante
+                embed = discord.Embed(
+                    title="🔔 Question suivante",
+                    description=next_question['question'],
+                    color=discord.Color.blue()
+                )
+
+                options_text = ""
+                for idx, option in enumerate(next_question['options']):
+                    opt_letter = chr(65 + idx)
+                    options_text += f"**{opt_letter}.** {option}\n"
+
+                embed.add_field(name="Options", value=options_text, inline=False)
+                embed.set_footer(text="Réponds quand tu es prêt !")
+
+                view = ReviewQuestionView(next_question, self.user_id)
+                await interaction.user.send(embed=embed, view=view)
+
+        return callback
 
 
 # ==================== COMMANDES ADMIN ====================
@@ -1056,6 +1197,13 @@ async def on_ready():
     print("🔧 Configuration des salons de ressources...")
     await setup_resources_channels()
     print("✅ Configuration terminée")
+
+    # Démarrer le planificateur de révisions
+    print("📅 Démarrage du planificateur de révisions...")
+    from review_scheduler import start_scheduler, load_scheduled_reviews
+    start_scheduler()
+    load_scheduled_reviews(bot, QUIZZES_DATA)
+    print("✅ Planificateur de révisions prêt")
 
 
 @bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")

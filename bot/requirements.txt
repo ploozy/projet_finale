@@ -26,6 +26,7 @@ aiofiles==24.1.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 pytz==2025.2
+APScheduler==3.10.4
 
 # Typing et validation
 typing_extensions==4.12.2
