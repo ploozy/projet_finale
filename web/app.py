@@ -364,10 +364,13 @@ def exams():
                 return render_template('exams_id.html',
                     error=f"Aucune période d'examen planifiée pour le niveau {user.niveau_actuel}.\n"
                           f"Contacte un administrateur.")
-
-
-        
-        
+                # 3. NOUVEAU : Vérifier que l'utilisateur a voté
+        if not user.has_voted or user.current_exam_period != exam_period.id:
+            return render_template('exams_id.html',
+                error=f"⚠️ Tu dois voter avant de passer l'examen !\n\n"
+                      f"Utilise la commande Discord :\n"
+                      f"/vote @user1 @user2 @user3")
+            
         # 4. Trouver l'examen
         exam = None
         for e in exams_data['exams']:
