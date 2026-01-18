@@ -1066,7 +1066,7 @@ async def on_ready():
     print("✅ Configuration terminée")
 
 
- class QuizButton(discord.ui.View):
+class QuizButton(discord.ui.View):
     """Vue avec bouton pour démarrer le quiz"""
     
     def __init__(self, course_id: int):
