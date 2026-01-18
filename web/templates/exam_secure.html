@@ -265,14 +265,15 @@
                     <div class="question-number">Question {{ loop.index }} / {{ exam.questions|length }}</div>
                     <div class="question-text">{{ question.text }}</div>
                     <div class="options">
+                        {% set question_index = loop.index %}
                         {% for key, value in question.choices.items() %}
                         <div class="option">
-                            <input type="radio" 
-                                   id="q{{ loop.parent.index }}_{{ key }}" 
-                                   name="question_{{ loop.parent.index }}" 
+                            <input type="radio"
+                                   id="q{{ question_index }}_{{ key }}"
+                                   name="question_{{ question_index }}"
                                    value="{{ key }}"
                                    required>
-                            <label for="q{{ loop.parent.index }}_{{ key }}">
+                            <label for="q{{ question_index }}_{{ key }}">
                                 <strong>{{ key|upper }})</strong> {{ value }}
                             </label>
                         </div>
