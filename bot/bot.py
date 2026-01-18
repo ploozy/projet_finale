@@ -1449,6 +1449,21 @@ async def create_exam_period(
         # Créer la période
         db = SessionLocal()
         try:
+            # Vérifier si une période existe déjà
+            existing = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
+            if existing:
+                await interaction.followup.send(
+                    f"⚠️ **Une période d'examen existe déjà !**\n\n"
+                    f"🆔 ID: `{period_id}`\n"
+                    f"📊 Groupe: Niveau {existing.group_number}\n"
+                    f"⏰ Début: {existing.start_time.strftime('%d/%m/%Y %H:%M')}\n\n"
+                    f"💡 Pour créer une nouvelle période:\n"
+                    f"• Utilise une date différente, OU\n"
+                    f"• Supprime d'abord l'ancienne avec `/delete_exam_period {period_id}`",
+                    ephemeral=True
+                )
+                return
+
             period = ExamPeriod(
                 id=period_id,
                 group_number=group,
@@ -1458,10 +1473,10 @@ async def create_exam_period(
                 votes_closed=False,
                 bonuses_applied=False
             )
-            
+
             db.add(period)
             db.commit()
-            
+
             embed = discord.Embed(
                 title="✅ Période d'Examen Créée",
                 color=discord.Color.green()
@@ -1472,17 +1487,115 @@ async def create_exam_period(
             embed.add_field(name="🗳️ Votes ouverts", value=vote_start.strftime("%d/%m/%Y %H:%M"), inline=False)
             embed.add_field(name="⏰ Début examen", value=start.strftime("%d/%m/%Y %H:%M"), inline=True)
             embed.add_field(name="🏁 Fin examen", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
-            
+
             await interaction.followup.send(embed=embed, ephemeral=True)
-        
+
         finally:
             db.close()
-    
+
     except ValueError:
         await interaction.followup.send(
             "❌ Format de date incorrect. Utilise : YYYY-MM-DD HH:MM",
             ephemeral=True
         )
+
+
+@bot.tree.command(name="delete_exam_period", description="[ADMIN] Supprimer une période d'examen")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    period_id="ID de la période (format: YYYY-MM-DD_groupX)"
+)
+async def delete_exam_period(
+    interaction: discord.Interaction,
+    period_id: str
+):
+    """Supprime une période d'examen"""
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+
+    db = SessionLocal()
+    try:
+        period = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
+
+        if not period:
+            await interaction.followup.send(
+                f"❌ Aucune période d'examen trouvée avec l'ID `{period_id}`",
+                ephemeral=True
+            )
+            return
+
+        # Afficher les infos avant suppression
+        info_msg = (
+            f"🗑️ **Période d'examen supprimée**\n\n"
+            f"🆔 ID: `{period.id}`\n"
+            f"📊 Groupe: Niveau {period.group_number}\n"
+            f"🗳️ Votes: {period.vote_start_time.strftime('%d/%m/%Y %H:%M')}\n"
+            f"⏰ Début: {period.start_time.strftime('%d/%m/%Y %H:%M')}\n"
+            f"🏁 Fin: {period.end_time.strftime('%d/%m/%Y %H:%M')}"
+        )
+
+        db.delete(period)
+        db.commit()
+
+        await interaction.followup.send(info_msg, ephemeral=True)
+
+    finally:
+        db.close()
+
+
+@bot.tree.command(name="list_exam_periods", description="[ADMIN] Lister toutes les périodes d'examen")
+@commands.has_permissions(administrator=True)
+async def list_exam_periods_command(interaction: discord.Interaction):
+    """Liste toutes les périodes d'examen"""
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+    from datetime import datetime
+
+    db = SessionLocal()
+    try:
+        periods = db.query(ExamPeriod).order_by(ExamPeriod.start_time).all()
+
+        if not periods:
+            await interaction.followup.send(
+                "📋 Aucune période d'examen configurée",
+                ephemeral=True
+            )
+            return
+
+        embed = discord.Embed(
+            title="📋 Périodes d'Examen",
+            color=discord.Color.blue()
+        )
+
+        now = datetime.now()
+
+        for period in periods:
+            status = "🟢 À venir" if period.start_time > now else "🔴 Passée"
+            if period.bonuses_applied:
+                status = "✅ Terminée"
+
+            value = (
+                f"**ID:** `{period.id}`\n"
+                f"**Votes:** {period.vote_start_time.strftime('%d/%m/%Y %H:%M')}\n"
+                f"**Début:** {period.start_time.strftime('%d/%m/%Y %H:%M')}\n"
+                f"**Fin:** {period.end_time.strftime('%d/%m/%Y %H:%M')}\n"
+                f"**Statut:** {status}"
+            )
+
+            embed.add_field(
+                name=f"Groupe {period.group_number}",
+                value=value,
+                inline=False
+            )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    finally:
+        db.close()
 
 
 # ==================== COMMANDE /my_vote_status ====================
