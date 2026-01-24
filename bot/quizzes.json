@@ -2,45 +2,69 @@
   "courses": [
     {
       "id": 1,
-      "title": "Programmation Orientée Objet en Python",
+      "title": "Les bases de la langue arabe - Niveau 1",
       "url": "https://site-fromation.onrender.com/course/1",
-      "icon": "🔷",
+      "icon": "📖",
       "questions": [
         {
-          "id": "poo_q1",
-          "question": "Qu'est-ce qu'une classe en Python ?",
+          "id": "arab_q1",
+          "question": "En arabe, il existe plusieurs pronoms personnels. Lequel signifie 'Je' ?",
           "options": [
-            "Une fonction spéciale",
-            "Un modèle qui définit les attributs et méthodes d'un objet",
-            "Une variable globale",
-            "Une boucle"
+            "أنتَ (anta)",
+            "أنا (ana)",
+            "هو (huwa)",
+            "نحن (nahnu)"
           ],
           "correct": 1,
-          "explanation": "Une classe est un modèle qui définit la structure et le comportement des objets."
+          "explanation": "أنا (ana) signifie 'Je' en arabe. C'est le pronom personnel de la première personne du singulier."
         },
         {
-          "id": "poo_q2",
-          "question": "À quoi sert la méthode __init__ ?",
+          "id": "arab_q2",
+          "question": "Comment dit-on 'Bonjour' / 'La paix soit sur vous' en arabe ?",
           "options": [
-            "À détruire un objet",
-            "À copier un objet",
-            "À initialiser les attributs d'un objet lors de sa création",
-            "À imprimer un objet"
+            "شكراً (choukran)",
+            "مع السلامة (ma'a salama)",
+            "السلام عليكم (as-salam alaykoum)",
+            "صباح الخير (sabah al-khayr)"
           ],
           "correct": 2,
-          "explanation": "__init__ est le constructeur appelé automatiquement lors de la création d'un objet."
+          "explanation": "السلام عليكم (as-salam alaykoum) signifie 'La paix soit sur vous', c'est la salutation islamique de base."
         },
         {
-          "id": "poo_q3",
-          "question": "Comment rendre un attribut privé en Python ?",
+          "id": "arab_q3",
+          "question": "Quel est le mot arabe pour 'livre' ?",
           "options": [
-            "private nom",
-            "__nom (double underscore)",
-            "nom_ (underscore à la fin)",
-            "Il n'y a pas d'attributs privés en Python"
+            "قلم (qalam) - stylo",
+            "كتاب (kitab) - livre",
+            "باب (bab) - porte",
+            "كرسي (koursi) - chaise"
           ],
           "correct": 1,
-          "explanation": "Le double underscore (__) avant le nom rend l'attribut privé par name mangling."
+          "explanation": "كتاب (kitab) signifie 'livre' en arabe. C'est un nom masculin très utilisé."
+        },
+        {
+          "id": "arab_q4",
+          "question": "Comment dit-on 'étudiant' au masculin en arabe ?",
+          "options": [
+            "طالبة (taliba)",
+            "معلم (mou'allim)",
+            "طالب (talib)",
+            "تلميذ (tilmidh)"
+          ],
+          "correct": 2,
+          "explanation": "طالب (talib) signifie 'étudiant' (masculin). Au féminin, on dit طالبة (taliba)."
+        },
+        {
+          "id": "arab_q5",
+          "question": "Le pronom 'هو' (huwa) signifie :",
+          "options": [
+            "Elle",
+            "Il",
+            "Nous",
+            "Vous"
+          ],
+          "correct": 1,
+          "explanation": "هو (huwa) signifie 'Il' (masculin, 3ème personne du singulier)."
         }
       ]
     },

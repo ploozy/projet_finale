@@ -2,69 +2,95 @@
   "exams": [
     {
       "id": 1,
-      "title": "Examen Groupe 1 - Fondamentaux Python",
+      "title": "Examen Groupe 1 - Les bases de la langue arabe",
       "group": 1,
       "duration_minutes": 30,
       "passing_score": 70,
       "questions": [
         {
           "id": 1,
-          "text": "Qu'est-ce qu'une classe en Python ?",
+          "type": "qcm",
+          "text": "En arabe, il existe plusieurs pronoms personnels. Lequel signifie 'Je' ?",
           "choices": {
-            "a": "Une variable globale",
-            "b": "Un modèle pour créer des objets",
-            "c": "Une fonction",
-            "d": "Un module"
+            "a": "أنتَ (anta)",
+            "b": "أنا (ana)",
+            "c": "هو (huwa)",
+            "d": "نحن (nahnu)"
           },
           "correct": "b",
           "points": 2
         },
         {
           "id": 2,
-          "text": "Que fait la méthode __init__ ?",
+          "type": "qcm",
+          "text": "Comment dit-on 'Bonjour' / 'La paix soit sur vous' en arabe ?",
           "choices": {
-            "a": "Détruit un objet",
-            "b": "Initialise les attributs d'un objet",
-            "c": "Compare deux objets",
-            "d": "Convertit un objet en string"
+            "a": "شكراً (choukran)",
+            "b": "مع السلامة (ma'a salama)",
+            "c": "السلام عليكم (as-salam alaykoum)",
+            "d": "صباح الخير (sabah al-khayr)"
           },
-          "correct": "b",
+          "correct": "c",
           "points": 2
         },
         {
           "id": 3,
-          "text": "Comment ajouter un élément à une liste ?",
-          "choices": {
-            "a": "liste.add(element)",
-            "b": "liste.append(element)",
-            "c": "liste.push(element)",
-            "d": "liste.insert(element)"
-          },
-          "correct": "b",
-          "points": 1
+          "type": "fill_blank",
+          "text": "Complétez la phrase : En arabe, le mot _____ signifie 'livre'.",
+          "options": [
+            "كتاب (kitab)",
+            "قلم (qalam)",
+            "باب (bab)",
+            "كرسي (koursi)"
+          ],
+          "correct": 0,
+          "points": 2
         },
         {
           "id": 4,
-          "text": "Quelle est la syntaxe correcte pour définir une fonction ?",
-          "choices": {
-            "a": "function maFonction():",
-            "b": "def maFonction():",
-            "c": "func maFonction():",
-            "d": "define maFonction():"
-          },
-          "correct": "b",
-          "points": 1
+          "type": "fill_blank",
+          "text": "Le pronom _____ signifie 'Il' en arabe.",
+          "options": [
+            "أنا (ana)",
+            "هو (huwa)",
+            "هي (hiya)",
+            "نحن (nahnu)"
+          ],
+          "correct": 1,
+          "points": 2
         },
         {
           "id": 5,
-          "text": "Comment accéder au dernier élément d'une liste nommée 'data' ?",
-          "choices": {
-            "a": "data[last]",
-            "b": "data[-1]",
-            "c": "data[end]",
-            "d": "data.last()"
-          },
-          "correct": "b",
+          "type": "matching",
+          "text": "Associez les pronoms arabes avec leur traduction en français :",
+          "pairs": [
+            {"ar": "أنا", "fr": "Je"},
+            {"ar": "أنتَ", "fr": "Tu (masculin)"},
+            {"ar": "هو", "fr": "Il"},
+            {"ar": "نحن", "fr": "Nous"}
+          ],
+          "points": 3
+        },
+        {
+          "id": 6,
+          "type": "text_input",
+          "text": "Écrivez le mot arabe pour 'étudiant' (masculin) :",
+          "accept": ["طالب", "طَالِب"],
+          "points": 2
+        },
+        {
+          "id": 7,
+          "type": "word_order",
+          "text": "Remettez les mots dans le bon ordre pour former la phrase 'Je suis étudiant' :",
+          "words": ["طالب", "أنا", "معلم"],
+          "correct_order": ["أنا", "طالب"],
+          "points": 3
+        },
+        {
+          "id": 8,
+          "type": "translation",
+          "text": "Traduisez en arabe : 'Merci'",
+          "accept": ["شكراً", "شكرا", "شُكْرًا"],
           "points": 2
         }
       ]

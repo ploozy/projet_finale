@@ -1423,6 +1423,87 @@ async def list_exam_periods_command(interaction: discord.Interaction):
         db.close()
 
 
+@bot.tree.command(name="change_group", description="[ADMIN] Modifier le groupe d'un utilisateur")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    user_id="ID Discord de l'utilisateur",
+    niveau="Nouveau niveau (1, 2, 3, 4, 5)",
+    groupe="Nouvelle lettre du groupe (A, B, C, etc.)"
+)
+async def change_group(
+    interaction: discord.Interaction,
+    user_id: str,
+    niveau: int,
+    groupe: str
+):
+    """Change le niveau et groupe d'un utilisateur dans la base de données"""
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import Utilisateur
+
+    db = SessionLocal()
+    try:
+        # Convertir l'ID en int
+        try:
+            user_id_int = int(user_id)
+        except ValueError:
+            await interaction.followup.send("❌ ID invalide. Utilise un nombre.", ephemeral=True)
+            return
+
+        # Valider le niveau
+        if niveau not in [1, 2, 3, 4, 5]:
+            await interaction.followup.send("❌ Niveau invalide. Utilise 1, 2, 3, 4 ou 5.", ephemeral=True)
+            return
+
+        # Valider la lettre du groupe
+        groupe_upper = groupe.upper()
+        if len(groupe_upper) != 1 or not groupe_upper.isalpha():
+            await interaction.followup.send("❌ Groupe invalide. Utilise une seule lettre (A, B, C, etc.)", ephemeral=True)
+            return
+
+        # Trouver l'utilisateur
+        user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id_int).first()
+
+        if not user:
+            await interaction.followup.send(
+                f"❌ Utilisateur avec l'ID `{user_id_int}` introuvable.\n"
+                f"Assure-toi qu'il s'est inscrit avec `/register`.",
+                ephemeral=True
+            )
+            return
+
+        # Sauvegarder l'ancien groupe
+        old_groupe = user.groupe
+        old_niveau = user.niveau_actuel
+
+        # Créer le nouveau groupe
+        new_groupe = f"{niveau}-{groupe_upper}"
+
+        # Mettre à jour
+        user.niveau_actuel = niveau
+        user.groupe = new_groupe
+
+        db.commit()
+
+        # Message de confirmation
+        embed = discord.Embed(
+            title="✅ Groupe modifié avec succès",
+            color=discord.Color.green()
+        )
+
+        embed.add_field(name="👤 Utilisateur", value=f"{user.username} (`{user_id_int}`)", inline=False)
+        embed.add_field(name="📊 Ancien groupe", value=f"Niveau {old_niveau} - Groupe {old_groupe}", inline=True)
+        embed.add_field(name="🆕 Nouveau groupe", value=f"Niveau {niveau} - Groupe {new_groupe}", inline=True)
+
+        embed.set_footer(text="⚠️ N'oublie pas de mettre à jour les rôles Discord manuellement !")
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    finally:
+        db.close()
+
+
 # ==================== COMMANDE /my_vote_status ====================
 @bot.tree.command(name="my_vote_status", description="Vérifier si tu as voté")
 async def my_vote_status(interaction: discord.Interaction):

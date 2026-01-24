@@ -11,6 +11,7 @@ import os
 from db_connection import SessionLocal
 from models import Utilisateur, ExamResult, ExamPeriod
 from sqlalchemy import func
+import exercise_types
 
 app = Flask(__name__)
 app.secret_key = 'secret'
@@ -448,18 +449,32 @@ def submit_exam():
         for question in exam['questions']:
             q_id = question['id']
             user_answer = answers.get(str(q_id))
-            correct = user_answer == question['correct']
+
+            # Utiliser le système de validation des exercices
+            correct = exercise_types.validate_question(question, user_answer)
+
             points = question.get('points', 1)
             total_points += points
-            
+
             if correct:
                 score += points
-            
+
+            # Déterminer la réponse correcte à afficher (selon le type)
+            q_type = question.get('type', 'qcm')
+            if q_type == 'matching':
+                correct_answer = "Voir paires correctes"
+            elif q_type in ['text_input', 'translation']:
+                correct_answer = question.get('accept', [question.get('correct', question.get('correct_ar', ''))])
+            elif q_type == 'word_order':
+                correct_answer = ' '.join(question.get('correct_order', []))
+            else:
+                correct_answer = question.get('correct', '')
+
             results.append({
                 'question_id': q_id,
                 'question_text': question['text'],
                 'user_answer': user_answer,
-                'correct_answer': question['correct'],
+                'correct_answer': correct_answer,
                 'is_correct': correct,
                 'points': points
             })

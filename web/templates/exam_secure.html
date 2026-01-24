@@ -130,6 +130,116 @@
             cursor: pointer;
             flex: 1;
         }
+
+        /* Styles pour les nouveaux types d'exercices */
+        .text-input-field {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-family: 'Arial', sans-serif;
+            direction: rtl;
+            text-align: right;
+        }
+
+        .text-input-field:focus {
+            outline: none;
+            border-color: #2a5298;
+            background: #eff6ff;
+        }
+
+        .matching-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .matching-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .matching-left {
+            background: #eff6ff;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.3rem;
+            text-align: center;
+            border: 2px solid #2a5298;
+            direction: rtl;
+        }
+
+        .matching-select {
+            flex: 1;
+            padding: 12px;
+            font-size: 1.1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .matching-select:focus {
+            outline: none;
+            border-color: #2a5298;
+        }
+
+        .word-order-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .word-chip {
+            background: #eff6ff;
+            border: 2px solid #2a5298;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            direction: rtl;
+        }
+
+        .word-chip:hover {
+            background: #2a5298;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .word-chip.selected {
+            background: #10b981;
+            color: white;
+            border-color: #059669;
+        }
+
+        .selected-words {
+            min-height: 60px;
+            background: #f8f9fa;
+            border: 2px dashed #2a5298;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .selected-words.empty::before {
+            content: "Cliquez sur les mots dans l'ordre...";
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        .arabic-text {
+            direction: rtl;
+            text-align: right;
+            font-size: 1.3rem;
+        }
         
         /* Bouton de soumission */
         .submit-container {
@@ -261,11 +371,16 @@
             
             <div id="questionsContainer">
                 {% for question in exam.questions %}
-                <div class="question-card">
+                {% set question_index = loop.index %}
+                {% set q_type = question.type|default('qcm') %}
+
+                <div class="question-card" data-type="{{ q_type }}">
                     <div class="question-number">Question {{ loop.index }} / {{ exam.questions|length }}</div>
                     <div class="question-text">{{ question.text }}</div>
+
+                    <!-- QCM Classique -->
+                    {% if q_type == 'qcm' %}
                     <div class="options">
-                        {% set question_index = loop.index %}
                         {% for key, value in question.choices.items() %}
                         <div class="option">
                             <input type="radio"
@@ -279,6 +394,70 @@
                         </div>
                         {% endfor %}
                     </div>
+
+                    <!-- Texte à trous (Fill in the blank) -->
+                    {% elif q_type == 'fill_blank' %}
+                    <div class="options">
+                        {% for option in question.options %}
+                        <div class="option">
+                            <input type="radio"
+                                   id="q{{ question_index }}_{{ loop.index0 }}"
+                                   name="question_{{ question_index }}"
+                                   value="{{ loop.index0 }}"
+                                   required>
+                            <label for="q{{ question_index }}_{{ loop.index0 }}">
+                                <strong>{{ loop.index }})</strong> {{ option }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Association/Appariement (Matching) -->
+                    {% elif q_type == 'matching' %}
+                    <div class="matching-container">
+                        {% for pair in question.pairs %}
+                        <div class="matching-item">
+                            <div class="matching-left">{{ pair.ar }}</div>
+                            <select name="question_{{ question_index }}_{{ loop.index0 }}"
+                                    class="matching-select"
+                                    required>
+                                <option value="">-- Choisir --</option>
+                                {% for p in question.pairs %}
+                                <option value="{{ loop.index0 }}">{{ p.fr }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Écriture libre stricte (Text input) -->
+                    {% elif q_type == 'text_input' %}
+                    <input type="text"
+                           name="question_{{ question_index }}"
+                           class="text-input-field"
+                           placeholder="Écrivez votre réponse en arabe..."
+                           required>
+
+                    <!-- Ordre de mots (Word order) -->
+                    {% elif q_type == 'word_order' %}
+                    <div class="word-order-container" id="wordOrder{{ question_index }}">
+                        {% for word in question.words %}
+                        <div class="word-chip" data-index="{{ loop.index0 }}" onclick="selectWord({{ question_index }}, {{ loop.index0 }}, '{{ word }}')">
+                            {{ word }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="selected-words empty" id="selectedWords{{ question_index }}"></div>
+                    <input type="hidden" name="question_{{ question_index }}" id="wordOrderInput{{ question_index }}">
+
+                    <!-- Traduction FR → AR (Translation) -->
+                    {% elif q_type == 'translation' %}
+                    <input type="text"
+                           name="question_{{ question_index }}"
+                           class="text-input-field"
+                           placeholder="Écrivez la traduction en arabe..."
+                           required>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -331,23 +510,113 @@
             }, 1000);
         }
         
+        // ==================== WORD ORDER LOGIC ====================
+        const selectedWordsByQuestion = {};
+
+        function selectWord(questionIndex, wordIndex, wordText) {
+            if (!selectedWordsByQuestion[questionIndex]) {
+                selectedWordsByQuestion[questionIndex] = [];
+            }
+
+            const selected = selectedWordsByQuestion[questionIndex];
+            const wordChips = document.querySelectorAll(`#wordOrder${questionIndex} .word-chip`);
+            const chip = wordChips[wordIndex];
+
+            // Si déjà sélectionné, le retirer
+            const existingIndex = selected.findIndex(w => w.index === wordIndex);
+            if (existingIndex !== -1) {
+                selected.splice(existingIndex, 1);
+                chip.classList.remove('selected');
+            } else {
+                // Ajouter à la sélection
+                selected.push({ index: wordIndex, text: wordText });
+                chip.classList.add('selected');
+            }
+
+            // Mettre à jour l'affichage et l'input caché
+            updateSelectedWords(questionIndex);
+        }
+
+        function updateSelectedWords(questionIndex) {
+            const selected = selectedWordsByQuestion[questionIndex] || [];
+            const container = document.getElementById(`selectedWords${questionIndex}`);
+            const input = document.getElementById(`wordOrderInput${questionIndex}`);
+
+            if (selected.length === 0) {
+                container.classList.add('empty');
+                container.innerHTML = '';
+                input.value = '';
+            } else {
+                container.classList.remove('empty');
+                container.innerHTML = selected.map((w, i) =>
+                    `<div class="word-chip selected" onclick="removeWordFromOrder(${questionIndex}, ${i})">${w.text}</div>`
+                ).join('');
+
+                // Sauvegarder les indices dans l'input caché
+                input.value = selected.map(w => w.index).join(',');
+            }
+
+            updateProgress();
+        }
+
+        function removeWordFromOrder(questionIndex, position) {
+            const selected = selectedWordsByQuestion[questionIndex];
+            const removed = selected.splice(position, 1)[0];
+
+            // Retirer le style "selected" du chip
+            const wordChips = document.querySelectorAll(`#wordOrder${questionIndex} .word-chip`);
+            wordChips[removed.index].classList.remove('selected');
+
+            updateSelectedWords(questionIndex);
+        }
+
         // ==================== BARRE DE PROGRESSION ====================
         function updateProgress() {
             const totalQuestions = {{ exam.questions|length }};
             let answeredQuestions = 0;
-            
-            for (let i = 1; i <= totalQuestions; i++) {
-                const answered = document.querySelector(`input[name="question_${i}"]:checked`);
+
+            const questions = document.querySelectorAll('.question-card');
+            questions.forEach((card, index) => {
+                const questionNum = index + 1;
+                const type = card.dataset.type || 'qcm';
+
+                let answered = false;
+
+                if (type === 'qcm' || type === 'fill_blank') {
+                    // Radio buttons
+                    answered = document.querySelector(`input[name="question_${questionNum}"]:checked`) !== null;
+                } else if (type === 'matching') {
+                    // Vérifier que tous les selects sont remplis
+                    const selects = card.querySelectorAll('select');
+                    answered = Array.from(selects).every(select => select.value !== '');
+                } else if (type === 'text_input' || type === 'translation') {
+                    // Text input
+                    const input = document.querySelector(`input[name="question_${questionNum}"]`);
+                    answered = input && input.value.trim() !== '';
+                } else if (type === 'word_order') {
+                    // Word order
+                    const input = document.getElementById(`wordOrderInput${questionNum}`);
+                    answered = input && input.value.trim() !== '';
+                }
+
                 if (answered) answeredQuestions++;
-            }
-            
+            });
+
             const progress = (answeredQuestions / totalQuestions) * 100;
             document.getElementById('progressBar').style.width = progress + '%';
         }
-        
+
         // Mise à jour de la barre lors du changement
         document.querySelectorAll('input[type="radio"]').forEach(radio => {
             radio.addEventListener('change', updateProgress);
+        });
+
+        document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('change', updateProgress);
+        });
+
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.addEventListener('input', updateProgress);
         });
         
         // ==================== SYSTÈME ANTI-TRICHE ====================
@@ -428,12 +697,41 @@
             
             // Collecter les réponses
             const answers = {};
-            {% for question in exam.questions %}
-            const q{{ loop.index }} = document.querySelector('input[name="question_{{ loop.index }}"]:checked');
-            if (q{{ loop.index }}) {
-                answers['{{ question.id }}'] = q{{ loop.index }}.value;
-            }
-            {% endfor %}
+            const questions = document.querySelectorAll('.question-card');
+
+            questions.forEach((card, index) => {
+                const questionNum = index + 1;
+                const type = card.dataset.type || 'qcm';
+                const questionId = {{ exam.questions | tojson }}[index].id;
+
+                if (type === 'qcm' || type === 'fill_blank') {
+                    // Radio buttons
+                    const selected = document.querySelector(`input[name="question_${questionNum}"]:checked`);
+                    if (selected) {
+                        answers[questionId] = selected.value;
+                    }
+                } else if (type === 'matching') {
+                    // Matching - collecter toutes les associations
+                    const matchingAnswers = {};
+                    const selects = card.querySelectorAll('select');
+                    selects.forEach((select, i) => {
+                        matchingAnswers[i] = select.value;
+                    });
+                    answers[questionId] = matchingAnswers;
+                } else if (type === 'text_input' || type === 'translation') {
+                    // Text input
+                    const input = document.querySelector(`input[name="question_${questionNum}"]`);
+                    if (input) {
+                        answers[questionId] = input.value.trim();
+                    }
+                } else if (type === 'word_order') {
+                    // Word order
+                    const input = document.getElementById(`wordOrderInput${questionNum}`);
+                    if (input) {
+                        answers[questionId] = input.value;
+                    }
+                }
+            });
             
             try {
                 const userId = document.getElementById('userId').value;
