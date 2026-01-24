@@ -12,6 +12,7 @@ from db_connection import SessionLocal
 from models import Utilisateur, ExamResult, ExamPeriod
 from sqlalchemy import func
 import exercise_types
+import requests
 
 app = Flask(__name__)
 app.secret_key = 'secret'
@@ -19,6 +20,57 @@ app.secret_key = 'secret'
 # Charger les examens
 with open('exam.json', 'r', encoding='utf-8') as f:
     exams_data = json.load(f)
+
+
+def check_user_has_admin_role(user_id: int) -> bool:
+    """
+    Vérifie si un utilisateur Discord a le rôle 'admin' (insensible à la casse)
+
+    Returns:
+        bool: True si l'utilisateur a un rôle contenant 'admin', False sinon
+    """
+    try:
+        discord_token = os.getenv('DISCORD_TOKEN')
+        guild_id = os.getenv('GUILD_ID')
+
+        if not discord_token or not guild_id:
+            print("⚠️ DISCORD_TOKEN ou GUILD_ID manquant - impossible de vérifier le rôle admin")
+            return False
+
+        # Récupérer les informations du membre via l'API Discord
+        url = f"https://discord.com/api/v10/guilds/{guild_id}/members/{user_id}"
+        headers = {"Authorization": f"Bot {discord_token}"}
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            print(f"❌ Erreur API Discord ({response.status_code}): {response.text}")
+            return False
+
+        member_data = response.json()
+        role_ids = member_data.get('roles', [])
+
+        # Récupérer tous les rôles du serveur
+        roles_url = f"https://discord.com/api/v10/guilds/{guild_id}/roles"
+        roles_response = requests.get(roles_url, headers=headers)
+
+        if roles_response.status_code != 200:
+            print(f"❌ Erreur API Discord roles ({roles_response.status_code})")
+            return False
+
+        all_roles = roles_response.json()
+
+        # Vérifier si l'utilisateur a un rôle contenant 'admin' (insensible à la casse)
+        for role in all_roles:
+            if role['id'] in role_ids and 'admin' in role['name'].lower():
+                print(f"✅ Utilisateur {user_id} a le rôle admin: {role['name']}")
+                return True
+
+        return False
+
+    except Exception as e:
+        print(f"❌ Erreur vérification rôle admin: {e}")
+        return False
 
 
 def find_available_group(niveau: int, db) -> str:
@@ -336,8 +388,39 @@ def exams():
         if not user:
             return render_template('exams_id.html',
                 error="Utilisateur non trouvé. Utilise /register sur Discord d'abord.")
-        
-        # 2. Vérifier période d'examen active
+
+        # 2. Vérifier si l'utilisateur a déjà passé l'examen de son niveau
+        # Trouver l'examen correspondant au niveau
+        exam = None
+        for e in exams_data['exams']:
+            if e['group'] == user.niveau_actuel:
+                exam = e
+                break
+
+        if exam:
+            # Vérifier s'il existe déjà un résultat pour cet examen
+            existing_result = db.query(ExamResult).filter(
+                ExamResult.user_id == user_id,
+                ExamResult.exam_id == exam['id']
+            ).first()
+
+            if existing_result:
+                # L'utilisateur a déjà passé cet examen
+                # Vérifier s'il a le rôle admin
+                is_admin = check_user_has_admin_role(user_id)
+
+                if not is_admin:
+                    # Pas admin et déjà passé → BLOQUER
+                    return render_template('exams_id.html',
+                        error=f"⚠️ Tu as déjà passé l'examen du Niveau {user.niveau_actuel}\n\n"
+                              f"📊 Résultat: {existing_result.percentage}% ({existing_result.score}/{existing_result.total} points)\n"
+                              f"{'✅ Réussi' if existing_result.passed else '❌ Échoué'}\n\n"
+                              f"Tu ne peux passer l'examen qu'une seule fois.\n"
+                              f"Contacte un administrateur si besoin.")
+                else:
+                    print(f"🔑 Admin détecté - {user.username} peut repasser l'examen")
+
+        # 3. Vérifier période d'examen active
         now = datetime.utcnow()  # Utiliser UTC pour cohérence avec la DB
 
         # Debug : afficher l'heure actuelle
