@@ -3,9 +3,16 @@ Connexion à la base de données PostgreSQL
 Fichier partagé entre Bot Discord et Site Web
 """
 import os
+from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import QueuePool
+from dotenv import load_dotenv
+
+# Charger le fichier .env depuis la RACINE du projet
+# Cherche .env dans le dossier parent (racine)
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Récupération de l'URL depuis les variables d'environnement
 DATABASE_URL = os.getenv('DATABASE_URL')
