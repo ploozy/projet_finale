@@ -339,9 +339,9 @@
 <body>
     <!-- Header d'avertissement -->
     <div class="exam-warning-header">
-        <div class="exam-timer" id="timer">⏱️ <span id="timer-display">{{ exam.duration_minutes }}:00</span></div>
+        <div class="exam-timer" id="timer">⏱️ <span id="timer-display">Chargement...</span></div>
         <div class="exam-warning-text">
-            ⚠️ NE QUITTEZ PAS CETTE PAGE - L'examen redémarrera automatiquement
+            ⚠️ NE QUITTEZ PAS CETTE PAGE - L'examen sera soumis automatiquement à la fin
         </div>
     </div>
     
@@ -472,42 +472,46 @@
     
     <script>
         // ==================== CONFIGURATION ====================
-        const EXAM_DURATION = {{ exam.duration_minutes }} * 60; // en secondes
-        let examStartTime = Date.now();
+        // Temps de fin de la période d'examen (en millisecondes)
+        const EXAM_END_TIME = new Date("{{ exam_period.end_time.isoformat() }}").getTime();
         let timerInterval = null;
         let focusLost = false;
         let examSubmitted = false;
-        
+
         // ==================== TIMER ====================
         function startTimer() {
-            let remainingTime = EXAM_DURATION;
-            
-            timerInterval = setInterval(() => {
-                remainingTime--;
-                
-                if (remainingTime <= 0) {
+            function updateTimer() {
+                const now = Date.now();
+                const remainingMs = EXAM_END_TIME - now;
+
+                if (remainingMs <= 0) {
                     clearInterval(timerInterval);
-                    alert('⏱️ Temps écoulé ! L\'examen va être soumis automatiquement.');
-                    document.getElementById('examForm').dispatchEvent(new Event('submit'));
+                    alert('⏱️ La fenêtre d\'examen est terminée ! Ton examen va être soumis automatiquement.');
+                    // Soumettre automatiquement le formulaire
+                    submitExamAutomatically();
                     return;
                 }
-                
-                const minutes = Math.floor(remainingTime / 60);
-                const seconds = remainingTime % 60;
-                
-                document.getElementById('timer-display').textContent = 
+
+                const remainingSeconds = Math.floor(remainingMs / 1000);
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+
+                document.getElementById('timer-display').textContent =
                     `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                
+
                 // Changer la couleur si moins de 10 minutes
                 const timerElement = document.querySelector('.exam-timer');
-                if (remainingTime < 600) {
+                if (remainingSeconds < 600) {
                     timerElement.style.color = '#fbbf24';
                 }
-                if (remainingTime < 300) {
+                if (remainingSeconds < 300) {
                     timerElement.style.color = '#ef4444';
                 }
-                
-            }, 1000);
+            }
+
+            // Mise à jour immédiate puis toutes les secondes
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
         }
         
         // ==================== WORD ORDER LOGIC ====================
@@ -671,30 +675,30 @@
             }, 1000);
         }
         
-        // ==================== SOUMISSION ====================
-        document.getElementById('examForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
+        // ==================== SOUMISSION AUTOMATIQUE (FIN DU TIMER) ====================
+        async function submitExamAutomatically() {
             if (examSubmitted) {
                 return; // Éviter double soumission
             }
-            
-            if (!confirm('⚠️ Êtes-vous sûr de vouloir soumettre l\'examen ? Cette action est irréversible.')) {
-                return;
-            }
-            
+
             examSubmitted = true;
-            
+
             // Désactiver le bouton
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
-            submitBtn.textContent = '⏳ Soumission en cours...';
-            
+            submitBtn.textContent = '⏳ Soumission automatique en cours...';
+
             // Arrêter le timer et l'anti-triche
             if (timerInterval) {
                 clearInterval(timerInterval);
             }
-            
+
+            // Collecter et soumettre les réponses
+            await collectAndSubmitAnswers();
+        }
+
+        // ==================== COLLECTE DES RÉPONSES ====================
+        async function collectAndSubmitAnswers() {
             // Collecter les réponses
             const answers = {};
             const questions = document.querySelectorAll('.question-card');
@@ -732,11 +736,11 @@
                     }
                 }
             });
-            
+
             try {
                 const userId = document.getElementById('userId').value;
                 const examId = document.getElementById('examId').value;
-                
+
                 const response = await fetch('/submit_exam', {
                     method: 'POST',
                     headers: {
@@ -748,32 +752,53 @@
                         answers: answers
                     })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     // Rediriger vers une page de confirmation
-                    const passed = result.passed ? 'success' : 'failure';
                     alert(
-                        result.passed 
-                        ? `✅ Examen réussi !\n\nScore: ${result.percentage}%\n\nTu recevras une notification Discord avec ton bonus à la fin des 6h.`
-                        : `📝 Examen terminé\n\nScore: ${result.percentage}%\n\nTu recevras une notification Discord avec ton bonus à la fin des 6h.`
+                        result.passed
+                        ? `✅ Examen réussi !\n\nScore: ${result.percentage}%\n\nTu recevras une notification Discord avec ton bonus à la fin de la fenêtre.`
+                        : `📝 Examen terminé\n\nScore: ${result.percentage}%\n\nTu recevras une notification Discord avec ton bonus à la fin de la fenêtre.`
                     );
                     window.location.href = '/exams';
                 } else {
                     alert('❌ Erreur lors de la soumission : ' + result.message);
-                    examSubmitted = false;
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = '🎯 Soumettre l\'Examen';
                 }
-                
+
             } catch (error) {
                 console.error('Erreur soumission:', error);
-                alert('❌ Erreur lors de la soumission. Réessayez.');
-                examSubmitted = false;
-                submitBtn.disabled = false;
-                submitBtn.textContent = '🎯 Soumettre l\'Examen';
+                alert('❌ Erreur lors de la soumission.');
             }
+        }
+
+        // ==================== SOUMISSION MANUELLE ====================
+        document.getElementById('examForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (examSubmitted) {
+                return; // Éviter double soumission
+            }
+
+            if (!confirm('⚠️ Êtes-vous sûr de vouloir soumettre l\'examen ? Cette action est irréversible.')) {
+                return;
+            }
+
+            examSubmitted = true;
+
+            // Désactiver le bouton
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Soumission en cours...';
+
+            // Arrêter le timer et l'anti-triche
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+
+            // Utiliser la fonction de collecte et soumission
+            await collectAndSubmitAnswers();
         });
         
         // ==================== INITIALISATION ====================

@@ -158,11 +158,15 @@ class BonusSystem:
             
             # 6. Gérer les promotions (rôles Discord)
             print(f"\n🎊 Gestion de {len(promotions)} promotion(s)...")
-            
+
             for promo in promotions:
                 await self._handle_promotion(promo, guild)
-            
-            # 7. Marquer la période comme traitée
+
+            # 7. Envoyer un récapitulatif dans le salon discussion du groupe
+            print(f"\n📢 Envoi du récapitulatif dans le salon discussion...")
+            await self._send_group_summary(exam_period, notifications, guild, db)
+
+            # 8. Marquer la période comme traitée
             exam_period.bonuses_applied = True
             exam_period.votes_closed = True
             db.commit()
@@ -373,6 +377,74 @@ class BonusSystem:
             print(f"  ⚠️ MP bloqués pour {promo['user_id']}")
         except Exception as e:
             print(f"  ❌ Erreur promotion {promo['user_id']}: {e}")
+
+    async def _send_group_summary(self, exam_period: ExamPeriod, notifications: list, guild: discord.Guild, db):
+        """Envoie un récapitulatif des résultats dans le salon discussion du groupe"""
+        try:
+            # Trouver le numéro de groupe
+            group_number = exam_period.group_number
+
+            # Nom du salon : groupe-X-Y-entraide (ex: groupe-1-a-entraide)
+            # On doit trouver tous les groupes de ce niveau
+            possible_groups = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+
+            for letter in possible_groups:
+                channel_name = f"groupe-{group_number}-{letter}-entraide"
+                channel = discord.utils.get(guild.text_channels, name=channel_name)
+
+                if channel:
+                    # Filtrer les notifications pour ce groupe seulement
+                    group_notifications = []
+                    for notif in notifications:
+                        user = db.query(Utilisateur).filter(Utilisateur.user_id == notif['user_id']).first()
+                        if user and user.niveau_actuel == group_number:
+                            group_notifications.append({**notif, 'username': user.username})
+
+                    if not group_notifications:
+                        continue  # Pas de résultats pour ce groupe
+
+                    # Créer l'embed récapitulatif
+                    embed = discord.Embed(
+                        title=f"📊 Résultats de l'Examen - Groupe {group_number}-{letter.upper()}",
+                        description=f"Voici les résultats de la période d'examen qui vient de se terminer !",
+                        color=discord.Color.blue(),
+                        timestamp=datetime.now()
+                    )
+
+                    # Ajouter chaque résultat
+                    for notif in group_notifications:
+                        bonus_emoji = {
+                            'Or': '🥇',
+                            'Argent': '🥈',
+                            'Bronze': '🥉'
+                        }.get(notif.get('bonus_level', ''), '')
+
+                        bonus_text = f"+{notif['bonus']}% {bonus_emoji}" if notif['bonus'] > 0 else "Aucun bonus"
+
+                        result_text = (
+                            f"**Note originale:** {notif['original_percentage']}%\n"
+                            f"**Bonus:** {bonus_text}\n"
+                            f"**Note finale:** {notif['bonus_percentage']}%\n"
+                        )
+
+                        if notif.get('promoted'):
+                            result_text += "🎉 **PROMOTION !**\n"
+
+                        embed.add_field(
+                            name=f"👤 {notif['username']}",
+                            value=result_text,
+                            inline=False
+                        )
+
+                    embed.set_footer(text="Félicitations à tous ! Continuez comme ça ! 💪")
+
+                    await channel.send(embed=embed)
+                    print(f"  ✅ Récapitulatif envoyé dans {channel_name}")
+
+        except Exception as e:
+            print(f"  ❌ Erreur envoi récapitulatif groupe: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 # ==================== TÂCHE AUTOMATIQUE : Vérifier les périodes terminées ====================

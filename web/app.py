@@ -481,10 +481,11 @@ def exams():
             return render_template('exams_id.html',
                 error=f"Aucun examen pour le niveau {user.niveau_actuel}")
 
-        # 6. Afficher l'examen sécurisé
+        # 6. Afficher l'examen sécurisé avec la période d'examen
         return render_template('exam_secure.html',
             exam=exam,
             user_id=user_id,
+            exam_period=exam_period,
             user_info={
                 'username': user.username,
                 'niveau_actuel': user.niveau_actuel,
