@@ -3,7 +3,7 @@
     {
       "id": 1,
       "title": "Les bases de la langue arabe - Niveau 1",
-      "url": "https://site-fromation.onrender.com/course/1",
+      "url": "http://localhost:5000/course/1",
       "icon": "📖",
       "questions": [
         {
@@ -71,7 +71,7 @@
     {
       "id": 2,
       "title": "Structures de Données en Python",
-      "url": "https://site-fromation.onrender.com/course/2",
+      "url": "http://localhost:5000/course/2",
       "icon": "📊",
       "questions": [
         {
@@ -115,7 +115,7 @@
     {
       "id": 3,
       "title": "Gestion des Exceptions en Python",
-      "url": "https://site-fromation.onrender.com/course/3",
+      "url": "http://localhost:5000/course/3",
       "icon": "⚠️",
       "questions": [
         {
@@ -159,7 +159,7 @@
     {
       "id": 4,
       "title": "Algorithmique : Tri et Recherche",
-      "url": "https://site-fromation.onrender.com/course/4",
+      "url": "http://localhost:5000/course/4",
       "icon": "🔍",
       "questions": [
         {
