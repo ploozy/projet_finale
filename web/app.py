@@ -384,43 +384,12 @@ def exams():
         # 1. Chercher l'utilisateur
         db = SessionLocal()
         user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-        
+
         if not user:
             return render_template('exams_id.html',
                 error="Utilisateur non trouvé. Utilise /register sur Discord d'abord.")
 
-        # 2. Vérifier si l'utilisateur a déjà passé l'examen de son niveau
-        # Trouver l'examen correspondant au niveau
-        exam = None
-        for e in exams_data['exams']:
-            if e['group'] == user.niveau_actuel:
-                exam = e
-                break
-
-        if exam:
-            # Vérifier s'il existe déjà un résultat pour cet examen
-            existing_result = db.query(ExamResult).filter(
-                ExamResult.user_id == user_id,
-                ExamResult.exam_id == exam['id']
-            ).first()
-
-            if existing_result:
-                # L'utilisateur a déjà passé cet examen
-                # Vérifier s'il a le rôle admin
-                is_admin = check_user_has_admin_role(user_id)
-
-                if not is_admin:
-                    # Pas admin et déjà passé → BLOQUER
-                    return render_template('exams_id.html',
-                        error=f"⚠️ Tu as déjà passé l'examen du Niveau {user.niveau_actuel}\n\n"
-                              f"📊 Résultat: {existing_result.percentage}% ({existing_result.score}/{existing_result.total} points)\n"
-                              f"{'✅ Réussi' if existing_result.passed else '❌ Échoué'}\n\n"
-                              f"Tu ne peux passer l'examen qu'une seule fois.\n"
-                              f"Contacte un administrateur si besoin.")
-                else:
-                    print(f"🔑 Admin détecté - {user.username} peut repasser l'examen")
-
-        # 3. Vérifier période d'examen active
+        # 2. Vérifier période d'examen active (AVANT de vérifier si déjà passé)
         now = datetime.utcnow()  # Utiliser UTC pour cohérence avec la DB
 
         # Debug : afficher l'heure actuelle
@@ -460,7 +429,41 @@ def exams():
                 return render_template('exams_id.html',
                     error=f"Aucune période d'examen planifiée pour le niveau {user.niveau_actuel}.\n"
                           f"Contacte un administrateur.")
-                # 3. Vérifier que l'utilisateur a voté
+
+        # 3. Vérifier si l'utilisateur a déjà passé l'examen PENDANT CETTE PÉRIODE
+        # Trouver l'examen correspondant au niveau
+        exam = None
+        for e in exams_data['exams']:
+            if e['group'] == user.niveau_actuel:
+                exam = e
+                break
+
+        if exam:
+            # Vérifier s'il existe déjà un résultat pour cet examen PENDANT cette période
+            existing_result = db.query(ExamResult).filter(
+                ExamResult.user_id == user_id,
+                ExamResult.exam_id == exam['id'],
+                ExamResult.date >= exam_period.start_time,
+                ExamResult.date <= exam_period.end_time
+            ).first()
+
+            if existing_result:
+                # L'utilisateur a déjà passé cet examen pendant cette période
+                # Vérifier s'il a le rôle admin
+                is_admin = check_user_has_admin_role(user_id)
+
+                if not is_admin:
+                    # Pas admin et déjà passé pour cette période → BLOQUER
+                    return render_template('exams_id.html',
+                        error=f"⚠️ Tu as déjà passé l'examen pour cette période !\n\n"
+                              f"📊 Résultat: {existing_result.percentage}% ({existing_result.score}/{existing_result.total} points)\n"
+                              f"{'✅ Réussi' if existing_result.passed else '❌ Échoué'}\n\n"
+                              f"Tu ne peux passer l'examen qu'une seule fois par période.\n"
+                              f"Attends la prochaine période d'examen.")
+                else:
+                    print(f"🔑 Admin détecté - {user.username} peut repasser l'examen")
+
+        # 4. Vérifier que l'utilisateur a voté
         # Pour les tests, accepter "test" comme exam_period valide
         valid_vote = (
             user.has_voted and
@@ -472,19 +475,13 @@ def exams():
                 error=f"⚠️ Tu dois voter avant de passer l'examen !\n\n"
                       f"Utilise la commande Discord :\n"
                       f"/vote @user1")
-            
-        # 4. Trouver l'examen
-        exam = None
-        for e in exams_data['exams']:
-            if e['group'] == user.niveau_actuel:
-                exam = e
-                break
-        
+
+        # 5. Vérifier qu'on a bien trouvé un examen (normalement déjà fait plus haut)
         if not exam:
             return render_template('exams_id.html',
                 error=f"Aucun examen pour le niveau {user.niveau_actuel}")
-        
-        # 5. Afficher l'examen sécurisé
+
+        # 6. Afficher l'examen sécurisé
         return render_template('exam_secure.html',
             exam=exam,
             user_id=user_id,
