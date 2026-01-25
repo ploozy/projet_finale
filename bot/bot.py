@@ -444,7 +444,7 @@ async def on_member_join(member: discord.Member):
             
             embed.add_field(
                 name="🌐 Lien du Site",
-                value="https://site-fromation.onrender.com/exams",
+                value="http://localhost:5000/exams",
                 inline=False
             )
             
@@ -545,7 +545,7 @@ async def register(interaction: discord.Interaction):
                        f"**Groupe** : {existing.groupe}\n"
                        f"**Niveau** : {existing.niveau_actuel}\n"
                        f"**ID** : `{user_id}`\n\n"
-                       f"🌐 Site : https://site-fromation.onrender.com/exams"
+                       f"🌐 Site : http://localhost:5000/exams"
             )
             return
         
@@ -563,7 +563,7 @@ async def register(interaction: discord.Interaction):
                            f"**Groupe** : {user.groupe}\n"
                            f"**Niveau** : {user.niveau_actuel}\n"
                            f"**ID** : `{user_id}`\n\n"
-                           f"🌐 Site : https://site-fromation.onrender.com/exams\n\n"
+                           f"🌐 Site : http://localhost:5000/exams\n\n"
                            f"🤖 Tu recevras tes résultats automatiquement en MP !"
                 )
         
@@ -658,7 +658,7 @@ async def my_info(interaction: discord.Interaction):
         embed.add_field(name="🆔 ID", value=f"`{user.user_id}`", inline=True)
         embed.add_field(
             name="🌐 Lien Examen",
-            value=f"https://site-fromation.onrender.com/exams\nID : `{user.user_id}`",
+            value=f"http://localhost:5000/exams\nID : `{user.user_id}`",
             inline=False
         )
         embed.add_field(
@@ -1155,7 +1155,7 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
         )
         
         # URL vers la page du cours
-        course_url = f"https://site-fromation.onrender.com/course/{course_id}"
+        course_url = f"http://localhost:5000/course/{course_id}"
         
         embed.add_field(
             name="🌐 Lien du cours",
