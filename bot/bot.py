@@ -97,25 +97,38 @@ main_guild = None
 async def on_ready():
     """Appelé quand le bot est connecté"""
     global main_guild
-    
-    print(f'✅ Bot connecté : {bot.user}')
-    print(f'📊 Serveurs : {len(bot.guilds)}')
-    
+
+    print(f'✅ {bot.user} connecté')
+    print(f'🔗 Connecté à {len(bot.guilds)} serveur(s)')
+
+    # Définir le serveur principal
     if bot.guilds:
         main_guild = bot.guilds[0]
-        print(f'🏠 Serveur principal : {main_guild.name}')
-    
+
+    # Synchroniser les commandes
     try:
         synced = await bot.tree.sync()
-        print(f'✅ Commandes synchronisées : {len(synced)}')
+        print(f'✅ {len(synced)} commande(s) synchronisée(s)')
     except Exception as e:
         print(f'❌ Erreur sync: {e}')
-    
+
+    # Configurer les salons de ressources et envoyer les cours
+    print("🔧 Configuration des salons de ressources...")
+    await setup_resources_channels()
+    print("✅ Configuration terminée")
+
+    # Démarrer le planificateur de révisions
+    print("📅 Démarrage du planificateur de révisions...")
+    from review_scheduler import start_scheduler, load_scheduled_reviews
+    start_scheduler()
+    load_scheduled_reviews(bot, QUIZZES_DATA)
+    print("✅ Planificateur de révisions prêt")
+
     # Démarrer la tâche de vérification automatique
     if not check_results_task.is_running():
         check_results_task.start()
         print("✅ Tâche de vérification automatique démarrée (toutes les 30s)")
-        
+
     if not check_finished_exam_periods.is_running():
         check_finished_exam_periods.start()
         print("✅ Système de bonus automatique démarré")
@@ -179,19 +192,6 @@ async def before_check_finished_exam_periods():
     print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
 
 # ... (reste du code) ...
-
-@bot.event
-async def on_ready():
-    global discord_group_manager
-    
-    print(f'✅ Bot connecté en tant que {bot.user}')
-    
-    # ... (vos autres initialisations) ...
-    
-    # ✅ DÉMARRAGE DE LA TÂCHE ICI
-    if not check_finished_exam_periods.is_running():
-        check_finished_exam_periods.start()
-        print("✅ Système de bonus automatique démarré")
 
 @tasks.loop(seconds=30)
 async def check_results_task():
@@ -1198,32 +1198,6 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
 
     except Exception as e:
         print(f"  ❌ Erreur lors de l'envoi du cours {course_id}: {e}")
-
-
-@bot.event
-async def on_ready():
-    """Appelé quand le bot est prêt"""
-    print(f'✅ {bot.user} connecté')
-    print(f'🔗 Connecté à {len(bot.guilds)} serveur(s)')
-    
-    # Synchroniser les commandes
-    try:
-        synced = await bot.tree.sync()
-        print(f'✅ {len(synced)} commande(s) synchronisée(s)')
-    except Exception as e:
-        print(f'❌ Erreur sync: {e}')
-    
-    # Configurer les salons de ressources et envoyer les cours
-    print("🔧 Configuration des salons de ressources...")
-    await setup_resources_channels()
-    print("✅ Configuration terminée")
-
-    # Démarrer le planificateur de révisions
-    print("📅 Démarrage du planificateur de révisions...")
-    from review_scheduler import start_scheduler, load_scheduled_reviews
-    start_scheduler()
-    load_scheduled_reviews(bot, QUIZZES_DATA)
-    print("✅ Planificateur de révisions prêt")
 
 
 @bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
