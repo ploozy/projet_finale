@@ -1076,17 +1076,28 @@ async def create_exam_period(
             # Vérifier si une période existe déjà
             existing = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
             if existing:
-                await interaction.followup.send(
-                    f"⚠️ **Une période d'examen existe déjà !**\n\n"
-                    f"🆔 ID: `{period_id}`\n"
-                    f"📊 Groupe: Niveau {existing.group_number}\n"
-                    f"⏰ Début: {existing.start_time.strftime('%d/%m/%Y %H:%M')}\n\n"
-                    f"💡 Pour créer une nouvelle période:\n"
-                    f"• Utilise une date différente, OU\n"
-                    f"• Supprime d'abord l'ancienne avec `/delete_exam_period {period_id}`",
-                    ephemeral=True
-                )
-                return
+                # Vérifier si la période est terminée
+                now = datetime.now()
+                if existing.end_time >= now:
+                    # Période encore active, on bloque
+                    await interaction.followup.send(
+                        f"⚠️ **Une période d'examen ACTIVE existe déjà !**\n\n"
+                        f"🆔 ID: `{period_id}`\n"
+                        f"📊 Groupe: Niveau {existing.group_number}\n"
+                        f"⏰ Début: {existing.start_time.strftime('%d/%m/%Y %H:%M')}\n"
+                        f"🏁 Fin: {existing.end_time.strftime('%d/%m/%Y %H:%M')}\n\n"
+                        f"💡 Pour créer une nouvelle période:\n"
+                        f"• Utilise une date différente, OU\n"
+                        f"• Attends la fin de la période actuelle, OU\n"
+                        f"• Supprime d'abord l'ancienne avec `/delete_exam_period {period_id}`",
+                        ephemeral=True
+                    )
+                    return
+                else:
+                    # Période terminée, on la supprime automatiquement
+                    print(f"🗑️ Suppression automatique de la période terminée {period_id}")
+                    db.delete(existing)
+                    db.commit()
 
             period = ExamPeriod(
                 id=period_id,
@@ -1220,6 +1231,153 @@ async def list_exam_periods_command(interaction: discord.Interaction):
             )
 
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    finally:
+        db.close()
+
+
+@bot.tree.command(name="actualiser_exams", description="[ADMIN] Actualiser les rôles Discord selon la base de données")
+@commands.has_permissions(administrator=True)
+async def actualiser_exams(interaction: discord.Interaction):
+    """
+    Synchronise les rôles Discord avec la base de données
+    Applique toutes les promotions qui sont dans la DB mais pas sur Discord
+    """
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import Utilisateur
+
+    db = SessionLocal()
+    try:
+        guild = interaction.guild
+        if not guild:
+            await interaction.followup.send("❌ Commande doit être utilisée sur un serveur", ephemeral=True)
+            return
+
+        # Récupérer tous les utilisateurs
+        all_users = db.query(Utilisateur).all()
+
+        if not all_users:
+            await interaction.followup.send("⚠️ Aucun utilisateur dans la base de données", ephemeral=True)
+            return
+
+        # Statistiques
+        updated_count = 0
+        unchanged_count = 0
+        errors = []
+
+        await interaction.followup.send(
+            f"🔄 **Actualisation en cours...**\n"
+            f"📊 {len(all_users)} utilisateur(s) à vérifier",
+            ephemeral=True
+        )
+
+        for user_db in all_users:
+            try:
+                member = guild.get_member(user_db.user_id)
+
+                if not member:
+                    errors.append(f"⚠️ {user_db.username} (ID: {user_db.user_id}) - Membre introuvable sur Discord")
+                    continue
+
+                # Rôle attendu selon la base de données
+                expected_role_name = f"Groupe {user_db.groupe}"
+                expected_role = discord.utils.get(guild.roles, name=expected_role_name)
+
+                # Vérifier si le membre a déjà le bon rôle
+                if expected_role and expected_role in member.roles:
+                    unchanged_count += 1
+                    continue
+
+                print(f"\n🔄 Actualisation : {user_db.username}")
+                print(f"   Groupe DB: {user_db.groupe}")
+
+                # Retirer tous les anciens rôles de groupe
+                for role in member.roles:
+                    if role.name.startswith("Groupe "):
+                        await member.remove_roles(role)
+                        print(f"   ❌ Rôle retiré : {role.name}")
+
+                # Créer ou récupérer le nouveau rôle
+                if not expected_role:
+                    expected_role = await guild.create_role(
+                        name=expected_role_name,
+                        color=discord.Color.blue(),
+                        mentionable=True
+                    )
+                    print(f"   ✅ Rôle créé : {expected_role_name}")
+
+                # Ajouter le nouveau rôle
+                await member.add_roles(expected_role)
+                print(f"   ✅ Rôle ajouté : {expected_role_name}")
+
+                # Créer les salons si nécessaire
+                await create_group_channels(guild, user_db.groupe, expected_role)
+
+                # Envoyer les ressources
+                await on_user_level_change(user_db.user_id, user_db.niveau_actuel, user_db.groupe, guild)
+                print(f"   📚 Ressources envoyées")
+
+                # Envoyer un MP de notification
+                try:
+                    embed = discord.Embed(
+                        title="🔄 Rôles Actualisés",
+                        description=f"Tes rôles Discord ont été mis à jour !",
+                        color=discord.Color.blue()
+                    )
+                    embed.add_field(
+                        name="📊 Groupe Actuel",
+                        value=f"**{user_db.groupe}** (Niveau {user_db.niveau_actuel})",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="💡 Info",
+                        value="Cette actualisation a été effectuée par un administrateur.",
+                        inline=False
+                    )
+
+                    await member.send(embed=embed)
+                    print(f"   ✅ MP envoyé")
+                except discord.Forbidden:
+                    print(f"   ⚠️ MP bloqués pour {member.name}")
+
+                updated_count += 1
+
+            except Exception as e:
+                errors.append(f"❌ {user_db.username} - {str(e)}")
+                print(f"❌ Erreur pour {user_db.username}: {e}")
+
+        # Rapport final
+        report = discord.Embed(
+            title="✅ Actualisation Terminée",
+            color=discord.Color.green()
+        )
+
+        report.add_field(
+            name="📊 Résumé",
+            value=f"**{updated_count}** utilisateur(s) actualisé(s)\n"
+                  f"**{unchanged_count}** déjà à jour",
+            inline=False
+        )
+
+        if errors:
+            errors_text = "\n".join(errors[:10])  # Max 10 erreurs
+            if len(errors) > 10:
+                errors_text += f"\n... et {len(errors) - 10} autre(s) erreur(s)"
+
+            report.add_field(
+                name="⚠️ Erreurs",
+                value=errors_text,
+                inline=False
+            )
+
+        await interaction.channel.send(embed=report)
+
+    except Exception as e:
+        await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
+        import traceback
+        traceback.print_exc()
 
     finally:
         db.close()
