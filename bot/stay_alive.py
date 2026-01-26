@@ -77,14 +77,14 @@ def promote_user():
         passed = data.get('passed', True)
         percentage = data.get('percentage', 0)
 
-        # Déclencher la promotion dans Discord de manière asynchrone
+        # Utiliser l'event loop du bot Discord au lieu d'en créer un nouveau
         import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        from concurrent.futures import ThreadPoolExecutor
 
         async def do_promotion():
             from db_connection import SessionLocal
             from models import Utilisateur
+            import discord
 
             if not discord_bot.guilds:
                 return {'success': False, 'error': 'Aucun serveur Discord'}
@@ -154,7 +154,10 @@ def promote_user():
             print(f"{'='*50}\n")
             return {'success': True}
 
-        result = loop.run_until_complete(do_promotion())
+        # Utiliser asyncio.run_coroutine_threadsafe pour exécuter dans l'event loop du bot
+        loop = discord_bot.loop
+        future = asyncio.run_coroutine_threadsafe(do_promotion(), loop)
+        result = future.result(timeout=30)  # Attendre max 30 secondes
         return jsonify(result)
 
     except Exception as e:

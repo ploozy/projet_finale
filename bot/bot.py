@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 import asyncio
 import json
 from vote_system import VoteSystem
-from bonus_system import BonusSystem, check_finished_exam_periods
+from bonus_system import BonusSystem, start_bonus_scheduler, load_pending_exam_periods, schedule_bonus_application
 # Keep-alive
 from stay_alive import keep_alive, set_bot
 keep_alive()
@@ -128,70 +128,12 @@ async def on_ready():
     load_scheduled_reviews(bot, QUIZZES_DATA)
     print("✅ Planificateur de révisions prêt")
 
-    # Démarrer le système de bonus automatique (fin de fenêtre d'examen)
-    if not check_finished_exam_periods.is_running():
-        check_finished_exam_periods.start()
-        print("✅ Système de bonus automatique démarré (toutes les 5 min)")
+    # Démarrer le planificateur de bonus (application automatique à la fin des périodes)
+    print("🎁 Démarrage du planificateur de bonus...")
+    start_bonus_scheduler()
+    load_pending_exam_periods(bot)
+    print("✅ Planificateur de bonus prêt")
 
-# ... vos imports existants ...
-from discord.ext import tasks # Assurez-vous d'avoir cet import
-from bonus_system import BonusSystem # Importez juste la classe
-
-# ... (le début de votre fichier bot.py reste pareil) ...
-
-# ✅ AJOUTEZ CETTE TÂCHE DANS BOT.PY (pas dans bonus_system.py)
-@tasks.loop(minutes=5)
-async def check_finished_exam_periods():
-    """
-    Vérifie toutes les 5 minutes s'il y a des périodes d'examen terminées
-    et applique les bonus automatiquement
-    """
-    from db_connection import SessionLocal
-    from models import ExamPeriod
-    
-    db = SessionLocal()
-    try:
-        now = datetime.now()
-        
-        # Trouver les périodes terminées mais non traitées
-        finished_periods = db.query(ExamPeriod).filter(
-            ExamPeriod.end_time <= now,
-            ExamPeriod.bonuses_applied == False
-        ).all()
-        
-        if not finished_periods:
-            return
-        
-        print(f"\n🔔 {len(finished_periods)} période(s) d'examen terminée(s) détectée(s)")
-        
-        # On instancie le système avec le bot disponible ici
-        bonus_system = BonusSystem(bot)
-        
-        for period in finished_periods:
-            # Récupérer le guild (serveur Discord)
-            guild = bot.guilds[0] if bot.guilds else None
-            
-            if not guild:
-                print(f"❌ Aucun serveur Discord disponible")
-                continue
-            
-            await bonus_system.apply_bonuses_for_period(period, guild)
-    
-    except Exception as e:
-        print(f"❌ Erreur check_finished_exam_periods: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    finally:
-        db.close()
-
-# ✅ ATTENDRE QUE LE BOT SOIT PRÊT AVANT DE LANCER
-@check_finished_exam_periods.before_loop
-async def before_check_finished_exam_periods():
-    await bot.wait_until_ready()
-    print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
-
-# ... (reste du code) ...
 
 # ANCIENNE MÉTHODE : Vérification périodique toutes les 30 secondes (DÉSACTIVÉE)
 # La promotion se fait maintenant immédiatement via l'API /api/promote
@@ -1158,6 +1100,9 @@ async def create_exam_period(
 
             db.add(period)
             db.commit()
+
+            # Planifier automatiquement l'application des bonus à la fin de la période
+            schedule_bonus_application(bot, period)
 
             embed = discord.Embed(
                 title="✅ Période d'Examen Créée",

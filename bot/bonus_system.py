@@ -1,15 +1,20 @@
 """
 Système d'Application des Bonus
 S'exécute automatiquement à la fin de chaque période d'examen (6h)
+Utilise APScheduler pour planifier l'application des bonus exactement à end_time
 """
 
 import discord
-from discord.ext import tasks
 from datetime import datetime, timedelta
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.date import DateTrigger
 from db_connection import SessionLocal
 from models import Utilisateur, Vote, ExamPeriod, ExamResult
 from vote_system import VoteSystem
 from sqlalchemy import func
+
+# Scheduler global pour les applications de bonus
+bonus_scheduler = AsyncIOScheduler()
 
 
 class BonusSystem:
@@ -447,58 +452,115 @@ class BonusSystem:
             traceback.print_exc()
 
 
-# ==================== TÂCHE AUTOMATIQUE : Vérifier les périodes terminées ====================
-# À ajouter dans bot.py
+# ==================== FONCTIONS DE PLANIFICATION ====================
 
-@tasks.loop(minutes=5)
-async def check_finished_exam_periods():
+async def apply_bonuses_job(bot, exam_period_id: str):
     """
-    Vérifie toutes les 5 minutes s'il y a des périodes d'examen terminées
-    et applique les bonus automatiquement
+    Job APScheduler : Applique les bonus pour une période d'examen terminée
+    S'exécute automatiquement à end_time
     """
-    from db_connection import SessionLocal
-    from models import ExamPeriod
-    
     db = SessionLocal()
     try:
-        now = datetime.now()
-        
-        # Trouver les périodes terminées mais non traitées
-        finished_periods = db.query(ExamPeriod).filter(
-            ExamPeriod.end_time <= now,
-            ExamPeriod.bonuses_applied == False
-        ).all()
-        
-        if not finished_periods:
+        # Récupérer la période
+        period = db.query(ExamPeriod).filter(ExamPeriod.id == exam_period_id).first()
+
+        if not period:
+            print(f"❌ Période {exam_period_id} introuvable")
             return
-        
-        print(f"\n🔔 {len(finished_periods)} période(s) d'examen terminée(s) détectée(s)")
-        
+
+        if period.bonuses_applied:
+            print(f"⚠️ Bonus déjà appliqués pour {exam_period_id}")
+            return
+
+        # Récupérer le guild
+        guild = bot.guilds[0] if bot.guilds else None
+
+        if not guild:
+            print(f"❌ Aucun serveur Discord disponible")
+            return
+
+        print(f"\n🔔 Application automatique des bonus pour {exam_period_id}")
+
+        # Appliquer les bonus
         bonus_system = BonusSystem(bot)
-        
-        for period in finished_periods:
-            # Récupérer le guild (serveur Discord)
-            guild = bot.guilds[0] if bot.guilds else None
-            
-            if not guild:
-                print(f"❌ Aucun serveur Discord disponible")
-                continue
-            
-            await bonus_system.apply_bonuses_for_period(period, guild)
-    
+        await bonus_system.apply_bonuses_for_period(period, guild)
+
     except Exception as e:
-        print(f"❌ Erreur check_finished_exam_periods: {e}")
+        print(f"❌ Erreur apply_bonuses_job pour {exam_period_id}: {e}")
         import traceback
         traceback.print_exc()
-    
     finally:
         db.close()
 
 
-@check_finished_exam_periods.before_loop
-async def before_check_finished_exam_periods():
-    """Attend que le bot soit prêt"""
-    await bot.wait_until_ready()
-    print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
+def schedule_bonus_application(bot, exam_period: ExamPeriod):
+    """
+    Planifie l'application des bonus pour une période d'examen
+
+    Args:
+        bot: Instance du bot Discord
+        exam_period: Période d'examen pour laquelle planifier les bonus
+    """
+    # Vérifier que la période n'est pas déjà terminée
+    if datetime.now() >= exam_period.end_time:
+        print(f"⚠️ Période {exam_period.id} déjà terminée, application immédiate")
+        # Exécuter immédiatement dans une coroutine
+        import asyncio
+        asyncio.create_task(apply_bonuses_job(bot, exam_period.id))
+        return
+
+    # Planifier l'application à end_time
+    trigger = DateTrigger(run_date=exam_period.end_time)
+
+    bonus_scheduler.add_job(
+        apply_bonuses_job,
+        trigger=trigger,
+        args=[bot, exam_period.id],
+        id=f"bonus_{exam_period.id}",
+        replace_existing=True,
+        misfire_grace_time=3600  # 1h de tolérance si le bot était éteint
+    )
+
+    print(f"⏰ Application des bonus planifiée pour {exam_period.id} à {exam_period.end_time.strftime('%Y-%m-%d %H:%M')}")
+
+
+def start_bonus_scheduler():
+    """Démarre le scheduler de bonus"""
+    if not bonus_scheduler.running:
+        bonus_scheduler.start()
+        print("✅ Planificateur de bonus démarré")
+
+
+def load_pending_exam_periods(bot):
+    """
+    Charge toutes les périodes d'examen non-terminées au démarrage
+    et planifie automatiquement l'application des bonus
+    """
+    db = SessionLocal()
+    try:
+        now = datetime.now()
+
+        # Trouver les périodes non-terminées ou terminées mais non-traitées
+        pending_periods = db.query(ExamPeriod).filter(
+            ExamPeriod.bonuses_applied == False
+        ).all()
+
+        count = 0
+        for period in pending_periods:
+            # Si la période est déjà terminée mais non-traitée, traiter immédiatement
+            if period.end_time <= now:
+                print(f"📋 Période {period.id} terminée mais non-traitée, planification immédiate")
+
+            schedule_bonus_application(bot, period)
+            count += 1
+
+        print(f"📅 {count} période(s) d'examen chargée(s) au démarrage")
+
+    except Exception as e:
+        print(f"❌ Erreur load_pending_exam_periods: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
 
 
