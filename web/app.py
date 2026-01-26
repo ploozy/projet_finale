@@ -481,11 +481,20 @@ def exams():
             return render_template('exams_id.html',
                 error=f"Aucun examen pour le niveau {user.niveau_actuel}")
 
-        # 6. Afficher l'examen sécurisé avec la période d'examen
+        # 6. Calculer le temps restant et détecter arrivée tardive
+        time_remaining_seconds = (exam_period.end_time - now).total_seconds()
+        time_remaining_minutes = time_remaining_seconds / 60
+        exam_duration_minutes = exam.get('duration_minutes', 30)
+
+        late_arrival = time_remaining_minutes < exam_duration_minutes
+
+        # 7. Afficher l'examen sécurisé avec la période d'examen
         return render_template('exam_secure.html',
             exam=exam,
             user_id=user_id,
             exam_period=exam_period,
+            late_arrival=late_arrival,
+            time_remaining_minutes=int(time_remaining_minutes),
             user_info={
                 'username': user.username,
                 'niveau_actuel': user.niveau_actuel,

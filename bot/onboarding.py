@@ -117,6 +117,7 @@ class OnboardingManager:
                 name=role_name,
                 color=color,
                 mentionable=True,
+                hoist=True,  # Afficher séparément à gauche sur Discord
                 reason=f"Création automatique du groupe {groupe}"
             )
             print(f"✅ Rôle '{role_name}' créé")

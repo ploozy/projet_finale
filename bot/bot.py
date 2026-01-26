@@ -164,7 +164,8 @@ async def on_member_join(member: discord.Member):
             role = await guild.create_role(
                 name=f"Groupe {groupe}",
                 color=discord.Color.green(),
-                mentionable=True
+                mentionable=True,
+                hoist=True  # Afficher séparément à gauche sur Discord
             )
             print(f"✅ Rôle créé : {role.name}")
         
@@ -1304,7 +1305,8 @@ async def actualiser_exams(interaction: discord.Interaction):
                     expected_role = await guild.create_role(
                         name=expected_role_name,
                         color=discord.Color.blue(),
-                        mentionable=True
+                        mentionable=True,
+                        hoist=True  # Afficher séparément à gauche sur Discord
                     )
                     print(f"   ✅ Rôle créé : {expected_role_name}")
 
