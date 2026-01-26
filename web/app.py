@@ -606,10 +606,32 @@ def submit_exam():
                 user.groupe = new_groupe
                 user.examens_reussis += 1
                 db.commit()
-                
+
                 print(f"🎉 PROMOTION AUTOMATIQUE")
                 print(f"   {old_groupe} (Niveau {old_niveau}) → {new_groupe} (Niveau {new_niveau})")
                 print(f"✅ Utilisateur promu en base")
+
+                # Appeler l'API du bot Discord pour effectuer les changements immédiatement
+                try:
+                    import requests
+                    response = requests.post(
+                        'http://localhost:8080/api/promote',
+                        json={
+                            'user_id': user_id,
+                            'old_groupe': old_groupe,
+                            'new_groupe': new_groupe,
+                            'passed': True,
+                            'percentage': percentage
+                        },
+                        timeout=10
+                    )
+                    if response.status_code == 200:
+                        print(f"✅ Promotion Discord effectuée immédiatement")
+                    else:
+                        print(f"⚠️ Erreur API Discord: {response.text}")
+                except Exception as e:
+                    print(f"⚠️ Impossible d'appeler l'API Discord: {e}")
+                    print(f"   Les changements Discord seront effectués plus tard")
         
         print(f"{'='*50}\n")
         

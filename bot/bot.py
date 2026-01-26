@@ -16,7 +16,7 @@ import json
 from vote_system import VoteSystem
 from bonus_system import BonusSystem, check_finished_exam_periods
 # Keep-alive
-from stay_alive import keep_alive
+from stay_alive import keep_alive, set_bot
 keep_alive()
 load_dotenv()
 
@@ -105,6 +105,10 @@ async def on_ready():
     if bot.guilds:
         main_guild = bot.guilds[0]
 
+    # Permettre à l'API Flask d'accéder au bot
+    set_bot(bot)
+    print("✅ API Flask initialisée avec le bot Discord")
+
     # Synchroniser les commandes
     try:
         synced = await bot.tree.sync()
@@ -124,14 +128,10 @@ async def on_ready():
     load_scheduled_reviews(bot, QUIZZES_DATA)
     print("✅ Planificateur de révisions prêt")
 
-    # Démarrer la tâche de vérification automatique
-    if not check_results_task.is_running():
-        check_results_task.start()
-        print("✅ Tâche de vérification automatique démarrée (toutes les 30s)")
-
+    # Démarrer le système de bonus automatique (fin de fenêtre d'examen)
     if not check_finished_exam_periods.is_running():
         check_finished_exam_periods.start()
-        print("✅ Système de bonus automatique démarré")
+        print("✅ Système de bonus automatique démarré (toutes les 5 min)")
 
 # ... vos imports existants ...
 from discord.ext import tasks # Assurez-vous d'avoir cet import
