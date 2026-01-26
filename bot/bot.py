@@ -614,13 +614,31 @@ class ConfirmClearView(discord.ui.View):
         db = SessionLocal()
         
         try:
+            # Supprimer dans l'ordre à cause des contraintes de clés étrangères
+            print("🗑️  Suppression des votes...")
+            db.execute(text("DELETE FROM votes"))
+
+            print("🗑️  Suppression des périodes d'examen...")
+            db.execute(text("DELETE FROM exam_periods"))
+
+            print("🗑️  Suppression des résultats d'examen...")
             db.execute(text("DELETE FROM exam_results"))
+
+            print("🗑️  Suppression des utilisateurs...")
             db.execute(text("DELETE FROM utilisateurs"))
+
+            print("🗑️  Suppression des cohortes...")
             db.execute(text("DELETE FROM cohortes"))
+
             db.commit()
-            
+
             await interaction.edit_original_response(
-                content="✅ Base de données vidée !",
+                content="✅ Base de données complètement vidée !\n\n"
+                        "🗑️ Votes supprimés\n"
+                        "🗑️ Périodes d'examen supprimées\n"
+                        "🗑️ Résultats d'examen supprimés\n"
+                        "🗑️ Utilisateurs supprimés\n"
+                        "🗑️ Cohortes supprimées",
                 view=None
             )
         
