@@ -496,29 +496,31 @@ async def get_available_group(guild: discord.Guild, niveau: int) -> str:
 async def create_group_channels(guild: discord.Guild, groupe: str, role: discord.Role):
     """
     Crée une catégorie et des salons pour un groupe
+    Format: groupe-1-a-entraide, groupe-1-a-ressources, etc.
     """
     category_name = f"📚 Groupe {groupe}"
-    
+
     # Vérifier si la catégorie existe déjà
     category = discord.utils.get(guild.categories, name=category_name)
-    
+
     if category:
         return
-    
+
     # Créer la catégorie
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
         role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
         guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
     }
-    
+
     category = await guild.create_category(category_name, overwrites=overwrites)
-    
-    # Créer les salons
-    await guild.create_text_channel(f"💬-discussion", category=category, overwrites=overwrites)
-    await guild.create_text_channel(f"📖-ressources", category=category, overwrites=overwrites)
-    await guild.create_text_channel(f"❓-entraide", category=category, overwrites=overwrites)
-    
+
+    # Créer les salons avec le bon format de nommage
+    groupe_lower = groupe.lower()
+    await guild.create_text_channel(f"groupe-{groupe_lower}-ressources", category=category, overwrites=overwrites)
+    await guild.create_text_channel(f"groupe-{groupe_lower}-entraide", category=category, overwrites=overwrites)
+    await guild.create_voice_channel(f"🎙️ Vocal {groupe}", category=category, overwrites=overwrites)
+
     print(f"✅ Catégorie et salons créés pour {groupe}")
 
 
