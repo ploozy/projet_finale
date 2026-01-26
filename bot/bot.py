@@ -1315,10 +1315,6 @@ async def actualiser_exams(interaction: discord.Interaction):
                 # Créer les salons si nécessaire
                 await create_group_channels(guild, user_db.groupe, expected_role)
 
-                # Envoyer les ressources
-                await on_user_level_change(user_db.user_id, user_db.niveau_actuel, user_db.groupe, guild)
-                print(f"   📚 Ressources envoyées")
-
                 # Envoyer un MP de notification
                 try:
                     embed = discord.Embed(
