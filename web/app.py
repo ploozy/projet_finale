@@ -6,7 +6,7 @@ Site Web - Version Finale
 
 from flask import Flask, render_template, request, jsonify
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import os
 from db_connection import SessionLocal
 from models import Utilisateur, ExamResult, ExamPeriod
@@ -416,19 +416,62 @@ def exams():
             ).order_by(ExamPeriod.start_time).first()
 
             if next_period:
-                start_str = next_period.start_time.strftime("%d/%m/%Y à %H:%M")
-                end_str = next_period.end_time.strftime("%d/%m/%Y à %H:%M")  # Afficher date complète
+                # Calculer le temps restant jusqu'au début
+                seconds_remaining = int((next_period.start_time - now).total_seconds())
+                total_seconds = int((next_period.start_time - (next_period.start_time - timedelta(days=7))).total_seconds())
+
+                # Calculer le pourcentage de progression (compte à rebours)
+                progress = max(0, min(100, int((seconds_remaining / total_seconds) * 100)))
+
+                # Message adapté selon la proximité
+                if seconds_remaining < 3600:  # Moins d'1h
+                    message = "🔥 Prépare-toi bien soldat, ton examen approche !"
+                    title = "⚔️ Au combat dans moins d'1h !"
+                elif seconds_remaining < 86400:  # Moins d'1j
+                    message = "💪 L'heure de la bataille approche, révise bien !"
+                    title = "🎯 Examen imminent"
+                elif seconds_remaining < 259200:  # Moins de 3j
+                    message = "📚 Il est temps de réviser sérieusement"
+                    title = "📖 Préparation en cours"
+                else:
+                    message = "😌 Profite de ce temps pour bien te préparer"
+                    title = "⏳ Examen programmé"
+
+                # Calculer le countdown
+                days = seconds_remaining // 86400
+                hours = (seconds_remaining % 86400) // 3600
+                minutes = (seconds_remaining % 3600) // 60
+                seconds = seconds_remaining % 60
+
+                time_text = ''
+                if days > 0:
+                    time_text += f"{days}j "
+                if hours > 0:
+                    time_text += f"{hours}h "
+                if minutes > 0:
+                    time_text += f"{minutes}m "
+                time_text += f"{seconds}s"
+
                 return render_template('exams_id.html',
-                    error=f"⏰ Examen pas encore disponible\n\n"
-                          f"📅 Niveau {user.niveau_actuel}\n"
-                          f"🟢 Début: {start_str}\n"
-                          f"🔴 Fin: {end_str}\n\n"
-                          f"⏰ Heure serveur: {now.strftime('%d/%m/%Y %H:%M')} UTC\n\n"
-                          f"Reviens à cette heure!")
+                    exam_countdown={
+                        'title': title,
+                        'message': message,
+                        'time_text': time_text,
+                        'progress': progress,
+                        'seconds_remaining': seconds_remaining,
+                        'is_full': False
+                    })
             else:
+                # Pas d'exam programmé → Barre 100HP "repose-toi"
                 return render_template('exams_id.html',
-                    error=f"Aucune période d'examen planifiée pour le niveau {user.niveau_actuel}.\n"
-                          f"Contacte un administrateur.")
+                    exam_countdown={
+                        'title': '💚 100 HP - Repos bien mérité !',
+                        'message': '😌 Repose-toi bien tant qu\'il en est encore temps...',
+                        'time_text': 'Aucun examen programmé',
+                        'progress': 100,
+                        'seconds_remaining': 0,
+                        'is_full': True
+                    })
 
         # 3. Vérifier si l'utilisateur a déjà passé l'examen PENDANT CETTE PÉRIODE
         # Trouver l'examen correspondant au niveau
