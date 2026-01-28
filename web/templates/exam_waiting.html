@@ -348,6 +348,117 @@
                 opacity: 0;
             }
         }
+
+        /* Rappel de vote */
+        .vote-reminder {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #ff6b00 0%, #ff4400 100%);
+            color: #fff;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 1.3rem;
+            font-weight: 900;
+            text-align: center;
+            box-shadow:
+                0 10px 40px rgba(255, 68, 0, 0.6),
+                inset 0 2px 0 rgba(255, 255, 255, 0.3);
+            animation: pulse-warning 2s ease-in-out infinite;
+            z-index: 1000;
+            display: none;
+        }
+
+        @keyframes pulse-warning {
+            0%, 100% {
+                transform: translateX(-50%) scale(1);
+                box-shadow: 0 10px 40px rgba(255, 68, 0, 0.6);
+            }
+            50% {
+                transform: translateX(-50%) scale(1.05);
+                box-shadow: 0 15px 60px rgba(255, 68, 0, 0.9);
+            }
+        }
+
+        /* Message d'erreur de vote */
+        .vote-error {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .vote-error-content {
+            background: linear-gradient(145deg, #1a0000, #0d0000);
+            padding: 60px 80px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow:
+                0 20px 80px rgba(255, 0, 0, 0.8),
+                inset 0 2px 0 rgba(255, 255, 255, 0.1);
+            border: 3px solid #ff0000;
+        }
+
+        .vote-error-title {
+            font-size: 3rem;
+            color: #ff0000;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+        }
+
+        .vote-error-message {
+            font-size: 1.5rem;
+            color: #c0c0c0;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        /* Compte à rebours dramatique */
+        .dramatic-countdown {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.98);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1500;
+        }
+
+        .dramatic-number {
+            font-size: 20rem;
+            font-weight: 900;
+            color: #ff0000;
+            text-shadow:
+                0 0 50px rgba(255, 0, 0, 1),
+                0 0 100px rgba(255, 0, 0, 0.8),
+                0 0 150px rgba(255, 0, 0, 0.6);
+            animation: dramatic-pulse 1s ease-out;
+        }
+
+        @keyframes dramatic-pulse {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -380,16 +491,67 @@
         </div>
     </div>
 
+    <!-- Rappel de vote -->
+    <div class="vote-reminder" id="voteReminder">
+        ⚠️ RAPPEL : VOTE POUR UN CAMARADE AVEC /vote @user SINON TU NE POURRAS PAS PASSER L'EXAMEN !
+    </div>
+
+    <!-- Erreur de vote -->
+    <div class="vote-error" id="voteError">
+        <div class="vote-error-content">
+            <div class="vote-error-title">❌ VOUS N'AVEZ PAS VOTÉ</div>
+            <div class="vote-error-message">
+                Tu dois voter pour un utilisateur qui t'a aidé avant de passer l'examen.
+                <br><br>
+                Utilise la commande Discord :<br>
+                <strong>/vote @utilisateur</strong>
+                <br><br>
+                Puis reviens sur cette page.
+            </div>
+        </div>
+    </div>
+
+    <!-- Compte à rebours dramatique -->
+    <div class="dramatic-countdown" id="dramaticCountdown">
+        <div class="dramatic-number" id="dramaticNumber">5</div>
+    </div>
+
     <script>
         {% if seconds_remaining > 0 %}
         let secondsRemaining = {{ seconds_remaining }};
         const totalSeconds = {{ total_seconds }};
         let previousProgress = Math.max(0, Math.min(100, Math.floor((secondsRemaining / totalSeconds) * 100)));
+        const hasVoted = {{ 'true' if has_voted else 'false' }};
 
         function updateCountdown() {
+            // Cas 1 : Compte à rebours dramatique (< 5 secondes)
+            if (secondsRemaining > 0 && secondsRemaining <= 5) {
+                document.getElementById('dramaticCountdown').style.display = 'flex';
+                document.getElementById('dramaticNumber').textContent = secondsRemaining;
+                // Relancer l'animation
+                const numberEl = document.getElementById('dramaticNumber');
+                numberEl.style.animation = 'none';
+                setTimeout(() => {
+                    numberEl.style.animation = 'dramatic-pulse 1s ease-out';
+                }, 10);
+            }
+
+            // Cas 2 : À 0 secondes, vérifier le vote
             if (secondsRemaining <= 0) {
-                location.reload();
-                return;
+                if (!hasVoted) {
+                    // Afficher l'erreur de vote
+                    document.getElementById('voteError').style.display = 'flex';
+                    return; // Ne pas reload
+                } else {
+                    // Vote OK, reload pour commencer l'examen
+                    location.reload();
+                    return;
+                }
+            }
+
+            // Cas 3 : Rappel de vote à < 10 minutes
+            if (secondsRemaining < 600 && !hasVoted) {
+                document.getElementById('voteReminder').style.display = 'block';
             }
 
             // Mise à jour du countdown

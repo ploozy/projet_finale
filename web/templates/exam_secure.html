@@ -493,11 +493,12 @@
                 }
 
                 const remainingSeconds = Math.floor(remainingMs / 1000);
-                const minutes = Math.floor(remainingSeconds / 60);
+                const hours = Math.floor(remainingSeconds / 3600);
+                const minutes = Math.floor((remainingSeconds % 3600) / 60);
                 const seconds = remainingSeconds % 60;
 
                 document.getElementById('timer-display').textContent =
-                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
                 // Changer la couleur si moins de 10 minutes
                 const timerElement = document.querySelector('.exam-timer');

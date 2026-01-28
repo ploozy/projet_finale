@@ -4,7 +4,7 @@ Site Web - Version Finale
 2. Promotion automatique après réussite
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import json
 from datetime import datetime, timezone, timedelta
 import os
@@ -370,6 +370,48 @@ def api_submit_exam():
 def exams():
     """Page d'examens avec vérification du vote"""
     if request.method == 'GET':
+        # Vérifier si l'utilisateur a une session active
+        if 'user_id' in session and 'exam_period_id' in session:
+            # Rediriger vers POST pour traiter la session
+            db = SessionLocal()
+            try:
+                user_id = session['user_id']
+                user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+                now = datetime.utcnow()
+
+                if user:
+                    # Vérifier si la période d'examen est toujours active
+                    exam_period = db.query(ExamPeriod).filter(
+                        ExamPeriod.id == session['exam_period_id'],
+                        ExamPeriod.start_time <= now,
+                        ExamPeriod.end_time >= now
+                    ).first()
+
+                    if exam_period:
+                        # Trouver l'examen
+                        exam = None
+                        for e in exams_data['exams']:
+                            if e['group'] == user.niveau_actuel:
+                                exam = e
+                                break
+
+                        if exam:
+                            # Retourner directement à l'examen
+                            return render_template('exam_secure.html',
+                                exam=exam,
+                                user_id=user_id,
+                                exam_period=exam_period,
+                                user_info={
+                                    'username': user.username,
+                                    'niveau_actuel': user.niveau_actuel,
+                                    'groupe': user.groupe
+                                })
+                    else:
+                        # Période expirée, nettoyer la session
+                        session.clear()
+            finally:
+                db.close()
+
         return render_template('exams_id.html')
     
     db = None
@@ -452,6 +494,12 @@ def exams():
                     time_text += f"{minutes}M "
                 time_text += f"{seconds}S"
 
+                # Vérifier le statut de vote
+                valid_vote = (
+                    user.has_voted and
+                    (user.current_exam_period == next_period.id or user.current_exam_period == "test")
+                )
+
                 return render_template('exam_waiting.html',
                     title=title,
                     message=message,
@@ -459,7 +507,10 @@ def exams():
                     progress=progress,
                     seconds_remaining=seconds_remaining,
                     total_seconds=total_seconds,
-                    is_full=False)
+                    is_full=False,
+                    has_voted=valid_vote,
+                    exam_period_id=next_period.id,
+                    user_id=user_id)
             else:
                 # Pas d'exam programmé → Barre 100HP "repose-toi"
                 return render_template('exam_waiting.html',
@@ -522,7 +573,11 @@ def exams():
             return render_template('exams_id.html',
                 error=f"Aucun examen pour le niveau {user.niveau_actuel}")
 
-        # 6. Afficher l'examen sécurisé avec la période d'examen
+        # 6. Stocker dans la session pour permettre le retour
+        session['user_id'] = user_id
+        session['exam_period_id'] = exam_period.id
+
+        # 7. Afficher l'examen sécurisé avec la période d'examen
         return render_template('exam_secure.html',
             exam=exam,
             user_id=user_id,
@@ -654,7 +709,10 @@ def submit_exam():
                 print(f"💡 Utilise /actualiser_exams sur Discord pour appliquer les changements")
         
         print(f"{'='*50}\n")
-        
+
+        # Nettoyer la session une fois l'examen soumis
+        session.clear()
+
         return jsonify({
             'success': True,
             'score': score,
