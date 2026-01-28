@@ -13,6 +13,7 @@ from models import Utilisateur, ExamResult, ExamPeriod
 from sqlalchemy import func
 import exercise_types
 import requests
+from group_manager import GroupManager
 
 app = Flask(__name__)
 app.secret_key = 'secret'
@@ -685,29 +686,58 @@ def submit_exam():
         db.add(exam_result)
         db.commit()
         print(f"✅ Résultat sauvegardé en base")
-        
-        # SI RÉUSSI → PROMOUVOIR
-        if passed:
-            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-            
-            if user and user.niveau_actuel < 5:
-                old_niveau = user.niveau_actuel
+
+        # Utiliser GroupManager pour gérer la suite
+        group_manager = GroupManager(db)
+        user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+
+        if not user:
+            print(f"⚠️ Utilisateur {user_id} introuvable")
+        else:
+            # SI RÉUSSI → PROMOUVOIR
+            if passed:
+                if user.niveau_actuel < 5:
+                    old_groupe, new_groupe = group_manager.promote_user(user_id)
+
+                    print(f"🎉 PROMOTION EN BASE DE DONNÉES")
+                    print(f"   {old_groupe} → {new_groupe}")
+                    print(f"✅ Utilisateur promu en base")
+
+                    if new_groupe == "Alumni":
+                        print(f"🎓 {user.username} a terminé la formation ! (Alumni)")
+                    elif "Waiting List" in new_groupe:
+                        print(f"📋 {user.username} en waiting list pour le niveau {user.niveau_actuel}")
+                    else:
+                        print(f"💡 Utilise /actualiser_exams sur Discord pour appliquer les changements")
+                elif user.niveau_actuel == 5:
+                    # Niveau 5 terminé → Alumni
+                    user.is_alumni = True
+                    user.examens_reussis = 5
+                    db.commit()
+                    print(f"🎓 {user.username} a terminé le niveau 5 → Alumni !")
+
+            # SI ÉCHOUÉ → SYSTÈME DE RATTRAPAGE
+            else:
                 old_groupe = user.groupe
+                niveau = user.niveau_actuel
 
-                # Nouveau niveau et groupe
-                new_niveau = old_niveau + 1
-                new_groupe = find_available_group(new_niveau, db)  # Chercher groupe disponible
+                result_info = group_manager.handle_exam_failure(user_id, niveau, percentage)
 
-                user.niveau_actuel = new_niveau
-                user.groupe = new_groupe
-                user.examens_reussis += 1
-                db.commit()
+                print(f"❌ ÉCHEC - Système de rattrapage activé")
+                print(f"   Note: {percentage}% (Catégorie: {result_info['categorie']})")
+                print(f"   Action: {result_info['action']}")
 
-                print(f"🎉 PROMOTION EN BASE DE DONNÉES")
-                print(f"   {old_groupe} (Niveau {old_niveau}) → {new_groupe} (Niveau {new_niveau})")
-                print(f"✅ Utilisateur promu en base")
+                if result_info['action'] == 'rattrapage':
+                    print(f"   Groupe: {result_info['groupe']}")
+                    print(f"   Délai: {result_info['delai_jours']} jours")
+                    print(f"   Examen: {result_info['date_exam'].strftime('%Y-%m-%d %H:%M')}")
+                elif result_info['action'] == 'assign_group':
+                    print(f"   Assigné au groupe: {result_info['groupe']}")
+                elif result_info['action'] == 'waiting_list':
+                    print(f"   En waiting list: {result_info['raison']}")
+
                 print(f"💡 Utilise /actualiser_exams sur Discord pour appliquer les changements")
-        
+
         print(f"{'='*50}\n")
 
         # Nettoyer la session une fois l'examen soumis
