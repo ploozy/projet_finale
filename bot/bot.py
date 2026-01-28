@@ -327,6 +327,14 @@ async def create_group_channels(guild: discord.Guild, groupe: str, role: discord
     await guild.create_text_channel(f"groupe-{groupe_lower}-entraide", category=category, overwrites=overwrites)
     await guild.create_voice_channel(f"🎙️ Vocal {groupe}", category=category, overwrites=overwrites)
 
+    # Créer le salon "mon-examen" (lecture seule, seul le bot peut écrire)
+    exam_overwrites = {
+        guild.default_role: discord.PermissionOverwrite(read_messages=False),
+        role: discord.PermissionOverwrite(read_messages=True, send_messages=False),  # Lecture seule pour les membres
+        guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)  # Bot peut écrire
+    }
+    await guild.create_text_channel(f"📝-mon-examen", category=category, overwrites=exam_overwrites)
+
     print(f"✅ Catégorie et salons créés pour {groupe}")
 
 
@@ -1048,23 +1056,28 @@ async def vote(
 @commands.has_permissions(administrator=True)
 @app_commands.describe(
     group="Numéro du groupe (1-5)",
-    start_time="Date et heure de début (format: YYYY-MM-DD HH:MM)"
+    start_time="Date et heure de début EN HEURE LOCALE (format: YYYY-MM-DD HH:MM)",
+    timezone_offset="Décalage horaire par rapport à UTC (ex: +1 pour Paris, défaut: +1)"
 )
 async def create_exam_period(
     interaction: discord.Interaction,
     group: int,
-    start_time: str
+    start_time: str,
+    timezone_offset: int = 1
 ):
     """Crée une période d'examen de 6h"""
     await interaction.response.defer(ephemeral=True)
-    
+
     from datetime import datetime, timedelta
     from db_connection import SessionLocal
     from models import ExamPeriod
-    
+
     try:
-        # Parser la date
-        start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
+        # Parser la date (heure locale)
+        start_local = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
+
+        # Convertir en UTC pour la DB (soustraire le décalage)
+        start = start_local - timedelta(hours=timezone_offset)
         end = start + timedelta(hours=6)
         vote_start = start - timedelta(days=1)  # Votes ouverts 24h avant
 
@@ -1128,6 +1141,56 @@ async def create_exam_period(
             embed.add_field(name="🏁 Fin examen", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
 
             await interaction.followup.send(embed=embed, ephemeral=True)
+
+            # Envoyer le lien d'examen dans le salon "mon-examen" du groupe
+            guild = interaction.guild
+            if guild:
+                # Chercher le salon mon-examen pour ce groupe
+                # Format: groupe-X-y où X est le niveau et y une lettre
+                # On cherche tous les groupes du niveau concerné
+                possible_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+
+                for letter in possible_letters:
+                    # Chercher la catégorie du groupe
+                    category_name = f"📚 Groupe {group}-{letter.upper()}"
+                    category = discord.utils.get(guild.categories, name=category_name)
+
+                    if category:
+                        # Chercher le salon mon-examen dans cette catégorie
+                        exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
+
+                        if exam_channel:
+                            # Créer l'embed pour les étudiants
+                            exam_embed = discord.Embed(
+                                title="📝 Nouvelle Période d'Examen !",
+                                description=f"Une nouvelle période d'examen a été programmée pour le Groupe {group}.",
+                                color=discord.Color.blue(),
+                                timestamp=datetime.now()
+                            )
+
+                            exam_embed.add_field(
+                                name="🗳️ Votes",
+                                value=f"Du {vote_start.strftime('%d/%m à %H:%M')} au {start.strftime('%d/%m à %H:%M')}",
+                                inline=False
+                            )
+
+                            exam_embed.add_field(
+                                name="📝 Fenêtre d'examen",
+                                value=f"Du {start.strftime('%d/%m à %H:%M')} au {end.strftime('%d/%m à %H:%M')}",
+                                inline=False
+                            )
+
+                            exam_embed.add_field(
+                                name="🔗 Lien vers l'examen",
+                                value="[Clique ici pour accéder à la page d'examen](http://localhost:5000/exams)\n\n"
+                                      "⚠️ N'oublie pas de voter avant de passer l'examen !",
+                                inline=False
+                            )
+
+                            exam_embed.set_footer(text="Bonne chance ! 💪")
+
+                            await exam_channel.send(embed=exam_embed)
+                            print(f"✅ Message envoyé dans {exam_channel.name}")
 
         finally:
             db.close()
@@ -1196,26 +1259,33 @@ async def list_exam_periods_command(interaction: discord.Interaction):
 
     db = SessionLocal()
     try:
-        periods = db.query(ExamPeriod).order_by(ExamPeriod.start_time).all()
+        now = datetime.now()
+
+        # Récupérer seulement les périodes à venir (end_time > now)
+        periods = db.query(ExamPeriod).filter(
+            ExamPeriod.end_time > now
+        ).order_by(ExamPeriod.start_time).all()
 
         if not periods:
             await interaction.followup.send(
-                "📋 Aucune période d'examen configurée",
+                "📋 Aucune période d'examen à venir",
                 ephemeral=True
             )
             return
 
         embed = discord.Embed(
-            title="📋 Périodes d'Examen",
+            title="📋 Périodes d'Examen à Venir",
             color=discord.Color.blue()
         )
 
-        now = datetime.now()
-
         for period in periods:
-            status = "🟢 À venir" if period.start_time > now else "🔴 Passée"
-            if period.bonuses_applied:
-                status = "✅ Terminée"
+            # Déterminer le statut en fonction de end_time
+            if period.start_time > now:
+                status = "🟡 Pas encore commencé"
+            elif period.end_time > now:
+                status = "🟢 En cours"
+            else:
+                status = "🔴 Terminée"
 
             value = (
                 f"**ID:** `{period.id}`\n"
