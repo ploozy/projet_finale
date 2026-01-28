@@ -1052,7 +1052,7 @@ async def vote(
 
 
 # ==================== COMMANDE /create_exam_period ====================
-@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen de 6h")
+@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen de 30 minutes")
 @commands.has_permissions(administrator=True)
 @app_commands.describe(
     group="Numéro du groupe (1-5)",
@@ -1065,7 +1065,7 @@ async def create_exam_period(
     start_time: str,
     timezone_offset: int = 1
 ):
-    """Crée une période d'examen de 6h"""
+    """Crée une période d'examen de 30 minutes"""
     await interaction.response.defer(ephemeral=True)
 
     from datetime import datetime, timedelta
@@ -1078,7 +1078,7 @@ async def create_exam_period(
 
         # Convertir en UTC pour la DB (soustraire le décalage)
         start = start_local - timedelta(hours=timezone_offset)
-        end = start + timedelta(hours=6)
+        end = start + timedelta(minutes=30)
         vote_start = start - timedelta(days=1)  # Votes ouverts 24h avant
 
         # Générer l'ID
