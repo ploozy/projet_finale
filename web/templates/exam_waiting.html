@@ -147,16 +147,41 @@
                 inset 0 -2px 0 rgba(0, 0, 0, 0.5);
         }
 
-        /* Animation de pulsation pour HP pleine */
+        /* Animation de pulsation pour HP pleine - Effet de guérison */
         .hp-bar-fill.full {
-            animation: pulse-red 2s ease-in-out infinite;
+            background: linear-gradient(180deg,
+                #ff6666 0%,
+                #ff4444 50%,
+                #dd2222 100%
+            );
+            animation: pulse-heal 2s ease-in-out infinite;
+            position: relative;
         }
 
-        @keyframes pulse-red {
+        /* Particules de guérison qui montent */
+        .hp-bar-fill.full::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle, rgba(0, 255, 136, 0.8) 0%, transparent 50%),
+                radial-gradient(circle, rgba(255, 215, 0, 0.6) 0%, transparent 50%);
+            background-size: 20px 20px, 15px 15px;
+            background-position: 0 0, 30px 30px;
+            animation: particles-rise 3s linear infinite;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        @keyframes pulse-heal {
             0%, 100% {
                 box-shadow:
                     0 0 30px rgba(255, 51, 51, 0.8),
                     0 0 60px rgba(255, 51, 51, 0.4),
+                    0 0 80px rgba(0, 255, 136, 0.3),
                     inset 0 2px 0 rgba(255, 255, 255, 0.3),
                     inset 0 -2px 0 rgba(0, 0, 0, 0.5);
             }
@@ -164,8 +189,21 @@
                 box-shadow:
                     0 0 50px rgba(255, 51, 51, 1),
                     0 0 100px rgba(255, 51, 51, 0.6),
+                    0 0 120px rgba(0, 255, 136, 0.5),
+                    0 0 150px rgba(255, 215, 0, 0.3),
                     inset 0 2px 0 rgba(255, 255, 255, 0.5),
                     inset 0 -2px 0 rgba(0, 0, 0, 0.7);
+            }
+        }
+
+        @keyframes particles-rise {
+            0% {
+                background-position: 0 0, 30px 30px;
+                opacity: 0.6;
+            }
+            100% {
+                background-position: 0 -100px, 30px -70px;
+                opacity: 0;
             }
         }
 
@@ -239,6 +277,77 @@
                 opacity: 0.7;
             }
         }
+
+        /* Animation de dégâts quand HP diminue */
+        .hp-bar-fill.taking-damage {
+            animation: damage-shake 0.5s ease-in-out, damage-flash 0.5s ease-in-out;
+        }
+
+        @keyframes damage-shake {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            10%, 30%, 50%, 70%, 90% {
+                transform: translateX(-5px);
+            }
+            20%, 40%, 60%, 80% {
+                transform: translateX(5px);
+            }
+        }
+
+        @keyframes damage-flash {
+            0% {
+                box-shadow:
+                    0 0 30px rgba(255, 51, 51, 0.8),
+                    0 0 60px rgba(255, 51, 51, 0.4),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                    inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+            }
+            50% {
+                box-shadow:
+                    0 0 80px rgba(255, 0, 0, 1),
+                    0 0 150px rgba(255, 0, 0, 0.8),
+                    inset 0 0 30px rgba(255, 0, 0, 0.5),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.5),
+                    inset 0 -2px 0 rgba(0, 0, 0, 0.7);
+            }
+            100% {
+                box-shadow:
+                    0 0 30px rgba(255, 51, 51, 0.8),
+                    0 0 60px rgba(255, 51, 51, 0.4),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                    inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        /* Particules de dégâts qui tombent */
+        .hp-bar-fill.taking-damage::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle, rgba(255, 0, 0, 0.9) 0%, transparent 40%),
+                radial-gradient(circle, rgba(255, 100, 0, 0.7) 0%, transparent 40%);
+            background-size: 15px 15px, 20px 20px;
+            background-position: 0 0, 25px 25px;
+            animation: particles-fall 0.8s ease-out;
+            pointer-events: none;
+            opacity: 1;
+        }
+
+        @keyframes particles-fall {
+            0% {
+                background-position: 0 -50px, 25px -25px;
+                opacity: 1;
+            }
+            100% {
+                background-position: 0 100px, 25px 125px;
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -275,6 +384,7 @@
         {% if seconds_remaining > 0 %}
         let secondsRemaining = {{ seconds_remaining }};
         const totalSeconds = {{ total_seconds }};
+        let previousProgress = Math.max(0, Math.min(100, Math.floor((secondsRemaining / totalSeconds) * 100)));
 
         function updateCountdown() {
             if (secondsRemaining <= 0) {
@@ -307,6 +417,16 @@
 
             // Changer les classes selon le niveau HP
             hpBar.className = 'hp-bar-fill';
+
+            // Détecter si HP a diminué pour anim de dégâts
+            if (progress < previousProgress) {
+                hpBar.classList.add('taking-damage');
+                // Retirer la classe après l'animation (0.8s)
+                setTimeout(() => {
+                    hpBar.classList.remove('taking-damage');
+                }, 800);
+            }
+
             if (progress >= 100) {
                 hpBar.classList.add('full');
             } else if (progress < 25) {
@@ -315,6 +435,7 @@
                 hpBar.classList.add('low');
             }
 
+            previousProgress = progress;
             secondsRemaining--;
         }
 
