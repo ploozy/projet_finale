@@ -243,15 +243,21 @@
 </head>
 <body>
     <div class="container">
+        {% if not is_full %}
         <div class="title">{{ title }}</div>
         <div class="message">{{ message }}</div>
         <div class="countdown-display" id="countdown">{{ time_text }}</div>
+        {% else %}
+        <div class="message" style="font-size: 2rem; margin-bottom: 60px;">{{ message }}</div>
+        {% endif %}
 
         <div class="hp-container">
+            {% if not is_full %}
             <div class="hp-label">
                 <span>🔴 HEALTH POINTS</span>
                 <span id="hp-value">{{ progress }}%</span>
             </div>
+            {% endif %}
 
             <div class="hp-bar-frame">
                 <div class="hp-bar-bg">

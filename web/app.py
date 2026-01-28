@@ -463,9 +463,9 @@ def exams():
             else:
                 # Pas d'exam programmé → Barre 100HP "repose-toi"
                 return render_template('exam_waiting.html',
-                    title='💚 100 HP - REPOS BIEN MÉRITÉ',
+                    title='',
                     message='😌 REPOSE-TOI BIEN TANT QU\'IL EN EST ENCORE TEMPS...',
-                    time_text='AUCUN EXAMEN PROGRAMMÉ',
+                    time_text='',
                     progress=100,
                     seconds_remaining=0,
                     total_seconds=1,
