@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attente Examen</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* Fond avec grille */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                linear-gradient(0deg, transparent 24%, rgba(192, 192, 192, .05) 25%, rgba(192, 192, 192, .05) 26%, transparent 27%, transparent 74%, rgba(192, 192, 192, .05) 75%, rgba(192, 192, 192, .05) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(192, 192, 192, .05) 25%, rgba(192, 192, 192, .05) 26%, transparent 27%, transparent 74%, rgba(192, 192, 192, .05) 75%, rgba(192, 192, 192, .05) 76%, transparent 77%, transparent);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            width: 100%;
+            padding: 50px;
+            background: linear-gradient(145deg, #0f0f0f, #050505);
+            border-radius: 25px;
+            box-shadow:
+                0 30px 80px rgba(0, 0, 0, 0.9),
+                inset 0 2px 0 rgba(255, 255, 255, 0.1),
+                inset 0 -2px 0 rgba(0, 0, 0, 0.8);
+            border: 2px solid #1a1a1a;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 3rem;
+            color: #c0c0c0;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+            text-shadow:
+                0 0 20px rgba(192, 192, 192, 0.8),
+                0 0 40px rgba(192, 192, 192, 0.4),
+                0 4px 8px rgba(0, 0, 0, 0.9);
+            font-weight: 900;
+        }
+
+        .message {
+            text-align: center;
+            font-size: 1.3rem;
+            color: #808080;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            font-weight: bold;
+        }
+
+        .countdown-display {
+            text-align: center;
+            font-size: 3.5rem;
+            color: #ff3333;
+            margin-bottom: 50px;
+            font-weight: 900;
+            text-shadow:
+                0 0 30px rgba(255, 51, 51, 0.8),
+                0 0 60px rgba(255, 51, 51, 0.4),
+                0 4px 8px rgba(0, 0, 0, 0.9);
+            letter-spacing: 6px;
+        }
+
+        /* Barre HP imposante */
+        .hp-container {
+            position: relative;
+            margin: 40px 0;
+        }
+
+        .hp-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #c0c0c0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .hp-bar-frame {
+            position: relative;
+            height: 80px;
+            background: linear-gradient(145deg, #0a0a0a, #050505);
+            border-radius: 15px;
+            padding: 8px;
+            box-shadow:
+                inset 0 4px 15px rgba(0, 0, 0, 0.9),
+                inset 0 -2px 10px rgba(255, 255, 255, 0.05),
+                0 4px 20px rgba(0, 0, 0, 0.8);
+            border: 3px solid #1a1a1a;
+        }
+
+        .hp-bar-bg {
+            position: relative;
+            height: 100%;
+            background: #0f0f0f;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
+        }
+
+        .hp-bar-fill {
+            height: 100%;
+            background: linear-gradient(180deg,
+                #ff5555 0%,
+                #ff3333 50%,
+                #cc0000 100%
+            );
+            border-radius: 10px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-shadow:
+                0 0 30px rgba(255, 51, 51, 0.8),
+                0 0 60px rgba(255, 51, 51, 0.4),
+                inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        /* Animation de pulsation pour HP pleine */
+        .hp-bar-fill.full {
+            animation: pulse-red 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-red {
+            0%, 100% {
+                box-shadow:
+                    0 0 30px rgba(255, 51, 51, 0.8),
+                    0 0 60px rgba(255, 51, 51, 0.4),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                    inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+            }
+            50% {
+                box-shadow:
+                    0 0 50px rgba(255, 51, 51, 1),
+                    0 0 100px rgba(255, 51, 51, 0.6),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.5),
+                    inset 0 -2px 0 rgba(0, 0, 0, 0.7);
+            }
+        }
+
+        /* Brillance sur la barre */
+        .hp-bar-fill::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg,
+                transparent,
+                rgba(255, 255, 255, 0.4),
+                transparent
+            );
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            to {
+                left: 200%;
+            }
+        }
+
+        /* Texte HP au centre */
+        .hp-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow:
+                0 0 10px rgba(0, 0, 0, 1),
+                0 0 20px rgba(0, 0, 0, 0.8),
+                0 3px 5px rgba(0, 0, 0, 0.9);
+            letter-spacing: 3px;
+            z-index: 10;
+        }
+
+        /* Effets de lueur selon HP */
+        .hp-bar-fill.low {
+            background: linear-gradient(180deg,
+                #ffaa00 0%,
+                #ff8800 50%,
+                #cc6600 100%
+            );
+            box-shadow:
+                0 0 30px rgba(255, 136, 0, 0.8),
+                0 0 60px rgba(255, 136, 0, 0.4),
+                inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .hp-bar-fill.critical {
+            background: linear-gradient(180deg,
+                #ff1111 0%,
+                #dd0000 50%,
+                #990000 100%
+            );
+            animation: critical-flash 0.5s infinite;
+        }
+
+        @keyframes critical-flash {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">{{ title }}</div>
+        <div class="message">{{ message }}</div>
+        <div class="countdown-display" id="countdown">{{ time_text }}</div>
+
+        <div class="hp-container">
+            <div class="hp-label">
+                <span>🔴 HEALTH POINTS</span>
+                <span id="hp-value">{{ progress }}%</span>
+            </div>
+
+            <div class="hp-bar-frame">
+                <div class="hp-bar-bg">
+                    <div class="hp-bar-fill {% if is_full %}full{% elif progress < 25 %}critical{% elif progress < 50 %}low{% endif %}"
+                         id="hpBar"
+                         style="width: {{ progress }}%;">
+                    </div>
+                    <div class="hp-text">{{ progress }} HP</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        {% if seconds_remaining > 0 %}
+        let secondsRemaining = {{ seconds_remaining }};
+        const totalSeconds = {{ total_seconds }};
+
+        function updateCountdown() {
+            if (secondsRemaining <= 0) {
+                location.reload();
+                return;
+            }
+
+            // Mise à jour du countdown
+            const days = Math.floor(secondsRemaining / 86400);
+            const hours = Math.floor((secondsRemaining % 86400) / 3600);
+            const minutes = Math.floor((secondsRemaining % 3600) / 60);
+            const seconds = secondsRemaining % 60;
+
+            let timeText = '';
+            if (days > 0) timeText += `${days}J `;
+            if (hours > 0) timeText += `${hours}H `;
+            if (minutes > 0) timeText += `${minutes}M `;
+            timeText += `${seconds}S`;
+
+            document.getElementById('countdown').textContent = timeText;
+
+            // Mise à jour de la barre HP (diminue avec le temps)
+            const progress = Math.max(0, Math.min(100, Math.floor((secondsRemaining / totalSeconds) * 100)));
+            const hpBar = document.getElementById('hpBar');
+            const hpValue = document.getElementById('hp-value');
+
+            hpBar.style.width = progress + '%';
+            hpValue.textContent = progress + '%';
+            document.querySelector('.hp-text').textContent = progress + ' HP';
+
+            // Changer les classes selon le niveau HP
+            hpBar.className = 'hp-bar-fill';
+            if (progress >= 100) {
+                hpBar.classList.add('full');
+            } else if (progress < 25) {
+                hpBar.classList.add('critical');
+            } else if (progress < 50) {
+                hpBar.classList.add('low');
+            }
+
+            secondsRemaining--;
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+        {% endif %}
+    </script>
+</body>
+</html>

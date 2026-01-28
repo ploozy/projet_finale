@@ -425,17 +425,17 @@ def exams():
 
                 # Message adapté selon la proximité
                 if seconds_remaining < 3600:  # Moins d'1h
-                    message = "🔥 Prépare-toi bien soldat, ton examen approche !"
-                    title = "⚔️ Au combat dans moins d'1h !"
+                    message = "🔥 PRÉPARE-TOI BIEN SOLDAT, TON EXAMEN APPROCHE !"
+                    title = "⚔️ AU COMBAT DANS MOINS D'1H"
                 elif seconds_remaining < 86400:  # Moins d'1j
-                    message = "💪 L'heure de la bataille approche, révise bien !"
-                    title = "🎯 Examen imminent"
+                    message = "💪 L'HEURE DE LA BATAILLE APPROCHE, RÉVISE BIEN !"
+                    title = "🎯 EXAMEN IMMINENT"
                 elif seconds_remaining < 259200:  # Moins de 3j
-                    message = "📚 Il est temps de réviser sérieusement"
-                    title = "📖 Préparation en cours"
+                    message = "📚 IL EST TEMPS DE RÉVISER SÉRIEUSEMENT"
+                    title = "📖 PRÉPARATION EN COURS"
                 else:
-                    message = "😌 Profite de ce temps pour bien te préparer"
-                    title = "⏳ Examen programmé"
+                    message = "😌 PROFITE DE CE TEMPS POUR BIEN TE PRÉPARER"
+                    title = "⏳ EXAMEN PROGRAMMÉ"
 
                 # Calculer le countdown
                 days = seconds_remaining // 86400
@@ -445,33 +445,31 @@ def exams():
 
                 time_text = ''
                 if days > 0:
-                    time_text += f"{days}j "
+                    time_text += f"{days}J "
                 if hours > 0:
-                    time_text += f"{hours}h "
+                    time_text += f"{hours}H "
                 if minutes > 0:
-                    time_text += f"{minutes}m "
-                time_text += f"{seconds}s"
+                    time_text += f"{minutes}M "
+                time_text += f"{seconds}S"
 
-                return render_template('exams_id.html',
-                    exam_countdown={
-                        'title': title,
-                        'message': message,
-                        'time_text': time_text,
-                        'progress': progress,
-                        'seconds_remaining': seconds_remaining,
-                        'is_full': False
-                    })
+                return render_template('exam_waiting.html',
+                    title=title,
+                    message=message,
+                    time_text=time_text,
+                    progress=progress,
+                    seconds_remaining=seconds_remaining,
+                    total_seconds=total_seconds,
+                    is_full=False)
             else:
                 # Pas d'exam programmé → Barre 100HP "repose-toi"
-                return render_template('exams_id.html',
-                    exam_countdown={
-                        'title': '💚 100 HP - Repos bien mérité !',
-                        'message': '😌 Repose-toi bien tant qu\'il en est encore temps...',
-                        'time_text': 'Aucun examen programmé',
-                        'progress': 100,
-                        'seconds_remaining': 0,
-                        'is_full': True
-                    })
+                return render_template('exam_waiting.html',
+                    title='💚 100 HP - REPOS BIEN MÉRITÉ',
+                    message='😌 REPOSE-TOI BIEN TANT QU\'IL EN EST ENCORE TEMPS...',
+                    time_text='AUCUN EXAMEN PROGRAMMÉ',
+                    progress=100,
+                    seconds_remaining=0,
+                    total_seconds=1,
+                    is_full=True)
 
         # 3. Vérifier si l'utilisateur a déjà passé l'examen PENDANT CETTE PÉRIODE
         # Trouver l'examen correspondant au niveau
