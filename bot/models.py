@@ -38,11 +38,13 @@ class Utilisateur(Base):
     
     user_id = Column(BigInteger, primary_key=True)  # Discord User ID
     username = Column(String(100), nullable=False)
-    cohorte_id = Column(String(20), ForeignKey('cohortes.id', ondelete='CASCADE'), nullable=False)
+    cohorte_id = Column(String(20), ForeignKey('cohortes.id', ondelete='SET NULL'), nullable=True)  # Optionnel maintenant
     niveau_actuel = Column(Integer, nullable=False, default=1)
-    groupe = Column(String(10), nullable=False, default="1-A")  # Ex: "1-A", "2-B"
+    groupe = Column(String(10), nullable=False, default="1-A")  # Ex: "1-A", "2-B", "Rattrapage Niveau 1"
     examens_reussis = Column(Integer, nullable=False, default=0)
     date_inscription = Column(DateTime, nullable=False, default=datetime.now)
+    is_alumni = Column(Boolean, nullable=False, default=False)  # Si l'utilisateur a terminé le niveau 5
+    in_rattrapage = Column(Boolean, nullable=False, default=False)  # Si l'utilisateur est en rattrapage
     
     # Colonnes pour le système de vote
     has_voted = Column(Boolean, nullable=False, default=False)
@@ -186,11 +188,47 @@ class ExamPeriod(Base):
 
     id = Column(String(50), primary_key=True)  # Ex: "2026-01-15_group1"
     group_number = Column(Integer, nullable=False)
+    groupe = Column(String(10), nullable=True)  # Ex: "1-A", "Rattrapage Niveau 1"
     vote_start_time = Column(DateTime, nullable=False)  # Votes ouverts 24h avant
     start_time = Column(DateTime, nullable=False)  # Début de l'examen
     end_time = Column(DateTime, nullable=False)  # Fin de l'examen (6h après start_time)
     votes_closed = Column(Boolean, nullable=False, default=False)
     bonuses_applied = Column(Boolean, nullable=False, default=False)
-    
+    is_rattrapage = Column(Boolean, nullable=False, default=False)  # Si c'est un examen de rattrapage
+
     def __repr__(self):
         return f"<ExamPeriod {self.id} - Group {self.group_number}>"
+
+
+class WaitingList(Base):
+    """Table des listes d'attente pour les groupes"""
+    __tablename__ = 'waiting_lists'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
+    niveau = Column(Integer, nullable=False)  # Niveau attendu
+    target_group = Column(String(10), nullable=True)  # Groupe cible (ex: "1-D") ou None si général
+    date_ajout = Column(DateTime, nullable=False, default=datetime.now)
+    type_waiting = Column(String(20), nullable=False, default='nouveau_groupe')  # 'nouveau_groupe' ou 'groupe_plein'
+    raison = Column(String(100), nullable=True)  # Raison de l'attente
+
+    def __repr__(self):
+        return f"<WaitingList {self.user_id} - Niveau {self.niveau} - {self.target_group or 'général'}>"
+
+
+class RattrapageExam(Base):
+    """Table des examens de rattrapage programmés pour chaque utilisateur"""
+    __tablename__ = 'rattrapage_exams'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey('utilisateurs.user_id', ondelete='CASCADE'), nullable=False)
+    niveau = Column(Integer, nullable=False)  # Niveau à rattraper
+    failed_percentage = Column(Float, nullable=False)  # Note obtenue lors de l'échec
+    delai_jours = Column(Float, nullable=False)  # Délai en jours avant l'examen
+    date_echec = Column(DateTime, nullable=False, default=datetime.now)  # Date de l'échec
+    date_exam_rattrapage = Column(DateTime, nullable=False)  # Date calculée de l'examen
+    completed = Column(Boolean, nullable=False, default=False)  # Si l'examen a été passé
+    groupe_rattrapage = Column(String(30), nullable=False)  # Ex: "Rattrapage Niveau 1"
+
+    def __repr__(self):
+        return f"<RattrapageExam {self.user_id} - Niveau {self.niveau} - {self.date_exam_rattrapage}>"

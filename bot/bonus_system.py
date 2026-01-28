@@ -46,27 +46,33 @@ class BonusSystem:
             
             print(f"📊 Votes comptabilisés : {len(vote_counts)} utilisateur(s)")
             
-            # 2. Attribuer les bonus
+            # 2. Attribuer les bonus et calculer les rangs
             bonus_assignments = {}
-            for user_id, vote_count in vote_counts.items():
+
+            # Trier par nombre de votes (décroissant) pour calculer les rangs
+            sorted_votes = sorted(vote_counts.items(), key=lambda x: x[1], reverse=True)
+
+            for rank, (user_id, vote_count) in enumerate(sorted_votes, start=1):
                 bonus_points, bonus_level = self.vote_system.calculate_bonus(vote_count)
                 bonus_assignments[user_id] = {
                     'votes': vote_count,
                     'bonus': bonus_points,
-                    'level': bonus_level
+                    'level': bonus_level,
+                    'rank': rank,
+                    'total_voters': len(sorted_votes)
                 }
-                
+
                 # Mettre à jour l'utilisateur
                 user = db.query(Utilisateur).filter(
                     Utilisateur.user_id == user_id
                 ).first()
-                
+
                 if user:
                     user.bonus_points = bonus_points
                     user.bonus_level = bonus_level
-                    
-                    print(f"  ✅ {user.username}: {vote_count} votes → +{bonus_points}% ({bonus_level})")
-            
+
+                    print(f"  ✅ {user.username}: {vote_count} votes (rang #{rank}) → +{bonus_points}% ({bonus_level})")
+
             db.commit()
             
             # 3. Récupérer tous les résultats d'examen de cette période
@@ -137,14 +143,18 @@ class BonusSystem:
                     
                     print(f"     ✅ Promotion: {old_groupe} → {new_groupe}")
                 
-                # Sauvegarder la notification
+                # Sauvegarder la notification avec votes et rang
+                bonus_info = bonus_assignments.get(user.user_id, {})
                 notifications.append({
                     'user_id': user.user_id,
                     'original_percentage': original_percentage,
                     'bonus_percentage': bonus_percentage,
                     'bonus': user.bonus_points,
                     'bonus_level': user.bonus_level,
-                    'promoted': was_failed and is_now_passed
+                    'promoted': was_failed and is_now_passed,
+                    'votes_received': bonus_info.get('votes', 0),
+                    'rank': bonus_info.get('rank', 0),
+                    'total_voters': bonus_info.get('total_voters', 0)
                 })
                 
                 # Réinitialiser le bonus (crédit unique)
@@ -167,9 +177,8 @@ class BonusSystem:
             for promo in promotions:
                 await self._handle_promotion(promo, guild)
 
-            # 7. Envoyer un récapitulatif dans le salon discussion du groupe
-            print(f"\n📢 Envoi du récapitulatif dans le salon discussion...")
-            await self._send_group_summary(exam_period, notifications, guild, db)
+            # 7. [SUPPRIMÉ] Pas de message public dans le salon entraide
+            # Les utilisateurs reçoivent uniquement des MPs privés avec leurs votes et rang
 
             # 8. Marquer la période comme traitée
             exam_period.bonuses_applied = True
@@ -253,24 +262,41 @@ class BonusSystem:
                 'bronze': discord.Color.orange()
             }.get(notif['bonus_level'], discord.Color.blue())
             
+            # Afficher le rang avec emoji
+            rank_emoji = "🥇" if notif.get('rank', 0) == 1 else "🥈" if notif.get('rank', 0) == 2 else "🥉" if notif.get('rank', 0) == 3 else "🏅"
+
             embed = discord.Embed(
                 title=f"{bonus_emoji} Bonus d'Entraide Appliqué !",
                 description=f"Tes camarades ont voté pour toi !",
                 color=bonus_color,
                 timestamp=datetime.now()
             )
-            
+
+            # Nombre de votes reçus
+            embed.add_field(
+                name="🗳️ Votes Reçus",
+                value=f"**{notif.get('votes_received', 0)} vote(s)**",
+                inline=True
+            )
+
+            # Rang
+            embed.add_field(
+                name=f"{rank_emoji} Rang",
+                value=f"**#{notif.get('rank', 0)}** / {notif.get('total_voters', 0)}",
+                inline=True
+            )
+
             if notif['bonus_level']:
                 embed.add_field(
                     name="🏆 Niveau de Récompense",
                     value=f"**{notif['bonus_level'].upper()}** ({bonus_emoji})",
                     inline=True
                 )
-            
+
             embed.add_field(
                 name="📊 Bonus Obtenu",
                 value=f"**+{notif['bonus']}%**",
-                inline=True
+                inline=False
             )
             
             embed.add_field(
