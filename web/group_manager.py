@@ -19,7 +19,8 @@ from cohort_config import (
     DUREE_EXAMEN_NORMALE,
     DUREE_EXAMEN_RATTRAPAGE,
     get_delai_rattrapage,
-    get_categorie_note
+    get_categorie_note,
+    calculate_exam_date_with_buffer
 )
 
 
@@ -212,6 +213,9 @@ class GroupManager:
             # Créer un nouveau groupe
             nouveau_groupe = self._create_next_group(niveau)
 
+            # Date de référence : la date d'inscription du 7e membre (le plus récent)
+            reference_date = datetime.utcnow()
+
             # Assigner les 7 premières personnes
             for i, waiting in enumerate(waiting_nouveau[:MIN_PERSONNES_NOUVEAU_GROUPE]):
                 user = self.db.query(Utilisateur).filter(
@@ -238,6 +242,19 @@ class GroupManager:
             self.db.commit()
 
             print(f"✅ Nouveau groupe {nouveau_groupe} créé avec {MIN_PERSONNES_NOUVEAU_GROUPE} membres")
+
+            # Programmer l'examen automatiquement avec la formule de buffer
+            exam_date = calculate_exam_date_with_buffer(reference_date, niveau)
+
+            # Créer la période d'examen
+            self.create_exam_period(
+                groupe=nouveau_groupe,
+                niveau=niveau,
+                start_time=exam_date,
+                is_rattrapage=False
+            )
+
+            print(f"✅ Examen programmé pour le groupe {nouveau_groupe} le {exam_date.strftime('%Y-%m-%d %H:%M')}")
 
         # Type 2 : Waiting list générale (groupes pleins)
         waiting_general = self.db.query(WaitingList).filter(

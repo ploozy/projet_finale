@@ -24,6 +24,10 @@ LETTRES_GROUPES = [chr(i) for i in range(ord('A'), ord('Z') + 1)]  # A, B, C, ..
 DUREE_EXAMEN_NORMALE = 6  # heures
 DUREE_EXAMEN_RATTRAPAGE = 6  # heures
 
+# Configuration du buffer pour la programmation des examens
+BUFFER_MIN_JOURS = 1  # Minimum 1 jour de buffer
+BUFFER_PERCENT = 0.5  # 50% du temps de formation minimum
+
 # Délais pour les rattrapages selon la note (fraction du temps de formation)
 DELAI_RATTRAPAGE = {
     'tres_faible': None,  # < 20% : waiting list
@@ -64,3 +68,27 @@ def get_categorie_note(percentage: float) -> str:
         return 'moyen'
     else:
         return 'proche'
+
+def calculate_exam_date_with_buffer(user_joined_at, niveau: int):
+    """
+    Calcule la date d'examen avec buffer pour éviter qu'elle soit trop proche
+
+    Formule :
+    - buffer = max(bufferMin, bufferPercent * minTrainingTime)
+    - examAt = userJoinedAt + minTrainingTime + buffer
+
+    Args:
+        user_joined_at: datetime - Date d'inscription de l'utilisateur
+        niveau: int - Niveau du groupe
+
+    Returns:
+        datetime - Date calculée pour l'examen
+    """
+    from datetime import timedelta
+
+    min_training_time = TEMPS_FORMATION_MINIMUM.get(niveau, 3)
+    buffer = max(BUFFER_MIN_JOURS, BUFFER_PERCENT * min_training_time)
+
+    exam_date = user_joined_at + timedelta(days=min_training_time + buffer)
+
+    return exam_date

@@ -146,131 +146,96 @@ async def on_ready():
 async def on_member_join(member: discord.Member):
     """
     ONBOARDING AUTOMATIQUE
-    Quand quelqu'un rejoint le serveur
+    Quand quelqu'un rejoint le serveur, il obtient le rôle "nouveau"
+    et a accès uniquement au canal d'inscription
     """
     guild = member.guild
-    
+
     print(f"\n{'='*50}")
     print(f"👋 NOUVEAU MEMBRE : {member.name} (ID: {member.id})")
-    
+
     try:
-        # 1. Trouver le groupe disponible au niveau 1
-        groupe = await get_available_group(guild, niveau=1)
-        print(f"📌 Groupe attribué : {groupe}")
-        
-        # 2. Créer ou récupérer le rôle
-        role = discord.utils.get(guild.roles, name=f"Groupe {groupe}")
-        if not role:
-            role = await guild.create_role(
-                name=f"Groupe {groupe}",
-                color=discord.Color.green(),
-                mentionable=True,
-                hoist=True  # Afficher séparément à gauche sur Discord
+        # 1. Créer ou récupérer le rôle "nouveau"
+        nouveau_role = discord.utils.get(guild.roles, name="nouveau")
+        if not nouveau_role:
+            nouveau_role = await guild.create_role(
+                name="nouveau",
+                color=discord.Color.light_grey(),
+                mentionable=False,
+                hoist=False
             )
-            print(f"✅ Rôle créé : {role.name}")
-        
-        # 3. Attribuer le rôle
-        await member.add_roles(role)
-        print(f"✅ Rôle attribué")
-        
-        # 4. Créer les salons si nécessaire
-        await create_group_channels(guild, groupe, role)
-        print(f"✅ Salons créés/vérifiés")
-        
-        # 5. Enregistrer en base de données
-        from db_connection import SessionLocal
-        from models import Utilisateur, Cohorte
-        
-        db = SessionLocal()
-        try:
-            # Vérifier si existe déjà
-            existing = db.query(Utilisateur).filter(Utilisateur.user_id == member.id).first()
-            
-            if not existing:
-                # Créer ou récupérer la cohorte
-                now = datetime.now()
-                month = now.strftime("%b").upper()
-                year = str(now.year)[-2:]
-                cohorte_id = f"{month}{year}-A"
-                
-                cohorte = db.query(Cohorte).filter(Cohorte.id == cohorte_id).first()
-                if not cohorte:
-                    cohorte = Cohorte(
-                        id=cohorte_id,
-                        date_creation=now,
-                        date_premier_examen=now + timedelta(days=14),
-                        niveau_actuel=1,
-                        statut='active'
-                    )
-                    db.add(cohorte)
-                    db.flush()
-                
-                # Créer l'utilisateur
-                new_user = Utilisateur(
-                    user_id=member.id,
-                    username=member.name,
-                    cohorte_id=cohorte_id,
-                    niveau_actuel=1,
-                    groupe=groupe,
-                    examens_reussis=0,
-                    date_inscription=now
+            print(f"✅ Rôle 'nouveau' créé")
+
+        # 2. Attribuer le rôle "nouveau"
+        await member.add_roles(nouveau_role)
+        print(f"✅ Rôle 'nouveau' attribué à {member.name}")
+
+        # 3. Configurer les permissions du canal d'inscription (si nécessaire)
+        inscription_channel = guild.get_channel(1462439274178674950)
+        if inscription_channel:
+            # Vérifier si les permissions sont correctement configurées
+            overwrites = inscription_channel.overwrites
+
+            # S'assurer que @everyone ne peut pas voir le canal
+            if guild.default_role not in overwrites or overwrites[guild.default_role].read_messages != False:
+                await inscription_channel.set_permissions(
+                    guild.default_role,
+                    read_messages=False
                 )
-                
-                db.add(new_user)
-                db.commit()
-                print(f"✅ Utilisateur enregistré en DB")
-        
-        finally:
-            db.close()
-        
-        # 6. Message de bienvenue
+
+            # S'assurer que le rôle "nouveau" peut voir le canal
+            if nouveau_role not in overwrites or overwrites[nouveau_role].read_messages != True:
+                await inscription_channel.set_permissions(
+                    nouveau_role,
+                    read_messages=True,
+                    send_messages=True
+                )
+
+            print(f"✅ Permissions du canal d'inscription configurées")
+
+        # 4. Message de bienvenue en MP
         try:
             embed = discord.Embed(
                 title="🎓 Bienvenue dans la Formation Python !",
                 description=f"Salut {member.mention}, nous sommes ravis de t'accueillir !",
                 color=discord.Color.green()
             )
-            
-            embed.add_field(
-                name="📌 Ton Groupe",
-                value=f"**Groupe {groupe}**\nTu as été assigné automatiquement.",
-                inline=False
-            )
-            
+
+            if inscription_channel:
+                embed.add_field(
+                    name="📝 Inscription",
+                    value=f"Pour t'inscrire, rends-toi dans le canal <#{inscription_channel.id}> et tape la commande `/register`",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="📝 Inscription",
+                    value="Pour t'inscrire, tape la commande `/register` dans n'importe quel canal où tu as accès.",
+                    inline=False
+                )
+
             embed.add_field(
                 name="🎯 Prochaines Étapes",
                 value=(
-                    "1️⃣ Consulte les ressources dans ton salon\n"
-                    "2️⃣ Prépare-toi pour l'examen du Niveau 1\n"
-                    "3️⃣ Utilise `/my_info` pour voir tes infos\n"
-                    f"4️⃣ Passe ton examen sur le site avec ton ID : `{member.id}`"
+                    "1️⃣ Inscris-toi avec `/register`\n"
+                    "2️⃣ Tu seras automatiquement assigné à un groupe\n"
+                    "3️⃣ Accède aux ressources et prépare-toi pour l'examen\n"
+                    "4️⃣ Passe ton examen quand tu es prêt"
                 ),
                 inline=False
             )
-            
-            embed.add_field(
-                name="🌐 Lien du Site",
-                value="http://localhost:5000/exams",
-                inline=False
-            )
-            
-            embed.add_field(
-                name="🤖 Notification Automatique",
-                value="Tu recevras automatiquement tes résultats en MP dès que tu auras terminé un examen !",
-                inline=False
-            )
-            
+
             embed.set_footer(text=f"Ton ID Discord : {member.id}")
-            
+
             await member.send(embed=embed)
             print(f"✅ Message de bienvenue envoyé")
-        
+
         except discord.Forbidden:
             print(f"⚠️ Impossible d'envoyer un MP à {member.name}")
-        
+
         print(f"🎉 Onboarding terminé pour {member.name}")
         print(f"{'='*50}\n")
-    
+
     except Exception as e:
         print(f"❌ Erreur onboarding: {e}")
         import traceback
@@ -342,19 +307,27 @@ async def create_group_channels(guild: discord.Guild, groupe: str, role: discord
 async def register(interaction: discord.Interaction):
     """Inscription manuelle"""
     await interaction.response.send_message("🔄 Inscription en cours...", ephemeral=True)
-    
+
     from db_connection import SessionLocal
     from models import Utilisateur
-    
+    from group_manager import GroupManager
+
     db = SessionLocal()
-    
+
     try:
         user_id = interaction.user.id
         username = interaction.user.name
-        
+        member = interaction.guild.get_member(user_id)
+
+        if not member:
+            await interaction.edit_original_response(
+                content="❌ Erreur : impossible de récupérer tes informations."
+            )
+            return
+
         # Vérifier si existe déjà
         existing = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-        
+
         if existing:
             await interaction.edit_original_response(
                 content=f"✅ **Déjà inscrit !**\n\n"
@@ -364,25 +337,63 @@ async def register(interaction: discord.Interaction):
                        f"🌐 Site : http://localhost:5000/exams"
             )
             return
-        
-        # Simuler l'onboarding
-        member = interaction.guild.get_member(user_id)
-        if member:
-            await on_member_join(member)
-            await asyncio.sleep(1)
-            
-            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-            
-            if user:
-                await interaction.edit_original_response(
-                    content=f"✅ **Inscription réussie !**\n\n"
-                           f"**Groupe** : {user.groupe}\n"
-                           f"**Niveau** : {user.niveau_actuel}\n"
-                           f"**ID** : `{user_id}`\n\n"
-                           f"🌐 Site : http://localhost:5000/exams\n\n"
-                           f"🤖 Tu recevras tes résultats automatiquement en MP !"
+
+        # Utiliser le GroupManager pour l'inscription
+        group_manager = GroupManager(db)
+        groupe, info = group_manager.register_user(user_id, username, niveau=1)
+
+        if info['status'] == 'direct':
+            # Inscription réussie
+            # Retirer le rôle "nouveau"
+            nouveau_role = discord.utils.get(interaction.guild.roles, name="nouveau")
+            if nouveau_role and nouveau_role in member.roles:
+                await member.remove_roles(nouveau_role)
+                print(f"✅ Rôle 'nouveau' retiré de {username}")
+
+            # Créer ou récupérer le rôle du groupe
+            role = discord.utils.get(interaction.guild.roles, name=f"Groupe {groupe}")
+            if not role:
+                role = await interaction.guild.create_role(
+                    name=f"Groupe {groupe}",
+                    color=discord.Color.green(),
+                    mentionable=True,
+                    hoist=True
                 )
-        
+                print(f"✅ Rôle créé : {role.name}")
+
+            # Attribuer le rôle du groupe
+            await member.add_roles(role)
+            print(f"✅ Rôle attribué : {role.name}")
+
+            # Créer les salons si nécessaire
+            await create_group_channels(interaction.guild, groupe, role)
+            print(f"✅ Salons créés/vérifiés")
+
+            await interaction.edit_original_response(
+                content=f"✅ **Inscription réussie !**\n\n"
+                       f"**Groupe** : {groupe}\n"
+                       f"**Niveau** : 1\n"
+                       f"**ID** : `{user_id}`\n\n"
+                       f"🌐 Site : http://localhost:5000/exams\n\n"
+                       f"🤖 Tu recevras tes résultats automatiquement en MP !"
+            )
+
+        elif info['status'] == 'waiting_list':
+            # Ajouté à la waiting list
+            await interaction.edit_original_response(
+                content=f"⏳ **Ajouté à la liste d'attente**\n\n"
+                       f"**Raison** : {info.get('raison', 'Groupes pleins')}\n\n"
+                       f"Tu seras automatiquement assigné dès qu'une place se libère ou qu'un nouveau groupe est créé."
+            )
+
+    except Exception as e:
+        print(f"❌ Erreur lors de l'inscription : {e}")
+        import traceback
+        traceback.print_exc()
+        await interaction.edit_original_response(
+            content=f"❌ Erreur lors de l'inscription : {e}"
+        )
+
     finally:
         db.close()
 
@@ -1302,6 +1313,79 @@ async def list_exam_periods_command(interaction: discord.Interaction):
             )
 
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    finally:
+        db.close()
+
+
+@bot.tree.command(name="cancel_next_exam", description="[ADMIN] Annuler le prochain examen programmé pour un groupe")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    groupe="Nom du groupe (ex: 1-A, 2-B, Rattrapage Niveau 1)"
+)
+async def cancel_next_exam(
+    interaction: discord.Interaction,
+    groupe: str
+):
+    """Annule le prochain examen programmé pour un groupe donné"""
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+    from datetime import datetime
+
+    db = SessionLocal()
+    try:
+        now = datetime.now()
+
+        # Récupérer le prochain examen pour ce groupe
+        next_exam = db.query(ExamPeriod).filter(
+            ExamPeriod.groupe == groupe,
+            ExamPeriod.start_time > now
+        ).order_by(ExamPeriod.start_time).first()
+
+        if not next_exam:
+            await interaction.followup.send(
+                f"❌ Aucun examen à venir trouvé pour le groupe `{groupe}`",
+                ephemeral=True
+            )
+            return
+
+        # Afficher les infos avant suppression
+        info_msg = (
+            f"🗑️ **Examen annulé**\n\n"
+            f"🆔 ID: `{next_exam.id}`\n"
+            f"📊 Groupe: {next_exam.groupe}\n"
+            f"📊 Niveau: {next_exam.group_number}\n"
+            f"🗳️ Votes: {next_exam.vote_start_time.strftime('%d/%m/%Y %H:%M')}\n"
+            f"⏰ Début: {next_exam.start_time.strftime('%d/%m/%Y %H:%M')}\n"
+            f"🏁 Fin: {next_exam.end_time.strftime('%d/%m/%Y %H:%M')}"
+        )
+
+        db.delete(next_exam)
+        db.commit()
+
+        await interaction.followup.send(info_msg, ephemeral=True)
+
+        # Notifier dans le canal du groupe (optionnel)
+        guild = interaction.guild
+        if guild:
+            # Chercher la catégorie du groupe
+            category_name = f"📚 Groupe {groupe}"
+            category = discord.utils.get(guild.categories, name=category_name)
+
+            if category:
+                # Chercher le salon mon-examen dans cette catégorie
+                exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
+
+                if exam_channel:
+                    embed = discord.Embed(
+                        title="⚠️ Examen Annulé",
+                        description=f"L'examen prévu pour le {next_exam.start_time.strftime('%d/%m/%Y à %H:%M')} a été annulé par un administrateur.",
+                        color=discord.Color.orange()
+                    )
+                    await exam_channel.send(embed=embed)
+                    print(f"✅ Notification d'annulation envoyée dans {exam_channel.name}")
 
     finally:
         db.close()
