@@ -56,17 +56,17 @@ class VoteSystem:
             if not voter:
                 await interaction.followup.send("❌ Tu dois d'abord t'inscrire avec `/register`", ephemeral=True)
                 return
-            
+
             # 2. Vérifier qu'il y a un examen en cours pour son groupe
-            # exam_period = self.get_active_exam_period(voter.niveau_actuel)
-            # if not exam_period:
-            #     await interaction.followup.send("❌ Aucune période de vote/examen active pour ton groupe actuellement.", ephemeral=True)
-            #     return
-            
+            exam_period = self.get_active_exam_period(voter.niveau_actuel)
+            if not exam_period:
+                await interaction.followup.send("❌ Aucune période de vote/examen active pour ton groupe actuellement.", ephemeral=True)
+                return
+
             # 3. Vérifier s'il a déjà voté pour cet examen spécifique
             existing_votes = db.query(Vote).filter(
                 Vote.voter_id == voter_id,
-                Vote.exam_period_id == "test"
+                Vote.exam_period_id == exam_period.id
             ).count()
             
             if existing_votes > 0:
@@ -117,14 +117,14 @@ class VoteSystem:
                 new_vote = Vote(
                     voter_id=voter.user_id,
                     voted_for_id=target.user_id,
-                    exam_period_id="test",  # Pour les tests, pas de vraie période d'examen
+                    exam_period_id=exam_period.id,
                     date=datetime.now()
                 )
                 db.add(new_vote)
 
             # 7. Marquer le votant comme ayant participé
             voter.has_voted = True
-            voter.current_exam_period = "test"  # Pour les tests
+            voter.current_exam_period = exam_period.id
             
             db.commit()
             

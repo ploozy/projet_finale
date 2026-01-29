@@ -10,175 +10,143 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            background: #0a0a0a;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
         }
-        
+
         .container {
-            background: white;
-            padding: 40px;
+            background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+            padding: 60px 50px;
             border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.9),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
             max-width: 500px;
             width: 100%;
+            border: 1px solid #2a2a2a;
         }
-        
+
         h1 {
-            color: #2c3e50;
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            color: #c0c0c0;
+            text-shadow:
+                0 0 10px rgba(192, 192, 192, 0.5),
+                0 2px 4px rgba(0, 0, 0, 0.8);
         }
-        
+
         .subtitle {
             text-align: center;
-            color: #7f8c8d;
-            margin-bottom: 30px;
+            color: #808080;
+            margin-bottom: 40px;
+            font-size: 1rem;
         }
-        
+
         .error {
-            background: #fee;
-            border-left: 4px solid #dc3545;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            color: #721c24;
+            background: linear-gradient(145deg, #2a1515, #1a0a0a);
+            border: 2px solid #ff4444;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: #ff6b6b;
+            text-align: center;
+            box-shadow:
+                0 4px 15px rgba(255, 68, 68, 0.3),
+                inset 0 1px 0 rgba(255, 68, 68, 0.1);
         }
-        
-        .form-group {
-            margin-bottom: 25px;
-        }
-        
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #2c3e50;
-        }
-        
+
         input[type="text"] {
             width: 100%;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 1rem;
+            padding: 20px;
+            border: 2px solid #2a2a2a;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            background: linear-gradient(145deg, #1a1a1a, #0f0f0f);
+            color: #c0c0c0;
+            margin-bottom: 25px;
             transition: all 0.3s;
+            box-shadow:
+                inset 0 2px 5px rgba(0, 0, 0, 0.5),
+                0 1px 0 rgba(255, 255, 255, 0.05);
         }
-        
+
+        input[type="text"]::placeholder {
+            color: #505050;
+        }
+
         input[type="text"]:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #888;
+            box-shadow:
+                0 0 20px rgba(136, 136, 136, 0.4),
+                inset 0 2px 5px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(145deg, #202020, #151515);
         }
-        
-        .help-text {
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin-top: 8px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-        }
-        
+
         button {
             width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            padding: 20px;
+            background: linear-gradient(145deg, #c0c0c0, #909090);
+            color: #0a0a0a;
             border: none;
-            border-radius: 10px;
-            font-size: 1.1rem;
-            font-weight: 600;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
+            box-shadow:
+                0 6px 20px rgba(192, 192, 192, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
         }
-        
+
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+            box-shadow:
+                0 10px 30px rgba(192, 192, 192, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+            background: linear-gradient(145deg, #d0d0d0, #a0a0a0);
         }
-        
-        .info-box {
-            margin-top: 25px;
-            padding: 20px;
-            background: #e3f2fd;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .info-title {
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-        
-        .info-list {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .info-list li {
-            padding: 5px 0;
-            color: #495057;
-            font-size: 0.9rem;
-        }
-        
-        .info-list li::before {
-            content: "✓";
-            color: #28a745;
-            font-weight: bold;
-            margin-right: 10px;
+
+        button:active {
+            transform: translateY(0);
+            box-shadow:
+                0 3px 10px rgba(192, 192, 192, 0.3),
+                inset 0 2px 5px rgba(0, 0, 0, 0.3);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎓 Accès à l'Examen</h1>
+        <h1>📝 ACCÈS EXAMEN</h1>
         <p class="subtitle">Entre ton ID Discord</p>
-        
+
         {% if error %}
         <div class="error">
-            {{ error }}
+            {{ error|safe }}
         </div>
         {% endif %}
-        
-        <form method="POST" action="/exams">
-            <div class="form-group">
-                <label for="user_id">Ton ID Discord</label>
-                <input 
-                    type="text" 
-                    id="user_id" 
-                    name="user_id" 
-                    placeholder="Ex: 123456789012345678"
-                    required
-                    pattern="[0-9]{17,19}"
-                    title="L'ID Discord doit contenir 17-19 chiffres"
-                >
-                <div class="help-text">
-                    💡 Pour obtenir ton ID :<br>
-                    Discord → Paramètres → Avancé → Mode développeur<br>
-                    Clic droit sur ton profil → Copier l'identifiant
-                </div>
-            </div>
-            
-            <button type="submit">Accéder à mon examen →</button>
+
+        <form action="/exams" method="POST">
+            <input
+                type="text"
+                name="user_id"
+                placeholder="ID Discord"
+                required
+                autofocus
+            >
+            <button type="submit">ACCÉDER</button>
         </form>
-        
-        <div class="info-box">
-            <div class="info-title">ℹ️ Informations</div>
-            <ul class="info-list">
-                <li>L'examen correspond à ton niveau actuel</li>
-                <li>Durée : 40 minutes</li>
-                <li>Score minimum requis : 70%</li>
-                <li>Si tu réussis, tu passes automatiquement au niveau suivant !</li>
-            </ul>
-        </div>
     </div>
 </body>
 </html>

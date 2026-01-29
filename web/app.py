@@ -4,15 +4,16 @@ Site Web - Version Finale
 2. Promotion automatique après réussite
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import os
 from db_connection import SessionLocal
 from models import Utilisateur, ExamResult, ExamPeriod
 from sqlalchemy import func
 import exercise_types
 import requests
+from group_manager import GroupManager
 
 app = Flask(__name__)
 app.secret_key = 'secret'
@@ -370,6 +371,48 @@ def api_submit_exam():
 def exams():
     """Page d'examens avec vérification du vote"""
     if request.method == 'GET':
+        # Vérifier si l'utilisateur a une session active
+        if 'user_id' in session and 'exam_period_id' in session:
+            # Rediriger vers POST pour traiter la session
+            db = SessionLocal()
+            try:
+                user_id = session['user_id']
+                user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+                now = datetime.utcnow()
+
+                if user:
+                    # Vérifier si la période d'examen est toujours active
+                    exam_period = db.query(ExamPeriod).filter(
+                        ExamPeriod.id == session['exam_period_id'],
+                        ExamPeriod.start_time <= now,
+                        ExamPeriod.end_time >= now
+                    ).first()
+
+                    if exam_period:
+                        # Trouver l'examen
+                        exam = None
+                        for e in exams_data['exams']:
+                            if e['group'] == user.niveau_actuel:
+                                exam = e
+                                break
+
+                        if exam:
+                            # Retourner directement à l'examen
+                            return render_template('exam_secure.html',
+                                exam=exam,
+                                user_id=user_id,
+                                exam_period=exam_period,
+                                user_info={
+                                    'username': user.username,
+                                    'niveau_actuel': user.niveau_actuel,
+                                    'groupe': user.groupe
+                                })
+                    else:
+                        # Période expirée, nettoyer la session
+                        session.clear()
+            finally:
+                db.close()
+
         return render_template('exams_id.html')
     
     db = None
@@ -384,43 +427,12 @@ def exams():
         # 1. Chercher l'utilisateur
         db = SessionLocal()
         user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-        
+
         if not user:
             return render_template('exams_id.html',
                 error="Utilisateur non trouvé. Utilise /register sur Discord d'abord.")
 
-        # 2. Vérifier si l'utilisateur a déjà passé l'examen de son niveau
-        # Trouver l'examen correspondant au niveau
-        exam = None
-        for e in exams_data['exams']:
-            if e['group'] == user.niveau_actuel:
-                exam = e
-                break
-
-        if exam:
-            # Vérifier s'il existe déjà un résultat pour cet examen
-            existing_result = db.query(ExamResult).filter(
-                ExamResult.user_id == user_id,
-                ExamResult.exam_id == exam['id']
-            ).first()
-
-            if existing_result:
-                # L'utilisateur a déjà passé cet examen
-                # Vérifier s'il a le rôle admin
-                is_admin = check_user_has_admin_role(user_id)
-
-                if not is_admin:
-                    # Pas admin et déjà passé → BLOQUER
-                    return render_template('exams_id.html',
-                        error=f"⚠️ Tu as déjà passé l'examen du Niveau {user.niveau_actuel}\n\n"
-                              f"📊 Résultat: {existing_result.percentage}% ({existing_result.score}/{existing_result.total} points)\n"
-                              f"{'✅ Réussi' if existing_result.passed else '❌ Échoué'}\n\n"
-                              f"Tu ne peux passer l'examen qu'une seule fois.\n"
-                              f"Contacte un administrateur si besoin.")
-                else:
-                    print(f"🔑 Admin détecté - {user.username} peut repasser l'examen")
-
-        # 3. Vérifier période d'examen active
+        # 2. Vérifier période d'examen active (AVANT de vérifier si déjà passé)
         now = datetime.utcnow()  # Utiliser UTC pour cohérence avec la DB
 
         # Debug : afficher l'heure actuelle
@@ -447,20 +459,104 @@ def exams():
             ).order_by(ExamPeriod.start_time).first()
 
             if next_period:
-                start_str = next_period.start_time.strftime("%d/%m/%Y à %H:%M")
-                end_str = next_period.end_time.strftime("%d/%m/%Y à %H:%M")  # Afficher date complète
-                return render_template('exams_id.html',
-                    error=f"⏰ Examen pas encore disponible\n\n"
-                          f"📅 Niveau {user.niveau_actuel}\n"
-                          f"🟢 Début: {start_str}\n"
-                          f"🔴 Fin: {end_str}\n\n"
-                          f"⏰ Heure serveur: {now.strftime('%d/%m/%Y %H:%M')} UTC\n\n"
-                          f"Reviens à cette heure!")
+                # Calculer le temps restant jusqu'au début
+                seconds_remaining = int((next_period.start_time - now).total_seconds())
+                total_seconds = int((next_period.start_time - (next_period.start_time - timedelta(days=7))).total_seconds())
+
+                # Calculer le pourcentage de progression (compte à rebours)
+                progress = max(0, min(100, int((seconds_remaining / total_seconds) * 100)))
+
+                # Message adapté selon la proximité
+                if seconds_remaining < 3600:  # Moins d'1h
+                    message = "🔥 PRÉPARE-TOI BIEN SOLDAT, TON EXAMEN APPROCHE !"
+                    title = "⚔️ AU COMBAT DANS MOINS D'1H"
+                elif seconds_remaining < 86400:  # Moins d'1j
+                    message = "💪 L'HEURE DE LA BATAILLE APPROCHE, RÉVISE BIEN !"
+                    title = "🎯 EXAMEN IMMINENT"
+                elif seconds_remaining < 259200:  # Moins de 3j
+                    message = "📚 IL EST TEMPS DE RÉVISER SÉRIEUSEMENT"
+                    title = "📖 PRÉPARATION EN COURS"
+                else:
+                    message = "😌 PROFITE DE CE TEMPS POUR BIEN TE PRÉPARER"
+                    title = "⏳ EXAMEN PROGRAMMÉ"
+
+                # Calculer le countdown
+                days = seconds_remaining // 86400
+                hours = (seconds_remaining % 86400) // 3600
+                minutes = (seconds_remaining % 3600) // 60
+                seconds = seconds_remaining % 60
+
+                time_text = ''
+                if days > 0:
+                    time_text += f"{days}J "
+                if hours > 0:
+                    time_text += f"{hours}H "
+                if minutes > 0:
+                    time_text += f"{minutes}M "
+                time_text += f"{seconds}S"
+
+                # Vérifier le statut de vote
+                valid_vote = (
+                    user.has_voted and
+                    (user.current_exam_period == next_period.id or user.current_exam_period == "test")
+                )
+
+                return render_template('exam_waiting.html',
+                    title=title,
+                    message=message,
+                    time_text=time_text,
+                    progress=progress,
+                    seconds_remaining=seconds_remaining,
+                    total_seconds=total_seconds,
+                    is_full=False,
+                    has_voted=valid_vote,
+                    exam_period_id=next_period.id,
+                    user_id=user_id)
             else:
-                return render_template('exams_id.html',
-                    error=f"Aucune période d'examen planifiée pour le niveau {user.niveau_actuel}.\n"
-                          f"Contacte un administrateur.")
-                # 3. Vérifier que l'utilisateur a voté
+                # Pas d'exam programmé → Barre 100HP "repose-toi"
+                return render_template('exam_waiting.html',
+                    title='',
+                    message='😌 REPOSE-TOI BIEN TANT QU\'IL EN EST ENCORE TEMPS...',
+                    time_text='',
+                    progress=100,
+                    seconds_remaining=0,
+                    total_seconds=1,
+                    is_full=True)
+
+        # 3. Vérifier si l'utilisateur a déjà passé l'examen PENDANT CETTE PÉRIODE
+        # Trouver l'examen correspondant au niveau
+        exam = None
+        for e in exams_data['exams']:
+            if e['group'] == user.niveau_actuel:
+                exam = e
+                break
+
+        if exam:
+            # Vérifier s'il existe déjà un résultat pour cet examen PENDANT cette période
+            existing_result = db.query(ExamResult).filter(
+                ExamResult.user_id == user_id,
+                ExamResult.exam_id == exam['id'],
+                ExamResult.date >= exam_period.start_time,
+                ExamResult.date <= exam_period.end_time
+            ).first()
+
+            if existing_result:
+                # L'utilisateur a déjà passé cet examen pendant cette période
+                # Vérifier s'il a le rôle admin
+                is_admin = check_user_has_admin_role(user_id)
+
+                if not is_admin:
+                    # Pas admin et déjà passé pour cette période → BLOQUER
+                    return render_template('exams_id.html',
+                        error=f"⚠️ Tu as déjà passé l'examen pour cette période !\n\n"
+                              f"📊 Résultat: {existing_result.percentage}% ({existing_result.score}/{existing_result.total} points)\n"
+                              f"{'✅ Réussi' if existing_result.passed else '❌ Échoué'}\n\n"
+                              f"Tu ne peux passer l'examen qu'une seule fois par période.\n"
+                              f"Attends la prochaine période d'examen.")
+                else:
+                    print(f"🔑 Admin détecté - {user.username} peut repasser l'examen")
+
+        # 4. Vérifier que l'utilisateur a voté
         # Pour les tests, accepter "test" comme exam_period valide
         valid_vote = (
             user.has_voted and
@@ -472,22 +568,21 @@ def exams():
                 error=f"⚠️ Tu dois voter avant de passer l'examen !\n\n"
                       f"Utilise la commande Discord :\n"
                       f"/vote @user1")
-            
-        # 4. Trouver l'examen
-        exam = None
-        for e in exams_data['exams']:
-            if e['group'] == user.niveau_actuel:
-                exam = e
-                break
-        
+
+        # 5. Vérifier qu'on a bien trouvé un examen (normalement déjà fait plus haut)
         if not exam:
             return render_template('exams_id.html',
                 error=f"Aucun examen pour le niveau {user.niveau_actuel}")
-        
-        # 5. Afficher l'examen sécurisé
+
+        # 6. Stocker dans la session pour permettre le retour
+        session['user_id'] = user_id
+        session['exam_period_id'] = exam_period.id
+
+        # 7. Afficher l'examen sécurisé avec la période d'examen
         return render_template('exam_secure.html',
             exam=exam,
             user_id=user_id,
+            exam_period=exam_period,
             user_info={
                 'username': user.username,
                 'niveau_actuel': user.niveau_actuel,
@@ -591,30 +686,63 @@ def submit_exam():
         db.add(exam_result)
         db.commit()
         print(f"✅ Résultat sauvegardé en base")
-        
-        # SI RÉUSSI → PROMOUVOIR
-        if passed:
-            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-            
-            if user and user.niveau_actuel < 5:
-                old_niveau = user.niveau_actuel
+
+        # Utiliser GroupManager pour gérer la suite
+        group_manager = GroupManager(db)
+        user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+
+        if not user:
+            print(f"⚠️ Utilisateur {user_id} introuvable")
+        else:
+            # SI RÉUSSI → PROMOUVOIR
+            if passed:
+                if user.niveau_actuel < 5:
+                    old_groupe, new_groupe = group_manager.promote_user(user_id)
+
+                    print(f"🎉 PROMOTION EN BASE DE DONNÉES")
+                    print(f"   {old_groupe} → {new_groupe}")
+                    print(f"✅ Utilisateur promu en base")
+
+                    if new_groupe == "Alumni":
+                        print(f"🎓 {user.username} a terminé la formation ! (Alumni)")
+                    elif "Waiting List" in new_groupe:
+                        print(f"📋 {user.username} en waiting list pour le niveau {user.niveau_actuel}")
+                    else:
+                        print(f"💡 Utilise /actualiser_exams sur Discord pour appliquer les changements")
+                elif user.niveau_actuel == 5:
+                    # Niveau 5 terminé → Alumni
+                    user.is_alumni = True
+                    user.examens_reussis = 5
+                    db.commit()
+                    print(f"🎓 {user.username} a terminé le niveau 5 → Alumni !")
+
+            # SI ÉCHOUÉ → SYSTÈME DE RATTRAPAGE
+            else:
                 old_groupe = user.groupe
+                niveau = user.niveau_actuel
 
-                # Nouveau niveau et groupe
-                new_niveau = old_niveau + 1
-                new_groupe = find_available_group(new_niveau, db)  # Chercher groupe disponible
+                result_info = group_manager.handle_exam_failure(user_id, niveau, percentage)
 
-                user.niveau_actuel = new_niveau
-                user.groupe = new_groupe
-                user.examens_reussis += 1
-                db.commit()
-                
-                print(f"🎉 PROMOTION AUTOMATIQUE")
-                print(f"   {old_groupe} (Niveau {old_niveau}) → {new_groupe} (Niveau {new_niveau})")
-                print(f"✅ Utilisateur promu en base")
-        
+                print(f"❌ ÉCHEC - Système de rattrapage activé")
+                print(f"   Note: {percentage}% (Catégorie: {result_info['categorie']})")
+                print(f"   Action: {result_info['action']}")
+
+                if result_info['action'] == 'rattrapage':
+                    print(f"   Groupe: {result_info['groupe']}")
+                    print(f"   Délai: {result_info['delai_jours']} jours")
+                    print(f"   Examen: {result_info['date_exam'].strftime('%Y-%m-%d %H:%M')}")
+                elif result_info['action'] == 'assign_group':
+                    print(f"   Assigné au groupe: {result_info['groupe']}")
+                elif result_info['action'] == 'waiting_list':
+                    print(f"   En waiting list: {result_info['raison']}")
+
+                print(f"💡 Utilise /actualiser_exams sur Discord pour appliquer les changements")
+
         print(f"{'='*50}\n")
-        
+
+        # Nettoyer la session une fois l'examen soumis
+        session.clear()
+
         return jsonify({
             'success': True,
             'score': score,

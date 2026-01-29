@@ -32,8 +32,8 @@ def create_exam_periods():
             # Parser la date
             start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M")
 
-            # Calculer fin (6h après)
-            end_time = start_time + timedelta(hours=6)
+            # Calculer fin (30 minutes après)
+            end_time = start_time + timedelta(minutes=30)
 
             # Calculer ouverture votes (24h avant)
             vote_start_time = start_time - timedelta(days=1)

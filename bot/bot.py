@@ -14,9 +14,9 @@ from datetime import datetime, timedelta
 import asyncio
 import json
 from vote_system import VoteSystem
-from bonus_system import BonusSystem, check_finished_exam_periods
+from bonus_system import BonusSystem, start_bonus_scheduler, load_pending_exam_periods, schedule_bonus_application
 # Keep-alive
-from stay_alive import keep_alive
+from stay_alive import keep_alive, set_bot
 keep_alive()
 load_dotenv()
 
@@ -97,244 +97,49 @@ main_guild = None
 async def on_ready():
     """Appelé quand le bot est connecté"""
     global main_guild
-    
-    print(f'✅ Bot connecté : {bot.user}')
-    print(f'📊 Serveurs : {len(bot.guilds)}')
-    
+
+    print(f'✅ {bot.user} connecté')
+    print(f'🔗 Connecté à {len(bot.guilds)} serveur(s)')
+
+    # Définir le serveur principal
     if bot.guilds:
         main_guild = bot.guilds[0]
-        print(f'🏠 Serveur principal : {main_guild.name}')
-    
+
+    # Permettre à l'API Flask d'accéder au bot
+    set_bot(bot)
+    print("✅ API Flask initialisée avec le bot Discord")
+
+    # Synchroniser les commandes
     try:
         synced = await bot.tree.sync()
-        print(f'✅ Commandes synchronisées : {len(synced)}')
+        print(f'✅ {len(synced)} commande(s) synchronisée(s)')
     except Exception as e:
         print(f'❌ Erreur sync: {e}')
-    
-    # Démarrer la tâche de vérification automatique
-    if not check_results_task.is_running():
-        check_results_task.start()
-        print("✅ Tâche de vérification automatique démarrée (toutes les 30s)")
-        
-    if not check_finished_exam_periods.is_running():
-        check_finished_exam_periods.start()
-        print("✅ Système de bonus automatique démarré")
 
-# ... vos imports existants ...
-from discord.ext import tasks # Assurez-vous d'avoir cet import
-from bonus_system import BonusSystem # Importez juste la classe
+    # Configurer les salons de ressources et envoyer les cours
+    print("🔧 Configuration des salons de ressources...")
+    await setup_resources_channels()
+    print("✅ Configuration terminée")
 
-# ... (le début de votre fichier bot.py reste pareil) ...
+    # Démarrer le planificateur de révisions
+    print("📅 Démarrage du planificateur de révisions...")
+    from review_scheduler import start_scheduler, load_scheduled_reviews
+    start_scheduler()
+    load_scheduled_reviews(bot, QUIZZES_DATA)
+    print("✅ Planificateur de révisions prêt")
 
-# ✅ AJOUTEZ CETTE TÂCHE DANS BOT.PY (pas dans bonus_system.py)
-@tasks.loop(minutes=5)
-async def check_finished_exam_periods():
-    """
-    Vérifie toutes les 5 minutes s'il y a des périodes d'examen terminées
-    et applique les bonus automatiquement
-    """
-    from db_connection import SessionLocal
-    from models import ExamPeriod
-    
-    db = SessionLocal()
-    try:
-        now = datetime.now()
-        
-        # Trouver les périodes terminées mais non traitées
-        finished_periods = db.query(ExamPeriod).filter(
-            ExamPeriod.end_time <= now,
-            ExamPeriod.bonuses_applied == False
-        ).all()
-        
-        if not finished_periods:
-            return
-        
-        print(f"\n🔔 {len(finished_periods)} période(s) d'examen terminée(s) détectée(s)")
-        
-        # On instancie le système avec le bot disponible ici
-        bonus_system = BonusSystem(bot)
-        
-        for period in finished_periods:
-            # Récupérer le guild (serveur Discord)
-            guild = bot.guilds[0] if bot.guilds else None
-            
-            if not guild:
-                print(f"❌ Aucun serveur Discord disponible")
-                continue
-            
-            await bonus_system.apply_bonuses_for_period(period, guild)
-    
-    except Exception as e:
-        print(f"❌ Erreur check_finished_exam_periods: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    finally:
-        db.close()
-
-# ✅ ATTENDRE QUE LE BOT SOIT PRÊT AVANT DE LANCER
-@check_finished_exam_periods.before_loop
-async def before_check_finished_exam_periods():
-    await bot.wait_until_ready()
-    print("⏰ Vérification des périodes d'examen démarrée (toutes les 5 min)")
-
-# ... (reste du code) ...
-
-@bot.event
-async def on_ready():
-    global discord_group_manager
-    
-    print(f'✅ Bot connecté en tant que {bot.user}')
-    
-    # ... (vos autres initialisations) ...
-    
-    # ✅ DÉMARRAGE DE LA TÂCHE ICI
-    if not check_finished_exam_periods.is_running():
-        check_finished_exam_periods.start()
-        print("✅ Système de bonus automatique démarré")
-
-@tasks.loop(seconds=30)
-async def check_results_task():
-    """
-    TÂCHE AUTOMATIQUE - S'exécute toutes les 30 secondes
-    Vérifie s'il y a de nouveaux résultats d'examens
-    Et notifie automatiquement les utilisateurs
-    """
-    global main_guild
-    
-    if not main_guild:
-        return
-    
-    from db_connection import SessionLocal
-    from models import ExamResult, Utilisateur
-    
-    db = SessionLocal()
-    
-    try:
-        # Récupérer les résultats non notifiés
-        results = db.query(ExamResult).filter(ExamResult.notified == False).all()
-        
-        if not results:
-            return  # Rien à faire
-        
-        print(f"\n{'='*50}")
-        print(f"🔔 AUTO-CHECK : {len(results)} nouveaux résultats")
-        
-        for result in results:
-            try:
-                # Récupérer l'utilisateur en DB
-                user_db = db.query(Utilisateur).filter(
-                    Utilisateur.user_id == result.user_id
-                ).first()
-                
-                if not user_db:
-                    print(f"⚠️ User {result.user_id} pas en DB")
-                    continue
-                
-                # Récupérer le membre Discord
-                member = main_guild.get_member(result.user_id)
-                
-                if not member:
-                    print(f"⚠️ Member {result.user_id} pas sur Discord")
-                    continue
-                
-                # Trouver l'ancien groupe en regardant les rôles Discord actuels
-                old_groupe = None
-                for role in member.roles:
-                    if role.name.startswith("Groupe "):
-                        old_groupe = role.name.replace("Groupe ", "")
-                        break
-                
-                if not old_groupe:
-                    old_groupe = "1-A"
-                
-                new_groupe = user_db.groupe
-                
-                print(f"🔍 {member.name}")
-                print(f"   Ancien: {old_groupe} | Nouveau: {new_groupe}")
-                
-                # SI RÉUSSI ET CHANGEMENT DE GROUPE → Changer les rôles
-                if result.passed and old_groupe != new_groupe:
-                    print(f"🎉 PROMOTION : {old_groupe} → {new_groupe}")
-                    
-                    # Retirer TOUS les anciens rôles "Groupe X"
-                    roles_to_remove = [r for r in member.roles if r.name.startswith("Groupe ")]
-                    if roles_to_remove:
-                        await member.remove_roles(*roles_to_remove)
-                        print(f"   ❌ Rôles retirés : {[r.name for r in roles_to_remove]}")
-                    
-                    # Ajouter le nouveau rôle (ou le créer)
-                    new_role = discord.utils.get(main_guild.roles, name=f"Groupe {new_groupe}")
-                    if not new_role:
-                        new_role = await main_guild.create_role(
-                            name=f"Groupe {new_groupe}",
-                            color=discord.Color.blue(),
-                            mentionable=True
-                        )
-                        print(f"   ✅ Rôle créé : {new_role.name}")
-                    
-                    await member.add_roles(new_role)
-                    print(f"   ✅ Rôle ajouté : {new_role.name}")
-                    
-                    # Créer les salons si nécessaire
-                    await create_group_channels(main_guild, new_groupe, new_role)
-                    
-                    # Envoyer les cours du nouveau niveau dans le salon ressources
-                    await on_user_level_change(user_db.user_id, user_db.niveau_actuel, new_groupe, main_guild)
-                    print(f"   📚 Ressources envoyées pour niveau {user_db.niveau_actuel}")
-                
-                # Message en MP
-                if result.passed:
-                    message = (
-                        f"🎉 **Félicitations {member.mention} !**\n\n"
-                        f"Tu as **réussi** l'examen **{result.exam_title}** !\n\n"
-                        f"📊 **Score** : {result.percentage}% ({result.score}/{result.total})\n"
-                        f"✅ **Seuil** : {result.passing_score}%\n\n"
-                        f"🎊 **Tu as été promu !**\n"
-                        f"**Ancien groupe** : {old_groupe}\n"
-                        f"**Nouveau groupe** : {new_groupe}\n"
-                        f"**Nouveau niveau** : {user_db.niveau_actuel}\n\n"
-                        f"Continue comme ça ! 💪"
-                    )
-                else:
-                    message = (
-                        f"📝 **Résultat de ton examen**\n\n"
-                        f"Examen : **{result.exam_title}**\n\n"
-                        f"📊 **Score** : {result.percentage}% ({result.score}/{result.total})\n"
-                        f"❌ **Seuil requis** : {result.passing_score}%\n\n"
-                        f"Tu n'as pas atteint le seuil cette fois.\n"
-                        f"Révise et retente quand tu es prêt(e) !\n"
-                        f"Tu peux le faire ! 💪"
-                    )
-                
-                try:
-                    await member.send(message)
-                    print(f"✅ Notification envoyée à {member.name}")
-                except discord.Forbidden:
-                    print(f"⚠️ MP impossible pour {member.name}")
-                
-                # Marquer comme notifié
-                result.notified = True
-                db.commit()
-                
-            except Exception as e:
-                print(f"❌ Erreur pour {result.user_id}: {e}")
-        
-        print(f"{'='*50}\n")
-        
-    except Exception as e:
-        print(f"❌ Erreur check_results_task: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    finally:
-        db.close()
+    # Démarrer le planificateur de bonus (application automatique à la fin des périodes)
+    print("🎁 Démarrage du planificateur de bonus...")
+    start_bonus_scheduler()
+    load_pending_exam_periods(bot)
+    print("✅ Planificateur de bonus prêt")
 
 
-@check_results_task.before_loop
-async def before_check_results():
-    """Attend que le bot soit prêt avant de démarrer la tâche"""
-    await bot.wait_until_ready()
+# ANCIENNE MÉTHODE : Vérification périodique toutes les 30 secondes (DÉSACTIVÉE)
+# La promotion se fait maintenant immédiatement via l'API /api/promote
+# @tasks.loop(seconds=30)
+# async def check_results_task():
+#     pass
 
 
 @bot.event
@@ -359,7 +164,8 @@ async def on_member_join(member: discord.Member):
             role = await guild.create_role(
                 name=f"Groupe {groupe}",
                 color=discord.Color.green(),
-                mentionable=True
+                mentionable=True,
+                hoist=True  # Afficher séparément à gauche sur Discord
             )
             print(f"✅ Rôle créé : {role.name}")
         
@@ -444,7 +250,7 @@ async def on_member_join(member: discord.Member):
             
             embed.add_field(
                 name="🌐 Lien du Site",
-                value="https://site-fromation.onrender.com/exams",
+                value="http://localhost:5000/exams",
                 inline=False
             )
             
@@ -496,29 +302,39 @@ async def get_available_group(guild: discord.Guild, niveau: int) -> str:
 async def create_group_channels(guild: discord.Guild, groupe: str, role: discord.Role):
     """
     Crée une catégorie et des salons pour un groupe
+    Format: groupe-1-a-entraide, groupe-1-a-ressources, etc.
     """
     category_name = f"📚 Groupe {groupe}"
-    
+
     # Vérifier si la catégorie existe déjà
     category = discord.utils.get(guild.categories, name=category_name)
-    
+
     if category:
         return
-    
+
     # Créer la catégorie
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
         role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
         guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
     }
-    
+
     category = await guild.create_category(category_name, overwrites=overwrites)
-    
-    # Créer les salons
-    await guild.create_text_channel(f"💬-discussion", category=category, overwrites=overwrites)
-    await guild.create_text_channel(f"📖-ressources", category=category, overwrites=overwrites)
-    await guild.create_text_channel(f"❓-entraide", category=category, overwrites=overwrites)
-    
+
+    # Créer les salons avec le bon format de nommage
+    groupe_lower = groupe.lower()
+    await guild.create_text_channel(f"groupe-{groupe_lower}-ressources", category=category, overwrites=overwrites)
+    await guild.create_text_channel(f"groupe-{groupe_lower}-entraide", category=category, overwrites=overwrites)
+    await guild.create_voice_channel(f"🎙️ Vocal {groupe}", category=category, overwrites=overwrites)
+
+    # Créer le salon "mon-examen" (lecture seule, seul le bot peut écrire)
+    exam_overwrites = {
+        guild.default_role: discord.PermissionOverwrite(read_messages=False),
+        role: discord.PermissionOverwrite(read_messages=True, send_messages=False),  # Lecture seule pour les membres
+        guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)  # Bot peut écrire
+    }
+    await guild.create_text_channel(f"📝-mon-examen", category=category, overwrites=exam_overwrites)
+
     print(f"✅ Catégorie et salons créés pour {groupe}")
 
 
@@ -545,7 +361,7 @@ async def register(interaction: discord.Interaction):
                        f"**Groupe** : {existing.groupe}\n"
                        f"**Niveau** : {existing.niveau_actuel}\n"
                        f"**ID** : `{user_id}`\n\n"
-                       f"🌐 Site : https://site-fromation.onrender.com/exams"
+                       f"🌐 Site : http://localhost:5000/exams"
             )
             return
         
@@ -563,7 +379,7 @@ async def register(interaction: discord.Interaction):
                            f"**Groupe** : {user.groupe}\n"
                            f"**Niveau** : {user.niveau_actuel}\n"
                            f"**ID** : `{user_id}`\n\n"
-                           f"🌐 Site : https://site-fromation.onrender.com/exams\n\n"
+                           f"🌐 Site : http://localhost:5000/exams\n\n"
                            f"🤖 Tu recevras tes résultats automatiquement en MP !"
                 )
         
@@ -614,13 +430,31 @@ class ConfirmClearView(discord.ui.View):
         db = SessionLocal()
         
         try:
+            # Supprimer dans l'ordre à cause des contraintes de clés étrangères
+            print("🗑️  Suppression des votes...")
+            db.execute(text("DELETE FROM votes"))
+
+            print("🗑️  Suppression des périodes d'examen...")
+            db.execute(text("DELETE FROM exam_periods"))
+
+            print("🗑️  Suppression des résultats d'examen...")
             db.execute(text("DELETE FROM exam_results"))
+
+            print("🗑️  Suppression des utilisateurs...")
             db.execute(text("DELETE FROM utilisateurs"))
+
+            print("🗑️  Suppression des cohortes...")
             db.execute(text("DELETE FROM cohortes"))
+
             db.commit()
-            
+
             await interaction.edit_original_response(
-                content="✅ Base de données vidée !",
+                content="✅ Base de données complètement vidée !\n\n"
+                        "🗑️ Votes supprimés\n"
+                        "🗑️ Périodes d'examen supprimées\n"
+                        "🗑️ Résultats d'examen supprimés\n"
+                        "🗑️ Utilisateurs supprimés\n"
+                        "🗑️ Cohortes supprimées",
                 view=None
             )
         
@@ -658,7 +492,7 @@ async def my_info(interaction: discord.Interaction):
         embed.add_field(name="🆔 ID", value=f"`{user.user_id}`", inline=True)
         embed.add_field(
             name="🌐 Lien Examen",
-            value=f"https://site-fromation.onrender.com/exams\nID : `{user.user_id}`",
+            value=f"http://localhost:5000/exams\nID : `{user.user_id}`",
             inline=False
         )
         embed.add_field(
@@ -1155,7 +989,7 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
         )
         
         # URL vers la page du cours
-        course_url = f"https://site-fromation.onrender.com/course/{course_id}"
+        course_url = f"http://localhost:5000/course/{course_id}"
         
         embed.add_field(
             name="🌐 Lien du cours",
@@ -1178,32 +1012,6 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
 
     except Exception as e:
         print(f"  ❌ Erreur lors de l'envoi du cours {course_id}: {e}")
-
-
-@bot.event
-async def on_ready():
-    """Appelé quand le bot est prêt"""
-    print(f'✅ {bot.user} connecté')
-    print(f'🔗 Connecté à {len(bot.guilds)} serveur(s)')
-    
-    # Synchroniser les commandes
-    try:
-        synced = await bot.tree.sync()
-        print(f'✅ {len(synced)} commande(s) synchronisée(s)')
-    except Exception as e:
-        print(f'❌ Erreur sync: {e}')
-    
-    # Configurer les salons de ressources et envoyer les cours
-    print("🔧 Configuration des salons de ressources...")
-    await setup_resources_channels()
-    print("✅ Configuration terminée")
-
-    # Démarrer le planificateur de révisions
-    print("📅 Démarrage du planificateur de révisions...")
-    from review_scheduler import start_scheduler, load_scheduled_reviews
-    start_scheduler()
-    load_scheduled_reviews(bot, QUIZZES_DATA)
-    print("✅ Planificateur de révisions prêt")
 
 
 @bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
@@ -1244,28 +1052,33 @@ async def vote(
 
 
 # ==================== COMMANDE /create_exam_period ====================
-@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen de 6h")
+@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen de 30 minutes")
 @commands.has_permissions(administrator=True)
 @app_commands.describe(
     group="Numéro du groupe (1-5)",
-    start_time="Date et heure de début (format: YYYY-MM-DD HH:MM)"
+    start_time="Date et heure de début EN HEURE LOCALE (format: YYYY-MM-DD HH:MM)",
+    timezone_offset="Décalage horaire par rapport à UTC (ex: +1 pour Paris, défaut: +1)"
 )
 async def create_exam_period(
     interaction: discord.Interaction,
     group: int,
-    start_time: str
+    start_time: str,
+    timezone_offset: int = 1
 ):
-    """Crée une période d'examen de 6h"""
+    """Crée une période d'examen de 30 minutes"""
     await interaction.response.defer(ephemeral=True)
-    
+
     from datetime import datetime, timedelta
     from db_connection import SessionLocal
     from models import ExamPeriod
-    
+
     try:
-        # Parser la date
-        start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
-        end = start + timedelta(hours=6)
+        # Parser la date (heure locale)
+        start_local = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
+
+        # Convertir en UTC pour la DB (soustraire le décalage)
+        start = start_local - timedelta(hours=timezone_offset)
+        end = start + timedelta(minutes=30)
         vote_start = start - timedelta(days=1)  # Votes ouverts 24h avant
 
         # Générer l'ID
@@ -1277,17 +1090,28 @@ async def create_exam_period(
             # Vérifier si une période existe déjà
             existing = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
             if existing:
-                await interaction.followup.send(
-                    f"⚠️ **Une période d'examen existe déjà !**\n\n"
-                    f"🆔 ID: `{period_id}`\n"
-                    f"📊 Groupe: Niveau {existing.group_number}\n"
-                    f"⏰ Début: {existing.start_time.strftime('%d/%m/%Y %H:%M')}\n\n"
-                    f"💡 Pour créer une nouvelle période:\n"
-                    f"• Utilise une date différente, OU\n"
-                    f"• Supprime d'abord l'ancienne avec `/delete_exam_period {period_id}`",
-                    ephemeral=True
-                )
-                return
+                # Vérifier si la période est terminée
+                now = datetime.now()
+                if existing.end_time >= now:
+                    # Période encore active, on bloque
+                    await interaction.followup.send(
+                        f"⚠️ **Une période d'examen ACTIVE existe déjà !**\n\n"
+                        f"🆔 ID: `{period_id}`\n"
+                        f"📊 Groupe: Niveau {existing.group_number}\n"
+                        f"⏰ Début: {existing.start_time.strftime('%d/%m/%Y %H:%M')}\n"
+                        f"🏁 Fin: {existing.end_time.strftime('%d/%m/%Y %H:%M')}\n\n"
+                        f"💡 Pour créer une nouvelle période:\n"
+                        f"• Utilise une date différente, OU\n"
+                        f"• Attends la fin de la période actuelle, OU\n"
+                        f"• Supprime d'abord l'ancienne avec `/delete_exam_period {period_id}`",
+                        ephemeral=True
+                    )
+                    return
+                else:
+                    # Période terminée, on la supprime automatiquement
+                    print(f"🗑️ Suppression automatique de la période terminée {period_id}")
+                    db.delete(existing)
+                    db.commit()
 
             period = ExamPeriod(
                 id=period_id,
@@ -1302,6 +1126,9 @@ async def create_exam_period(
             db.add(period)
             db.commit()
 
+            # Planifier automatiquement l'application des bonus à la fin de la période
+            schedule_bonus_application(bot, period)
+
             embed = discord.Embed(
                 title="✅ Période d'Examen Créée",
                 color=discord.Color.green()
@@ -1314,6 +1141,56 @@ async def create_exam_period(
             embed.add_field(name="🏁 Fin examen", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
 
             await interaction.followup.send(embed=embed, ephemeral=True)
+
+            # Envoyer le lien d'examen dans le salon "mon-examen" du groupe
+            guild = interaction.guild
+            if guild:
+                # Chercher le salon mon-examen pour ce groupe
+                # Format: groupe-X-y où X est le niveau et y une lettre
+                # On cherche tous les groupes du niveau concerné
+                possible_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+
+                for letter in possible_letters:
+                    # Chercher la catégorie du groupe
+                    category_name = f"📚 Groupe {group}-{letter.upper()}"
+                    category = discord.utils.get(guild.categories, name=category_name)
+
+                    if category:
+                        # Chercher le salon mon-examen dans cette catégorie
+                        exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
+
+                        if exam_channel:
+                            # Créer l'embed pour les étudiants
+                            exam_embed = discord.Embed(
+                                title="📝 Nouvelle Période d'Examen !",
+                                description=f"Une nouvelle période d'examen a été programmée pour le Groupe {group}.",
+                                color=discord.Color.blue(),
+                                timestamp=datetime.now()
+                            )
+
+                            exam_embed.add_field(
+                                name="🗳️ Votes",
+                                value=f"Du {vote_start.strftime('%d/%m à %H:%M')} au {start.strftime('%d/%m à %H:%M')}",
+                                inline=False
+                            )
+
+                            exam_embed.add_field(
+                                name="📝 Fenêtre d'examen",
+                                value=f"Du {start.strftime('%d/%m à %H:%M')} au {end.strftime('%d/%m à %H:%M')}",
+                                inline=False
+                            )
+
+                            exam_embed.add_field(
+                                name="🔗 Lien vers l'examen",
+                                value="[Clique ici pour accéder à la page d'examen](http://localhost:5000/exams)\n\n"
+                                      "⚠️ N'oublie pas de voter avant de passer l'examen !",
+                                inline=False
+                            )
+
+                            exam_embed.set_footer(text="Bonne chance ! 💪")
+
+                            await exam_channel.send(embed=exam_embed)
+                            print(f"✅ Message envoyé dans {exam_channel.name}")
 
         finally:
             db.close()
@@ -1382,26 +1259,33 @@ async def list_exam_periods_command(interaction: discord.Interaction):
 
     db = SessionLocal()
     try:
-        periods = db.query(ExamPeriod).order_by(ExamPeriod.start_time).all()
+        now = datetime.now()
+
+        # Récupérer seulement les périodes à venir (end_time > now)
+        periods = db.query(ExamPeriod).filter(
+            ExamPeriod.end_time > now
+        ).order_by(ExamPeriod.start_time).all()
 
         if not periods:
             await interaction.followup.send(
-                "📋 Aucune période d'examen configurée",
+                "📋 Aucune période d'examen à venir",
                 ephemeral=True
             )
             return
 
         embed = discord.Embed(
-            title="📋 Périodes d'Examen",
+            title="📋 Périodes d'Examen à Venir",
             color=discord.Color.blue()
         )
 
-        now = datetime.now()
-
         for period in periods:
-            status = "🟢 À venir" if period.start_time > now else "🔴 Passée"
-            if period.bonuses_applied:
-                status = "✅ Terminée"
+            # Déterminer le statut en fonction de end_time
+            if period.start_time > now:
+                status = "🟡 Pas encore commencé"
+            elif period.end_time > now:
+                status = "🟢 En cours"
+            else:
+                status = "🔴 Terminée"
 
             value = (
                 f"**ID:** `{period.id}`\n"
@@ -1418,6 +1302,150 @@ async def list_exam_periods_command(interaction: discord.Interaction):
             )
 
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    finally:
+        db.close()
+
+
+@bot.tree.command(name="actualiser_exams", description="[ADMIN] Actualiser les rôles Discord selon la base de données")
+@commands.has_permissions(administrator=True)
+async def actualiser_exams(interaction: discord.Interaction):
+    """
+    Synchronise les rôles Discord avec la base de données
+    Applique toutes les promotions qui sont dans la DB mais pas sur Discord
+    """
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import Utilisateur
+
+    db = SessionLocal()
+    try:
+        guild = interaction.guild
+        if not guild:
+            await interaction.followup.send("❌ Commande doit être utilisée sur un serveur", ephemeral=True)
+            return
+
+        # Récupérer tous les utilisateurs
+        all_users = db.query(Utilisateur).all()
+
+        if not all_users:
+            await interaction.followup.send("⚠️ Aucun utilisateur dans la base de données", ephemeral=True)
+            return
+
+        # Statistiques
+        updated_count = 0
+        unchanged_count = 0
+        errors = []
+
+        await interaction.followup.send(
+            f"🔄 **Actualisation en cours...**\n"
+            f"📊 {len(all_users)} utilisateur(s) à vérifier",
+            ephemeral=True
+        )
+
+        for user_db in all_users:
+            try:
+                member = guild.get_member(user_db.user_id)
+
+                if not member:
+                    errors.append(f"⚠️ {user_db.username} (ID: {user_db.user_id}) - Membre introuvable sur Discord")
+                    continue
+
+                # Rôle attendu selon la base de données
+                expected_role_name = f"Groupe {user_db.groupe}"
+                expected_role = discord.utils.get(guild.roles, name=expected_role_name)
+
+                # Vérifier si le membre a déjà le bon rôle
+                if expected_role and expected_role in member.roles:
+                    unchanged_count += 1
+                    continue
+
+                print(f"\n🔄 Actualisation : {user_db.username}")
+                print(f"   Groupe DB: {user_db.groupe}")
+
+                # Retirer tous les anciens rôles de groupe
+                for role in member.roles:
+                    if role.name.startswith("Groupe "):
+                        await member.remove_roles(role)
+                        print(f"   ❌ Rôle retiré : {role.name}")
+
+                # Créer ou récupérer le nouveau rôle
+                if not expected_role:
+                    expected_role = await guild.create_role(
+                        name=expected_role_name,
+                        color=discord.Color.blue(),
+                        mentionable=True,
+                        hoist=True  # Afficher séparément à gauche sur Discord
+                    )
+                    print(f"   ✅ Rôle créé : {expected_role_name}")
+
+                # Ajouter le nouveau rôle
+                await member.add_roles(expected_role)
+                print(f"   ✅ Rôle ajouté : {expected_role_name}")
+
+                # Créer les salons si nécessaire
+                await create_group_channels(guild, user_db.groupe, expected_role)
+
+                # Envoyer un MP de notification
+                try:
+                    embed = discord.Embed(
+                        title="🔄 Rôles Actualisés",
+                        description=f"Tes rôles Discord ont été mis à jour !",
+                        color=discord.Color.blue()
+                    )
+                    embed.add_field(
+                        name="📊 Groupe Actuel",
+                        value=f"**{user_db.groupe}** (Niveau {user_db.niveau_actuel})",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="💡 Info",
+                        value="Cette actualisation a été effectuée par un administrateur.",
+                        inline=False
+                    )
+
+                    await member.send(embed=embed)
+                    print(f"   ✅ MP envoyé")
+                except discord.Forbidden:
+                    print(f"   ⚠️ MP bloqués pour {member.name}")
+
+                updated_count += 1
+
+            except Exception as e:
+                errors.append(f"❌ {user_db.username} - {str(e)}")
+                print(f"❌ Erreur pour {user_db.username}: {e}")
+
+        # Rapport final
+        report = discord.Embed(
+            title="✅ Actualisation Terminée",
+            color=discord.Color.green()
+        )
+
+        report.add_field(
+            name="📊 Résumé",
+            value=f"**{updated_count}** utilisateur(s) actualisé(s)\n"
+                  f"**{unchanged_count}** déjà à jour",
+            inline=False
+        )
+
+        if errors:
+            errors_text = "\n".join(errors[:10])  # Max 10 erreurs
+            if len(errors) > 10:
+                errors_text += f"\n... et {len(errors) - 10} autre(s) erreur(s)"
+
+            report.add_field(
+                name="⚠️ Erreurs",
+                value=errors_text,
+                inline=False
+            )
+
+        await interaction.channel.send(embed=report)
+
+    except Exception as e:
+        await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
+        import traceback
+        traceback.print_exc()
 
     finally:
         db.close()

@@ -12,51 +12,189 @@ from discord import PermissionOverwrite
 from datetime import datetime, timedelta
 from db_connection import SessionLocal
 from models import Utilisateur, Cohorte
-from cohorte_manager_sql import CohorteManagerSQL
+from group_manager import GroupManager
+from cohort_config import TEMPS_FORMATION_MINIMUM
 import os
 
 
 class OnboardingManager:
     """Gère l'arrivée des nouveaux membres et leur attribution à un groupe"""
-    
+
     def __init__(self, bot):
         self.bot = bot
-        self.cohort_manager = CohorteManagerSQL()
+        # Utiliser le nouveau GroupManager au lieu de CohorteManagerSQL
+        self.pending_confirmations = {}  # user_id -> {groupe, niveau, temps_restant}
         
     async def on_member_join(self, member: discord.Member):
         """
         Appelé automatiquement quand un nouveau membre rejoint le serveur
-        1. Détermine le groupe (ex: 1-A, 1-B, etc.)
-        2. Crée/attribue le rôle
-        3. Crée les salons si nécessaire
-        4. Enregistre en base
-        5. Envoie message de bienvenue
+        Utilise le nouveau GroupManager pour gérer l'inscription
         """
         try:
             guild = member.guild
-            
-            # 1. Déterminer le groupe disponible
-            groupe = await self._get_available_group(guild, niveau=1)
-            
-            # 2. Créer/Récupérer le rôle
-            role = await self._get_or_create_role(guild, groupe)
-            
-            # 3. Attribuer le rôle
-            await member.add_roles(role)
-            
-            # 4. Créer la catégorie et les salons si nécessaire
-            await self._create_group_channels(guild, groupe, role)
-            
-            # 5. Enregistrer dans PostgreSQL
-            cohorte_id = await self._register_user(member.id, member.name, groupe)
-            
-            # 6. Message de bienvenue
-            await self._send_welcome_message(member, groupe, cohorte_id)
-            
-            print(f"✅ Nouveau membre {member.name} ajouté au {groupe}")
-            
+            db = SessionLocal()
+            group_manager = GroupManager(db)
+
+            # Tenter l'inscription
+            groupe, info = group_manager.register_user(member.id, member.name, niveau=1)
+
+            if info['status'] == 'direct':
+                # Inscription directe réussie
+                await self._complete_onboarding(member, groupe, guild)
+                print(f"✅ Nouveau membre {member.name} ajouté au {groupe}")
+
+            elif info['status'] == 'needs_confirmation':
+                # Temps insuffisant, demander confirmation
+                self.pending_confirmations[member.id] = {
+                    'groupe': info['groupe'],
+                    'niveau': 1,
+                    'temps_restant_jours': info['temps_restant_jours'],
+                    'temps_minimum': info['temps_formation_minimum']
+                }
+                await self._ask_confirmation(member, info)
+                print(f"⚠️ {member.name} : confirmation nécessaire (temps insuffisant)")
+
+            elif info['status'] == 'waiting_list':
+                # Ajouté à la waiting list
+                await self._send_waiting_list_message(member, info)
+                print(f"📋 {member.name} ajouté à la waiting list ({info['waiting_list_type']})")
+
+            elif info['status'] == 'already_registered':
+                # Déjà enregistré
+                await member.send("Tu es déjà enregistré dans le système !")
+                print(f"ℹ️ {member.name} : déjà enregistré")
+
+            db.close()
+
         except Exception as e:
             print(f"❌ Erreur onboarding {member.name}: {e}")
+            import traceback
+            traceback.print_exc()
+
+    async def _complete_onboarding(self, member: discord.Member, groupe: str, guild: discord.Guild):
+        """Complete l'onboarding après confirmation ou inscription directe"""
+        # Créer/Récupérer le rôle
+        role = await self._get_or_create_role(guild, groupe)
+
+        # Attribuer le rôle
+        await member.add_roles(role)
+
+        # Créer la catégorie et les salons si nécessaire
+        await self._create_group_channels(guild, groupe, role)
+
+        # Message de bienvenue
+        await self._send_welcome_message(member, groupe)
+
+    async def _ask_confirmation(self, member: discord.Member, info: dict):
+        """Demande confirmation à l'utilisateur quand le temps est insuffisant"""
+        temps_restant = info['temps_restant_jours']
+        temps_minimum = info['temps_formation_minimum']
+        groupe = info['groupe']
+
+        # Convertir en heures et minutes
+        heures = int(temps_restant * 24)
+        minutes = int((temps_restant * 24 - heures) * 60)
+
+        embed = discord.Embed(
+            title="⚠️ Attention : Temps de Formation Insuffisant",
+            description=f"Le groupe {groupe} a un examen programmé dans peu de temps.",
+            color=discord.Color.orange()
+        )
+
+        embed.add_field(
+            name="⏰ Temps Restant",
+            value=f"**{heures}h {minutes}min** avant l'examen",
+            inline=True
+        )
+
+        embed.add_field(
+            name="📚 Temps Recommandé",
+            value=f"**{int(temps_minimum * 24)}h** (minimum)",
+            inline=True
+        )
+
+        embed.add_field(
+            name="💡 Que faire ?",
+            value="Tu peux :\n"
+                  "• ✅ **Rejoindre quand même** : Réagis avec ✅\n"
+                  "• ❌ **Attendre un autre groupe** : Réagis avec ❌\n\n"
+                  "Tu as 5 minutes pour décider.",
+            inline=False
+        )
+
+        msg = await member.send(embed=embed)
+        await msg.add_reaction('✅')
+        await msg.add_reaction('❌')
+
+    async def handle_confirmation_reaction(self, user_id: int, accepted: bool, guild: discord.Guild):
+        """Gère la réponse de confirmation de l'utilisateur"""
+        if user_id not in self.pending_confirmations:
+            return
+
+        info = self.pending_confirmations.pop(user_id)
+        membre = guild.get_member(user_id)
+
+        if not membre:
+            return
+
+        db = SessionLocal()
+        group_manager = GroupManager(db)
+
+        if accepted:
+            # Confirmer l'inscription
+            groupe = group_manager.confirm_registration_with_insufficient_time(
+                user_id,
+                membre.name,
+                info['niveau'],
+                info['groupe']
+            )
+            await self._complete_onboarding(membre, groupe, guild)
+            await membre.send(f"✅ Inscription confirmée dans le groupe {groupe} !")
+            print(f"✅ {membre.name} a accepté de rejoindre {groupe} malgré le temps insuffisant")
+
+        else:
+            # Chercher un autre groupe ou waiting list
+            groupe, new_info = group_manager.register_user(user_id, membre.name, niveau=info['niveau'])
+
+            if new_info['status'] == 'direct':
+                await self._complete_onboarding(membre, groupe, guild)
+                await membre.send(f"✅ Tu as été assigné au groupe {groupe} avec plus de temps de préparation !")
+
+            elif new_info['status'] == 'waiting_list':
+                await self._send_waiting_list_message(membre, new_info)
+
+        db.close()
+
+    async def _send_waiting_list_message(self, member: discord.Member, info: dict):
+        """Envoie un message à un utilisateur en waiting list"""
+        embed = discord.Embed(
+            title="📋 Waiting List",
+            description="Tu as été ajouté à la liste d'attente.",
+            color=discord.Color.blue()
+        )
+
+        if info['waiting_list_type'] == 'nouveau_groupe':
+            embed.add_field(
+                name="📊 Situation",
+                value=f"Les groupes existants sont pleins ou n'ont pas assez de temps.\n"
+                      f"Dès que **7 personnes** seront en attente, un nouveau groupe sera créé automatiquement !",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="📊 Situation",
+                value="Tous les groupes (A-Z) sont pleins.\n"
+                      "Tu seras assigné dès qu'une place se libère.",
+                inline=False
+            )
+
+        embed.add_field(
+            name="💡 Que faire ?",
+            value="Tu recevras un MP automatiquement quand ton groupe sera prêt !",
+            inline=False
+        )
+
+        await member.send(embed=embed)
             
     async def _get_available_group(self, guild: discord.Guild, niveau: int) -> str:
         """
@@ -117,6 +255,7 @@ class OnboardingManager:
                 name=role_name,
                 color=color,
                 mentionable=True,
+                hoist=True,  # Afficher séparément à gauche sur Discord
                 reason=f"Création automatique du groupe {groupe}"
             )
             print(f"✅ Rôle '{role_name}' créé")
@@ -220,36 +359,7 @@ class OnboardingManager:
             
             print(f"✅ Salons créés pour {groupe}")
     
-    async def _register_user(self, user_id: int, username: str, groupe: str) -> str:
-        """
-        Enregistre le nouvel utilisateur dans PostgreSQL
-        
-        Returns:
-            str: ID de la cohorte assignée
-        """
-        db = SessionLocal()
-        try:
-            niveau = int(groupe.split('-')[0])
-            
-            # Utiliser le cohorte_manager pour gérer l'ajout
-            cohorte_id = self.cohort_manager.add_user_to_cohort(user_id, username, niveau)
-            
-            # Mettre à jour le champ groupe
-            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-            if user:
-                user.groupe = groupe
-                db.commit()
-            
-            return cohorte_id
-            
-        except Exception as e:
-            db.rollback()
-            print(f"❌ Erreur enregistrement utilisateur: {e}")
-            return "UNKNOWN"
-        finally:
-            db.close()
-    
-    async def _send_welcome_message(self, member: discord.Member, groupe: str, cohorte_id: str):
+    async def _send_welcome_message(self, member: discord.Member, groupe: str):
         """
         Envoie un message de bienvenue détaillé en MP
         """
@@ -257,7 +367,7 @@ class OnboardingManager:
             niveau = int(groupe.split('-')[0])
             
             # URL du site web
-            site_url = "https://site-fromation.onrender.com"
+            site_url = "http://localhost:5000"
             
             # Calculer la date du prochain examen (exemple : dans 14 jours)
             next_exam_date = datetime.now() + timedelta(days=14)
@@ -311,7 +421,7 @@ class OnboardingManager:
                 inline=False
             )
             
-            embed.set_footer(text=f"Cohorte: {cohorte_id} | ID: {member.id}")
+            embed.set_footer(text=f"Groupe: {groupe} | ID: {member.id}")
             
             await member.send(embed=embed)
             print(f"✅ Message de bienvenue envoyé à {member.name}")

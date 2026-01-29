@@ -1,9 +1,17 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from threading import Thread
 import json
 import os
 
 app = Flask('')
+
+# Variable globale pour accéder au bot Discord
+discord_bot = None
+
+def set_bot(bot):
+    """Définir le bot Discord pour pouvoir l'utiliser dans les endpoints"""
+    global discord_bot
+    discord_bot = bot
 
 @app.route('/')
 def home():
@@ -14,18 +22,18 @@ def get_user_cohort(user_id):
     """API pour récupérer la cohorte d'un utilisateur"""
     try:
         cohortes_file = os.path.join(os.path.dirname(__file__), 'cohortes.json')
-        
+
         if not os.path.exists(cohortes_file):
             return jsonify({
-                'success': False, 
+                'success': False,
                 'error': 'Fichier cohortes.json introuvable'
             }), 500
-        
+
         with open(cohortes_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
+
         utilisateurs = data.get('utilisateurs', [])
-        
+
         for user in utilisateurs:
             if str(user.get('user_id')) == str(user_id):
                 return jsonify({
@@ -38,15 +46,15 @@ def get_user_cohort(user_id):
                         'examens_reussis': user.get('examens_reussis', 0)
                     }
                 })
-        
+
         return jsonify({
-            'success': False, 
+            'success': False,
             'error': f'Utilisateur {user_id} non trouvé'
         }), 404
-    
+
     except Exception as e:
         return jsonify({
-            'success': False, 
+            'success': False,
             'error': str(e)
         }), 500
 
