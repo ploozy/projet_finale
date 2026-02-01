@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrections - مبادئ اللغة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #D4A574;
+            --primary-dark: #B8956A;
+            --secondary: #2C3E50;
+            --accent: #E74C3C;
+            --success: #27AE60;
+            --warning: #F39C12;
+            --bg-dark: #1A1A2E;
+            --bg-card: #16213E;
+            --bg-light: #0F3460;
+            --text-light: #EAEAEA;
+            --text-muted: #A0A0A0;
+            --gold: #FFD700;
+            --gradient-primary: linear-gradient(135deg, #D4A574 0%, #B8956A 100%);
+            --gradient-dark: linear-gradient(180deg, #1A1A2E 0%, #0F3460 100%);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: var(--gradient-dark); min-height: 100vh; color: var(--text-light); }
+        .arabic { font-family: 'Noto Naskh Arabic', 'Amiri', serif; direction: rtl; }
+        .bg-pattern { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.03; background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D4A574' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); z-index: 0; }
+        nav { background: rgba(26, 26, 46, 0.95); backdrop-filter: blur(10px); padding: 1rem 2rem; position: fixed; width: 100%; top: 0; z-index: 1000; border-bottom: 1px solid rgba(212, 165, 116, 0.2); }
+        .nav-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 1rem; }
+        .logo-icon { width: 50px; height: 50px; background: var(--gradient-primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 4px 15px rgba(212, 165, 116, 0.3); }
+        .logo-text { font-size: 1.5rem; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a { color: var(--text-light); text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 8px; transition: all 0.3s ease; position: relative; }
+        .nav-links a:hover, .nav-links a.active { color: var(--primary); background: rgba(212, 165, 116, 0.1); }
+        .nav-links a.active::after { content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 30px; height: 3px; background: var(--primary); border-radius: 2px; }
+        main { max-width: 1000px; margin: 0 auto; padding: 100px 2rem 2rem; position: relative; z-index: 1; }
+        .page-header { text-align: center; margin-bottom: 3rem; }
+        .page-title { font-size: 2.5rem; color: var(--primary); margin-bottom: 0.5rem; }
+        .page-subtitle { color: var(--text-muted); font-size: 1.1rem; }
+        .score-calculator { background: var(--bg-card); border-radius: 20px; padding: 2rem; border: 2px solid var(--primary); margin-bottom: 3rem; text-align: center; }
+        .score-title { font-size: 1.5rem; color: var(--primary); margin-bottom: 1rem; }
+        .score-inputs { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+        .score-input-group { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+        .score-input-group label { color: var(--text-muted); font-size: 0.9rem; }
+        .score-input-group input { width: 80px; padding: 0.8rem; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--text-light); font-size: 1.2rem; text-align: center; }
+        .score-input-group input:focus { outline: none; border-color: var(--primary); }
+        .calculate-btn { padding: 1rem 3rem; background: var(--gradient-primary); border: none; border-radius: 12px; color: var(--secondary); font-weight: 600; font-size: 1.1rem; cursor: pointer; transition: all 0.3s ease; }
+        .calculate-btn:hover { transform: scale(1.05); box-shadow: 0 5px 20px rgba(212, 165, 116, 0.4); }
+        .score-result { margin-top: 2rem; padding: 2rem; background: rgba(39, 174, 96, 0.1); border: 2px solid var(--success); border-radius: 15px; display: none; }
+        .score-result.show { display: block; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .score-big { font-size: 3rem; font-weight: 700; color: var(--success); margin-bottom: 0.5rem; }
+        .score-message { font-size: 1.2rem; color: var(--text-light); }
+        .correction-sheet { background: var(--bg-card); border-radius: 20px; padding: 2rem; border: 1px solid rgba(212, 165, 116, 0.2); margin-bottom: 2rem; }
+        .sheet-header { padding-bottom: 1.5rem; border-bottom: 2px solid rgba(212, 165, 116, 0.2); margin-bottom: 2rem; }
+        .sheet-title { font-size: 1.8rem; color: var(--primary); }
+        .difficulty-section { margin-bottom: 3rem; padding: 2rem; background: rgba(15, 52, 96, 0.3); border-radius: 15px; border-left: 5px solid var(--primary); }
+        .difficulty-section.easy { border-left-color: var(--success); }
+        .difficulty-section.medium { border-left-color: var(--warning); }
+        .difficulty-section.hard { border-left-color: var(--accent); }
+        .difficulty-section.expert { border-left-color: #9B59B6; }
+        .difficulty-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+        .difficulty-icon { font-size: 2rem; }
+        .difficulty-title { font-size: 1.4rem; }
+        .difficulty-section.easy .difficulty-title { color: var(--success); }
+        .difficulty-section.medium .difficulty-title { color: var(--warning); }
+        .difficulty-section.hard .difficulty-title { color: var(--accent); }
+        .difficulty-section.expert .difficulty-title { color: #9B59B6; }
+        .correction-item { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 15px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .correction-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .correction-number { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: var(--gradient-primary); color: var(--secondary); border-radius: 50%; font-weight: 700; }
+        .correction-points { padding: 0.3rem 0.8rem; background: rgba(255, 215, 0, 0.2); color: var(--gold); border-radius: 15px; font-size: 0.85rem; font-weight: 600; }
+        .correction-question { color: var(--text-muted); margin-bottom: 1rem; font-style: italic; }
+        .correction-answer { background: rgba(39, 174, 96, 0.1); border: 2px solid var(--success); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+        .answer-label { color: var(--success); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        .answer-arabic { font-size: 1.8rem; color: var(--primary); direction: rtl; text-align: right; line-height: 2; }
+        .answer-french { color: var(--text-light); margin-top: 0.5rem; }
+        .explanation { background: rgba(212, 165, 116, 0.1); border-left: 4px solid var(--primary); padding: 1rem 1.5rem; border-radius: 0 12px 12px 0; }
+        .explanation-title { color: var(--primary); font-weight: 600; margin-bottom: 0.5rem; }
+        .explanation p { line-height: 1.7; color: var(--text-light); }
+        .vocab-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        .vocab-table th, .vocab-table td { padding: 1rem; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center; }
+        .vocab-table th { background: rgba(212, 165, 116, 0.2); color: var(--primary); }
+        .vocab-table td { background: rgba(255, 255, 255, 0.03); }
+        .vocab-table .arabic-cell { font-size: 1.5rem; color: var(--primary); direction: rtl; font-family: 'Noto Naskh Arabic', 'Amiri', serif; }
+        @media (max-width: 768px) { .nav-links { display: none; } .score-inputs { flex-direction: column; align-items: center; } .answer-arabic { font-size: 1.4rem; } }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <nav>
+        <div class="nav-content">
+            <div class="logo">
+                <div class="logo-icon">ض</div>
+                <span class="logo-text">مبادئ اللغة</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html">📚 Cours</a></li>
+                <li><a href="exercices.html">✏️ Exercices</a></li>
+                <li><a href="corrections.html" class="active">✅ Corrections</a></li>
+            </ul>
+        </div>
+    </nav>
+    <main>
+        <div class="page-header">
+            <h1 class="page-title">✅ Corrections - Fiche 1</h1>
+            <p class="page-subtitle">Leçons 1, 2 & 3 : هذا • الاستفهام • ذلك</p>
+        </div>
+        <div class="score-calculator">
+            <h2 class="score-title">🧮 Calculateur de Score</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Entre le nombre de bonnes réponses par niveau</p>
+            <div class="score-inputs">
+                <div class="score-input-group"><label>🟢 Niveau 1</label><input type="number" id="score1" min="0" max="6" value="0"><span style="font-size: 0.8rem; color: var(--text-muted);">sur 6</span></div>
+                <div class="score-input-group"><label>🟡 Niveau 2</label><input type="number" id="score2" min="0" max="6" value="0"><span style="font-size: 0.8rem; color: var(--text-muted);">sur 6</span></div>
+                <div class="score-input-group"><label>🔴 Niveau 3</label><input type="number" id="score3" min="0" max="4" value="0"><span style="font-size: 0.8rem; color: var(--text-muted);">sur 4</span></div>
+                <div class="score-input-group"><label>🟣 Niveau 4</label><input type="number" id="score4" min="0" max="4" value="0"><span style="font-size: 0.8rem; color: var(--text-muted);">sur 4</span></div>
+            </div>
+            <button class="calculate-btn" onclick="calculateScore()">📊 Calculer mon score</button>
+            <div class="score-result" id="scoreResult">
+                <div class="score-big" id="scoreBig">0/100</div>
+                <div class="score-message" id="scoreMessage">...</div>
+            </div>
+        </div>
+
+        <div class="correction-sheet">
+            <div class="sheet-header"><h2 class="sheet-title">📋 Corrections détaillées</h2></div>
+
+            <!-- NIVEAU 1 -->
+            <div class="difficulty-section easy">
+                <div class="difficulty-header"><span class="difficulty-icon">🟢</span><h3 class="difficulty-title">Niveau 1 : QCM</h3></div>
+                
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">1</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">"Ceci est un livre" en arabe</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic">هَذَا كِتَابٌ</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>هَذَا = proche, masculin, singulier. ذَلِكَ serait pour l'éloigné.</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">2</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">Démonstratif pour l'éloigné</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic">ذَلِكَ</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>ذَلِكَ = "cela" (éloigné) | هَذَا = "ceci" (proche)</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">3</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">Particule pour "Qui ?"</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic">مَنْ</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>مَنْ = "Qui ?" (personnes) | مَا = "Quoi ?" (choses)</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">4</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">"Oui" en arabe</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic">نَعَمْ</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>نَعَمْ = "Oui" | لَا = "Non"</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">5</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">Nature de أَ</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-french">Une particule (حَرْفٌ)</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>أَ est une particule interrogative, elle n'a pas de sens propre sans autre mot.</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">6</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">Pluriel de كِتَابٌ</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic">كُتُبٌ</p></div>
+                </div>
+            </div>
+
+            <!-- NIVEAU 2 -->
+            <div class="difficulty-section medium">
+                <div class="difficulty-header"><span class="difficulty-icon">🟡</span><h3 class="difficulty-title">Niveau 2 : Compléter et traduire</h3></div>
+                
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">7</span><span class="correction-points">3 pts</span></div>
+                    <p class="correction-question">Compléter avec هَذَا ou ذَلِكَ</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic">هَذَا كِتَابٌ وَذَلِكَ قَلَمٌ</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">8</span><span class="correction-points">3 pts</span></div>
+                    <p class="correction-question">Compléter avec مَا ou مَنْ</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p><p class="answer-arabic arabic">مَا هَذَا ؟ هَذَا كِتَابٌ</p><p class="answer-arabic arabic">مَنْ ذَلِكَ ؟ ذَلِكَ طَبِيبٌ</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>مَا pour les choses (كِتَابٌ) | مَنْ pour les personnes (طَبِيبٌ)</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">9</span><span class="correction-points">3 pts</span></div>
+                    <p class="correction-question">Traduire أَهَذَا بَيْتٌ ؟ نَعَمْ، هَذَا بَيْتٌ جَدِيدٌ</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Traduction :</p><p class="answer-french">"Est-ce ceci une maison ? Oui, c'est une maison nouvelle."</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">10</span><span class="correction-points">3 pts</span></div>
+                    <p class="correction-question">Traduire مَنْ هَذَا ؟ هَذَا طَالِبٌ. وَمَنْ ذَلِكَ ؟ ذَلِكَ مُدَرِّسٌ</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Traduction :</p><p class="answer-french">"Qui est-ce ? C'est un étudiant. Et qui est celui-là ? C'est un professeur."</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">11</span><span class="correction-points">4 pts</span></div>
+                    <p class="correction-question">Traduire "Est-ce ceci une mosquée ? Oui, c'est une mosquée."</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic">أَهَذَا مَسْجِدٌ ؟ نَعَمْ، هَذَا مَسْجِدٌ</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">12</span><span class="correction-points">4 pts</span></div>
+                    <p class="correction-question">Pluriels</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p>
+                        <table class="vocab-table"><thead><tr><th>Singulier</th><th>Pluriel</th></tr></thead><tbody>
+                            <tr><td class="arabic-cell arabic">مَسْجِدٌ</td><td class="arabic-cell arabic">مَسَاجِدُ</td></tr>
+                            <tr><td class="arabic-cell arabic">طَبِيبٌ</td><td class="arabic-cell arabic">أَطِبَّاءُ</td></tr>
+                            <tr><td class="arabic-cell arabic">بَيْتٌ</td><td class="arabic-cell arabic">بُيُوتٌ</td></tr>
+                            <tr><td class="arabic-cell arabic">قَلَمٌ</td><td class="arabic-cell arabic">أَقْلَامٌ</td></tr>
+                        </tbody></table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NIVEAU 3 -->
+            <div class="difficulty-section hard">
+                <div class="difficulty-header"><span class="difficulty-icon">🔴</span><h3 class="difficulty-title">Niveau 3 : Avancé</h3></div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">13</span><span class="correction-points">5 pts</span></div>
+                    <p class="correction-question">Analyse grammaticale</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Analyse :</p>
+                        <p><span class="arabic" style="color: var(--primary);">أَ</span> = حَرْفٌ (particule interrogative)</p>
+                        <p><span class="arabic" style="color: var(--primary);">هَذَا</span> = اِسْمٌ (nom démonstratif, sujet)</p>
+                        <p><span class="arabic" style="color: var(--primary);">لَا</span> = حَرْفٌ (particule de négation)</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">14</span><span class="correction-points">5 pts</span></div>
+                    <p class="correction-question">4 phrases avec tous les éléments</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Exemples :</p>
+                        <p class="answer-arabic arabic">مَا هَذَا ؟ هَذَا كِتَابٌ</p>
+                        <p class="answer-arabic arabic">مَنْ ذَلِكَ ؟ ذَلِكَ طَبِيبٌ</p>
+                        <p class="answer-arabic arabic">أَهَذَا بَيْتٌ ؟ نَعَمْ</p>
+                        <p class="answer-arabic arabic">أَذَلِكَ طَبِيبٌ ؟ لَا</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">15</span><span class="correction-points">5 pts</span></div>
+                    <p class="correction-question">Dialogue complet</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Traduction :</p>
+                        <p class="answer-arabic arabic" style="line-height: 2.2;">أ : مَا هَذَا ؟<br>ب : هَذَا قَلَمٌ<br>أ : وَمَا ذَلِكَ ؟<br>ب : ذَلِكَ كِتَابٌ<br>أ : أَذَلِكَ كِتَابٌ جَدِيدٌ ؟<br>ب : نَعَمْ، ذَلِكَ كِتَابٌ جَدِيدٌ</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">16</span><span class="correction-points">5 pts</span></div>
+                    <p class="correction-question">Correction d'erreurs</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Corrections :</p>
+                        <p><strong>1.</strong> <span class="arabic" style="color: var(--accent);">مَنْ هَذَا ؟ هَذَا كِتَابٌ</span> → <span class="arabic" style="color: var(--success);">مَا هَذَا ؟</span> (كِتَابٌ est une chose, pas une personne)</p>
+                        <p><strong>2.</strong> <span class="arabic" style="color: var(--accent);">هَذَا مُدَرِّسَةٌ</span> → <span class="arabic" style="color: var(--success);">هَذِهِ مُدَرِّسَةٌ</span> (مُدَرِّسَةٌ est féminin)</p>
+                        <p><strong>3.</strong> <span class="arabic" style="color: var(--accent);">ذَلِكَ قَرِيبٌ</span> → <span class="arabic" style="color: var(--success);">هَذَا قَرِيبٌ</span> (ذَلِكَ = éloigné, قَرِيبٌ = proche : contradiction)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NIVEAU 4 -->
+            <div class="difficulty-section expert">
+                <div class="difficulty-header"><span class="difficulty-icon">🟣</span><h3 class="difficulty-title">Niveau 4 : Expert</h3></div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">17</span><span class="correction-points">8 pts</span></div>
+                    <p class="correction-question">Rédaction salle de classe</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Exemple :</p>
+                        <p class="answer-arabic arabic" style="line-height: 2;">هَذَا فَصْلٌ. مَا هَذَا ؟ هَذَا كِتَابٌ. وَمَا ذَلِكَ ؟ ذَلِكَ قَلَمٌ. مَنْ هَذَا ؟ هَذَا طَالِبٌ. وَمَنْ ذَلِكَ ؟ ذَلِكَ مُدَرِّسٌ. أَهَذَا كُرْسِيٌّ ؟ نَعَمْ. أَذَلِكَ بَابٌ ؟ لَا، ذَلِكَ نَافِذَةٌ.</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">18</span><span class="correction-points">8 pts</span></div>
+                    <p class="correction-question">Analyse comparative</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p>
+                        <p><strong>مَا vs مَنْ :</strong> Les deux sont des اِسْمٌ (noms). مَا pour les choses, مَنْ pour les personnes.</p>
+                        <p style="margin-top: 0.5rem;"><strong>أَ vs مَا :</strong> أَ est un حَرْفٌ (particule) pour questions oui/non. مَا est un اِسْمٌ (nom) pour demander une information.</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">19</span><span class="correction-points">10 pts</span></div>
+                    <p class="correction-question">Dialogue bibliothèque (10 répliques)</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Exemple :</p>
+                        <p class="answer-arabic arabic" style="line-height: 2.2;">المُدَرِّسُ : مَا هَذَا ؟<br>الطَّالِبُ : هَذَا كِتَابٌ<br>المُدَرِّسُ : أَهَذَا كِتَابٌ جَدِيدٌ ؟<br>الطَّالِبُ : نَعَمْ<br>المُدَرِّسُ : وَمَا ذَلِكَ ؟<br>الطَّالِبُ : ذَلِكَ قَلَمٌ<br>المُدَرِّسُ : مَنْ هَذَا ؟<br>الطَّالِبُ : هَذَا طَالِبٌ<br>المُدَرِّسُ : أَذَلِكَ مُدَرِّسٌ ؟<br>الطَّالِبُ : لَا، ذَلِكَ إِمَامٌ</p>
+                    </div>
+                </div>
+
+                <div class="correction-item" style="border: 2px solid #9B59B6;">
+                    <div class="correction-header"><span class="correction-number" style="background: linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%);">20</span><span class="correction-points" style="background: rgba(155, 89, 182, 0.2); color: #9B59B6;">12 pts 🏆</span></div>
+                    <p class="correction-question">🏆 DÉFI ULTIME</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Traduction complète :</p>
+                        <p class="answer-arabic arabic" style="line-height: 2.5; font-size: 1.4rem;">اُنْظُرْ ! هَذَا مَسْجِدٌ جَدِيدٌ وَذَلِكَ بَيْتٌ قَدِيمٌ. مَنْ هَذَا الرَّجُلُ عِنْدَ المَسْجِدِ ؟ هَذَا إِمَامٌ. وَمَنْ ذَلِكَ هُنَاكَ ؟ ذَلِكَ طَبِيبٌ. مَا هَذَا فِي يَدِي ؟ هَذَا قَلَمٌ. أَهَذَا قَلَمٌ جَدِيدٌ ؟ لَا، هَذَا قَلَمٌ قَدِيمٌ وَلَكِنَّهُ جَيِّدٌ. وَمَا ذَلِكَ ؟ تِلْكَ كُتُبٌ. أَتِلْكَ كُتُبُ الإِمَامِ ؟ نَعَمْ.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== FICHE 2 CORRECTIONS ==================== -->
+        <div class="correction-sheet" id="fiche2">
+            <div class="sheet-header">
+                <h2 class="sheet-title">📋 Corrections Fiche 2 : Leçons 4, 5 & 6</h2>
+                <p style="color: var(--text-muted); margin-top: 0.5rem;">النكرة والمعرفة • حروف الجر • العَلَم</p>
+            </div>
+
+            <!-- NIVEAU FACILE -->
+            <div class="difficulty-section easy">
+                <div class="difficulty-header"><span class="difficulty-icon">🟢</span><h3 class="difficulty-title">Niveau Facile (1-6)</h3></div>
+                
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">1</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">Marque du nom indéfini</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p>Le tanwin (ٌ ً ٍ)</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>Le tanwin est la marque distinctive de l'indéfini (النَّكِرَة). Il se prononce comme un "n" à la fin.</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">2</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">La lettre ش (shin)</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p>Solaire (شمسية) - on ne prononce pas le lam</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>الشَّمْسُ se prononce "ash-shamsu" et non "al-shamsu". Le lam s'assimile à la lettre solaire.</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">3</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">Préposition "dans"</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic" style="font-size: 2rem;">فِي</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">4</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">"Où ?" en arabe</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic" style="font-size: 2rem;">أَيْنَ</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">5</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">Les noms propres sont</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p>Définis (معرفة)</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>Les noms propres désignent une personne ou un lieu précis, ils sont donc toujours définis par nature.</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">6</span><span class="correction-points">2 pts</span></div>
+                    <p class="correction-question">Nom propre féminin sans tanwin</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p><p class="answer-arabic arabic" style="font-size: 2rem;">فَاطِمَةُ</p></div>
+                    <div class="explanation"><p class="explanation-title">💡 Explication</p><p>Les noms propres féminins sont مَمْنُوعٌ مِنَ الصَّرْفِ (diptotes) : ils n'acceptent pas le tanwin.</p></div>
+                </div>
+            </div>
+
+            <!-- NIVEAU MOYEN -->
+            <div class="difficulty-section medium">
+                <div class="difficulty-header"><span class="difficulty-icon">🟡</span><h3 class="difficulty-title">Niveau Moyen (7-12)</h3></div>
+                
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">7</span><span class="correction-points">4 pts</span></div>
+                    <p class="correction-question">Transformation indéfini → défini</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.5rem; line-height: 2;">الكِتَابُ ، البَابُ ، الشَّمْسُ ، القَمَرُ ، الرَّجُلُ</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">8</span><span class="correction-points">4 pts</span></div>
+                    <p class="correction-question">Lettres solaires et lunaires</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p>
+                        <p>☀️ Solaires : ت ، س ، ن</p>
+                        <p>🌙 Lunaires : ب ، ك ، م</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">9</span><span class="correction-points">4 pts</span></div>
+                    <p class="correction-question">Prépositions</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">١. الكِتَابُ عَلَى المَكْتَبِ</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٢. مُحَمَّدٌ فِي البَيْتِ</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٣. أَنَا مِنْ فَرَنْسَا</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٤. ذَهَبَ إِلَى المَسْجِدِ</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">10</span><span class="correction-points">4 pts</span></div>
+                    <p class="correction-question">Réponses avec أَيْنَ</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">١. هُوَ عَلَى الطَّاوِلَةِ</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٢. هُوَ فِي المَسْجِدِ</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٣. هِيَ فِي المَطْبَخِ</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">11</span><span class="correction-points">4 pts</span></div>
+                    <p class="correction-question">Traduction avec مِنْ أَيْنَ</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">١. مِنْ أَيْنَ أَنْتَ ؟</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٢. أَنَا مِنَ اليَابَانِ</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٣. فَاطِمَةُ مِنْ مَكَّةَ</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">12</span><span class="correction-points">4 pts</span></div>
+                    <p class="correction-question">Défini ou indéfini</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p>
+                        <p>كِتَابٌ : نكرة (indéfini - a le tanwin)</p>
+                        <p>الشَّمْسُ : معرفة (défini - a ال)</p>
+                        <p>مُحَمَّدٌ : معرفة (défini - nom propre)</p>
+                        <p>بَيْتٌ : نكرة (indéfini - a le tanwin)</p>
+                        <p>هَذَا : معرفة (défini - démonstratif)</p>
+                        <p>القَمَرُ : معرفة (défini - a ال)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NIVEAU DIFFICILE -->
+            <div class="difficulty-section hard">
+                <div class="difficulty-header"><span class="difficulty-icon">🔴</span><h3 class="difficulty-title">Niveau Difficile (13-18)</h3></div>
+                
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">13</span><span class="correction-points">6 pts</span></div>
+                    <p class="correction-question">Correction des voyelles après préposition</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">١. عَلَى المَكْتَبِ (كسرة)</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٢. مِنَ المَسْجِدِ (كسرة)</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٣. إِلَى السُّوقِ (كسرة)</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2;">٤. فِي الغُرْفَةِ (كسرة)</p>
+                    </div>
+                    <div class="explanation"><p class="explanation-title">💡 Règle</p><p>Après une préposition (حرف جر), le nom prend une kasra (ِ) car il devient مجرور.</p></div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">14</span><span class="correction-points">6 pts</span></div>
+                    <p class="correction-question">Translittération</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p>
+                        <p>الشَّمْسُ : ash-shamsu (ش solaire)</p>
+                        <p>الكِتَابُ : al-kitaabu (ك lunaire)</p>
+                        <p>النَّجْمُ : an-najmu (ن solaire)</p>
+                        <p>البَابُ : al-baabu (ب lunaire)</p>
+                        <p>الرَّجُلُ : ar-rajulu (ر solaire)</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">15</span><span class="correction-points">6 pts</span></div>
+                    <p class="correction-question">Dialogue</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Exemple de réponse :</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2.5;">
+                            أَحْمَدُ : مِنْ أَيْنَ أَنْتَ يَا خَالِدُ ؟<br>
+                            خَالِدٌ : أَنَا مِنَ اليَابَانِ. وَأَنْتَ ؟<br>
+                            أَحْمَدُ : أَنَا مِنْ فَرَنْسَا.<br>
+                            خَالِدٌ : أَيْنَ أَنْتَ الآنَ ؟<br>
+                            أَحْمَدُ : أَنَا فِي البَيْتِ.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">16</span><span class="correction-points">6 pts</span></div>
+                    <p class="correction-question">Traduction</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponse :</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2.5;">
+                            الكِتَابُ عَلَى المَكْتَبِ. القَلَمُ فِي الحَقِيبَةِ. مُحَمَّدٌ فِي المَسْجِدِ. فَاطِمَةُ مِنْ مَكَّةَ.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">17</span><span class="correction-points">6 pts</span></div>
+                    <p class="correction-question">Différences</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Explications :</p>
+                        <p>1. كِتَابٌ = indéfini, désigne n'importe quel livre</p>
+                        <p>2. الكِتَابُ = défini par ال, désigne un livre précis</p>
+                        <p>3. هَذَا كِتَابٌ = phrase nominale "ceci est un livre"</p>
+                        <p>4. هَذَا الكِتَابُ = "ce livre-ci" (démonstratif + défini)</p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">18</span><span class="correction-points">6 pts</span></div>
+                    <p class="correction-question">Vocabulaire</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Réponses :</p>
+                        <p>La cuisine : <span class="arabic">المَطْبَخُ</span></p>
+                        <p>L'université : <span class="arabic">الجَامِعَةُ</span></p>
+                        <p>Le marché : <span class="arabic">السُّوقُ</span></p>
+                        <p>La Chine : <span class="arabic">الصِّينُ</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NIVEAU EXPERT -->
+            <div class="difficulty-section expert">
+                <div class="difficulty-header"><span class="difficulty-icon">🟣</span><h3 class="difficulty-title">Niveau Expert (19-20)</h3></div>
+                
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">19</span><span class="correction-points">10 pts</span></div>
+                    <p class="correction-question">Présentation personnelle</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Exemple de réponse :</p>
+                        <p class="answer-arabic arabic" style="font-size: 1.3rem; line-height: 2.5;">
+                            أَنَا أَحْمَدُ. أَنَا مِنْ فَرَنْسَا. أَنَا الآنَ فِي البَيْتِ. الكِتَابُ عَلَى المَكْتَبِ. القَلَمُ فِي الحَقِيبَةِ. الهَاتِفُ عَلَى الطَّاوِلَةِ.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="correction-item">
+                    <div class="correction-header"><span class="correction-number">20</span><span class="correction-points">12 pts 🏆</span></div>
+                    <p class="correction-question">🏆 DÉFI ULTIME</p>
+                    <div class="correction-answer"><p class="answer-label">✅ Traduction complète :</p>
+                        <p class="answer-arabic arabic" style="line-height: 2.5; font-size: 1.3rem;">
+                            مِنْ أَيْنَ أَنْتَ يَا صَدِيقِي ؟ أَنَا مِنْ فَرَنْسَا. وَأَنْتَ، مِنْ أَيْنَ أَنْتَ ؟ أَنَا مِنَ اليَابَانِ.<br><br>
+                            أَيْنَ مُحَمَّدٌ ؟ هُوَ فِي المَسْجِدِ. وَأَيْنَ فَاطِمَةُ ؟ هِيَ فِي المَطْبَخِ.<br><br>
+                            الشَّمْسُ فِي السَّمَاءِ وَالقَمَرُ أَيْضًا. الكِتَابُ الجَدِيدُ عَلَى المَكْتَبِ وَالقَلَمُ القَدِيمُ فِي الحَقِيبَةِ.<br><br>
+                            هَذِهِ مَدْرَسَةٌ وَتِلْكَ جَامِعَةٌ.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function calculateScore() {
+            const s1 = Math.min(parseInt(document.getElementById('score1').value) || 0, 6);
+            const s2 = Math.min(parseInt(document.getElementById('score2').value) || 0, 6);
+            const s3 = Math.min(parseInt(document.getElementById('score3').value) || 0, 4);
+            const s4 = Math.min(parseInt(document.getElementById('score4').value) || 0, 4);
+            const total = (s1 * 2) + (s2 * 3) + (s3 * 5) + (s4 * 12.5);
+            const percent = Math.round(total);
+            let message = '', color = '';
+            if (percent >= 90) { message = '🏆 Excellent ! Tu maîtrises parfaitement !'; color = '#FFD700'; }
+            else if (percent >= 75) { message = '👏 Très bien ! Continue !'; color = 'var(--success)'; }
+            else if (percent >= 60) { message = '👍 Bien ! Quelques révisions...'; color = 'var(--primary)'; }
+            else if (percent >= 40) { message = '📚 Revois les leçons !'; color = 'var(--warning)'; }
+            else { message = '💪 Courage ! Reprends les leçons.'; color = 'var(--accent)'; }
+            document.getElementById('scoreBig').textContent = percent + '/100';
+            document.getElementById('scoreBig').style.color = color;
+            document.getElementById('scoreMessage').textContent = message;
+            document.getElementById('scoreResult').classList.add('show');
+        }
+    </script>
+</body>
+</html>

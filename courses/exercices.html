@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercices - مبادئ اللغة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #D4A574;
+            --primary-dark: #B8956A;
+            --secondary: #2C3E50;
+            --accent: #E74C3C;
+            --success: #27AE60;
+            --warning: #F39C12;
+            --bg-dark: #1A1A2E;
+            --bg-card: #16213E;
+            --bg-light: #0F3460;
+            --text-light: #EAEAEA;
+            --text-muted: #A0A0A0;
+            --gold: #FFD700;
+            --gradient-primary: linear-gradient(135deg, #D4A574 0%, #B8956A 100%);
+            --gradient-dark: linear-gradient(180deg, #1A1A2E 0%, #0F3460 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--gradient-dark);
+            min-height: 100vh;
+            color: var(--text-light);
+        }
+
+        .arabic { font-family: 'Noto Naskh Arabic', 'Amiri', serif; direction: rtl; }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D4A574' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            z-index: 0;
+        }
+
+        nav {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(212, 165, 116, 0.2);
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo { display: flex; align-items: center; gap: 1rem; }
+
+        .logo-icon {
+            width: 50px; height: 50px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 4px 15px rgba(212, 165, 116, 0.3);
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+
+        .nav-links a {
+            color: var(--text-light);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--primary);
+            background: rgba(212, 165, 116, 0.1);
+        }
+
+        .nav-links a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -5px; left: 50%;
+            transform: translateX(-50%);
+            width: 30px; height: 3px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 100px 2rem 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .page-header { text-align: center; margin-bottom: 3rem; }
+        .page-title { font-size: 2.5rem; color: var(--primary); margin-bottom: 0.5rem; }
+        .page-subtitle { color: var(--text-muted); font-size: 1.1rem; }
+
+        /* Fiche Selection */
+        .sheets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .sheet-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 2px solid rgba(212, 165, 116, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sheet-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(212, 165, 116, 0.2);
+        }
+
+        .sheet-card.active {
+            border-color: var(--primary);
+            background: rgba(212, 165, 116, 0.1);
+        }
+
+        .sheet-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .sheet-card-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .sheet-card-badge {
+            padding: 0.3rem 0.8rem;
+            background: rgba(39, 174, 96, 0.2);
+            color: var(--success);
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+
+        .sheet-card-badge.locked {
+            background: rgba(160, 160, 160, 0.2);
+            color: var(--text-muted);
+        }
+
+        .sheet-card-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .sheet-card-lessons {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .sheet-card-stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Exercise Sheet */
+        .exercise-sheet {
+            display: none;
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1px solid rgba(212, 165, 116, 0.2);
+            margin-bottom: 2rem;
+        }
+
+        .exercise-sheet.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .sheet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid rgba(212, 165, 116, 0.2);
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .sheet-title { font-size: 1.8rem; color: var(--primary); }
+        .sheet-info { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+        .info-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(212, 165, 116, 0.3);
+        }
+
+        .info-badge.difficulty-easy { background: rgba(39, 174, 96, 0.2); color: var(--success); }
+        .info-badge.difficulty-medium { background: rgba(243, 156, 18, 0.2); color: var(--warning); }
+        .info-badge.difficulty-hard { background: rgba(231, 76, 60, 0.2); color: var(--accent); }
+        .info-badge.difficulty-expert { background: rgba(142, 68, 173, 0.2); color: #9B59B6; }
+
+        .back-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Difficulty Sections */
+        .difficulty-section {
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: rgba(15, 52, 96, 0.3);
+            border-radius: 15px;
+            border-left: 5px solid var(--primary);
+        }
+
+        .difficulty-section.easy { border-left-color: var(--success); }
+        .difficulty-section.medium { border-left-color: var(--warning); }
+        .difficulty-section.hard { border-left-color: var(--accent); }
+        .difficulty-section.expert { border-left-color: #9B59B6; }
+
+        .difficulty-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .difficulty-icon {
+            font-size: 2rem;
+        }
+
+        .difficulty-title {
+            font-size: 1.4rem;
+        }
+
+        .difficulty-section.easy .difficulty-title { color: var(--success); }
+        .difficulty-section.medium .difficulty-title { color: var(--warning); }
+        .difficulty-section.hard .difficulty-title { color: var(--accent); }
+        .difficulty-section.expert .difficulty-title { color: #9B59B6; }
+
+        .difficulty-description {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            font-style: italic;
+        }
+
+        /* Exercise Items */
+        .exercise-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .exercise-item:hover {
+            border-color: rgba(212, 165, 116, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .exercise-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .exercise-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px; height: 40px;
+            background: var(--gradient-primary);
+            color: var(--secondary);
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .exercise-points {
+            padding: 0.3rem 0.8rem;
+            background: rgba(255, 215, 0, 0.2);
+            color: var(--gold);
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .exercise-question {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        .exercise-arabic {
+            font-size: 2rem;
+            color: var(--primary);
+            text-align: center;
+            margin: 1rem 0;
+            padding: 1.5rem;
+            background: rgba(212, 165, 116, 0.1);
+            border-radius: 12px;
+            line-height: 2;
+        }
+
+        /* QCM Options */
+        .options-list { display: flex; flex-direction: column; gap: 0.8rem; }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .option-item:hover { border-color: var(--primary); background: rgba(212, 165, 116, 0.1); }
+        .option-item.selected { border-color: var(--primary); background: rgba(212, 165, 116, 0.2); }
+
+        .option-radio {
+            width: 24px; height: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .option-item.selected .option-radio { border-color: var(--primary); background: var(--primary); }
+        .option-item.selected .option-radio::after { content: '✓'; color: var(--secondary); font-weight: bold; }
+
+        /* Answer Textarea */
+        .answer-area {
+            width: 100%;
+            min-height: 120px;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: var(--text-light);
+            font-size: 1.2rem;
+            font-family: 'Noto Naskh Arabic', 'Poppins', sans-serif;
+            transition: all 0.3s ease;
+            direction: rtl;
+            text-align: right;
+            resize: vertical;
+            line-height: 2;
+        }
+
+        .answer-area:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(212, 165, 116, 0.05);
+        }
+
+        .answer-area::placeholder {
+            color: var(--text-muted);
+            direction: ltr;
+            text-align: left;
+        }
+
+        .answer-area.ltr {
+            direction: ltr;
+            text-align: left;
+        }
+
+        /* Save indicator */
+        .save-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .save-indicator.saved { color: var(--success); }
+        .save-indicator.saving { color: var(--warning); }
+
+        /* Fill in blanks */
+        .fill-sentence {
+            font-size: 1.4rem;
+            line-height: 2.5;
+            direction: rtl;
+            text-align: right;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+        }
+
+        .blank-input {
+            width: 120px;
+            padding: 0.4rem 0.6rem;
+            margin: 0 0.3rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed var(--primary);
+            border-radius: 8px;
+            color: var(--primary);
+            font-size: 1.1rem;
+            text-align: center;
+            font-family: 'Noto Naskh Arabic', sans-serif;
+            direction: rtl;
+        }
+
+        .blank-input:focus {
+            outline: none;
+            border-style: solid;
+            background: rgba(212, 165, 116, 0.1);
+        }
+
+        /* Tables */
+        .vocab-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .vocab-table th, .vocab-table td {
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .vocab-table th { 
+            background: rgba(212, 165, 116, 0.2); 
+            color: var(--primary); 
+            font-weight: 600;
+        }
+        
+        .vocab-table td { background: rgba(255, 255, 255, 0.03); }
+        .vocab-table .arabic-cell { font-size: 1.5rem; color: var(--primary); direction: rtl; font-family: 'Noto Naskh Arabic', 'Amiri', serif; }
+
+        /* Instruction boxes */
+        .instruction-box {
+            background: rgba(212, 165, 116, 0.1);
+            border: 1px solid var(--primary);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .instruction-box h4 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Progress and actions */
+        .sheet-footer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 2px solid rgba(212, 165, 116, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .progress-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .progress-text {
+            color: var(--text-muted);
+        }
+
+        .progress-bar-container {
+            width: 200px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--gradient-primary);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .save-btn, .corrections-btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .save-btn {
+            background: rgba(39, 174, 96, 0.2);
+            border: 2px solid var(--success);
+            color: var(--success);
+        }
+
+        .save-btn:hover {
+            background: var(--success);
+            color: white;
+        }
+
+        .corrections-btn {
+            background: var(--gradient-primary);
+            color: var(--secondary);
+        }
+
+        .corrections-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(212, 165, 116, 0.4);
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 2rem;
+            background: var(--bg-card);
+            border: 2px solid var(--success);
+            border-radius: 12px;
+            color: var(--success);
+            font-weight: 500;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .sheets-grid { grid-template-columns: 1fr; }
+            .sheet-footer { flex-direction: column; text-align: center; }
+            .action-buttons { width: 100%; flex-direction: column; }
+            .save-btn, .corrections-btn { width: 100%; }
+            .exercise-arabic { font-size: 1.5rem; }
+            .fill-sentence { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+
+    <nav>
+        <div class="nav-content">
+            <div class="logo">
+                <div class="logo-icon">ض</div>
+                <span class="logo-text">مبادئ اللغة</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html">📚 Cours</a></li>
+                <li><a href="exercices.html" class="active">✏️ Exercices</a></li>
+                <li><a href="corrections.html">✅ Corrections</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main>
+        <div class="page-header">
+            <h1 class="page-title">✏️ Fiches d'Exercices</h1>
+            <p class="page-subtitle">Mets en pratique tes connaissances avec des exercices progressifs</p>
+        </div>
+
+        <!-- Sheet Selection -->
+        <div class="sheets-grid" id="sheetsGrid">
+            <div class="sheet-card" onclick="openSheet(1)">
+                <div class="sheet-card-header">
+                    <span class="sheet-card-number">Fiche 1</span>
+                    <span class="sheet-card-badge">Disponible</span>
+                </div>
+                <h3 class="sheet-card-title">Les démonstratifs et l'interrogation</h3>
+                <p class="sheet-card-lessons">📖 Leçons 1, 2 & 3 : هذا • الاستفهام • ذلك</p>
+                <div class="sheet-card-stats">
+                    <span>📝 30 exercices</span>
+                    <span>⏱️ ~45 min</span>
+                    <span>🏆 100 pts</span>
+                </div>
+            </div>
+
+            <div class="sheet-card" onclick="openSheet(2)">
+                <div class="sheet-card-header">
+                    <span class="sheet-card-number">Fiche 2</span>
+                    <span class="sheet-card-badge">✅ Disponible</span>
+                </div>
+                <h3 class="sheet-card-title">Le défini, prépositions et noms propres</h3>
+                <p class="sheet-card-lessons">📖 Leçons 4, 5 & 6 : النكرة والمعرفة • حروف الجر • العَلَم</p>
+                <div class="sheet-card-stats">
+                    <span>📝 20 exercices</span>
+                    <span>⏱️ ~40 min</span>
+                    <span>🏆 100 pts</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== FICHE 1 ==================== -->
+        <div class="exercise-sheet" id="sheet1">
+            <div class="sheet-header">
+                <div>
+                    <h2 class="sheet-title">📋 Fiche 1 : Leçons 1, 2 & 3</h2>
+                    <p style="color: var(--text-muted); margin-top: 0.5rem;">هذا • الاستفهام • ذلك</p>
+                </div>
+                <button class="back-btn" onclick="closeSheet()">← Retour</button>
+            </div>
+
+            <!-- ===== NIVEAU 1 : QCM FACILES ===== -->
+            <div class="difficulty-section easy">
+                <div class="difficulty-header">
+                    <span class="difficulty-icon">🟢</span>
+                    <h3 class="difficulty-title">Niveau 1 : Questions à choix multiples</h3>
+                </div>
+                <p class="difficulty-description">Échauffement ! Sélectionne la bonne réponse parmi les propositions.</p>
+
+                <!-- QCM 1 -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">1</span>
+                        <span class="exercise-points">+2 pts</span>
+                    </div>
+                    <p class="exercise-question">Comment dit-on "Ceci est un livre" en arabe ?</p>
+                    <div class="options-list">
+                        <div class="option-item" onclick="selectOption(this, 'q1')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">ذَلِكَ كِتَابٌ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q1')" data-correct="true">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">هَذَا كِتَابٌ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q1')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">مَا كِتَابٌ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q1')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">مَنْ كِتَابٌ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QCM 2 -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">2</span>
+                        <span class="exercise-points">+2 pts</span>
+                    </div>
+                    <p class="exercise-question">Quel démonstratif utilise-t-on pour désigner quelque chose d'éloigné ?</p>
+                    <div class="options-list">
+                        <div class="option-item" onclick="selectOption(this, 'q2')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">هَذَا</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q2')" data-correct="true">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">ذَلِكَ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q2')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">مَا</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q2')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">مَنْ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QCM 3 -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">3</span>
+                        <span class="exercise-points">+2 pts</span>
+                    </div>
+                    <p class="exercise-question">Quelle particule interrogative utilise-t-on pour demander "Qui ?" ?</p>
+                    <div class="options-list">
+                        <div class="option-item" onclick="selectOption(this, 'q3')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">مَا</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q3')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">أَ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q3')" data-correct="true">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">مَنْ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q3')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">هَلْ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QCM 4 -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">4</span>
+                        <span class="exercise-points">+2 pts</span>
+                    </div>
+                    <p class="exercise-question">Comment répond-on "Oui" à une question en arabe ?</p>
+                    <div class="options-list">
+                        <div class="option-item" onclick="selectOption(this, 'q4')" data-correct="true">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">نَعَمْ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q4')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">لَا</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q4')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">مَا</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q4')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">هَذَا</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QCM 5 -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">5</span>
+                        <span class="exercise-points">+2 pts</span>
+                    </div>
+                    <p class="exercise-question"><span class="arabic" style="font-size: 1.3rem;">أَ</span> est :</p>
+                    <div class="options-list">
+                        <div class="option-item" onclick="selectOption(this, 'q5')">
+                            <div class="option-radio"></div>
+                            <span>Un nom (اِسْمٌ)</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q5')" data-correct="true">
+                            <div class="option-radio"></div>
+                            <span>Une particule (حَرْفٌ)</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q5')">
+                            <div class="option-radio"></div>
+                            <span>Un verbe (فِعْلٌ)</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q5')">
+                            <div class="option-radio"></div>
+                            <span>Un démonstratif</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QCM 6 -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">6</span>
+                        <span class="exercise-points">+2 pts</span>
+                    </div>
+                    <p class="exercise-question">Quel est le pluriel de <span class="arabic" style="font-size: 1.3rem;">كِتَابٌ</span> (livre) ?</p>
+                    <div class="options-list">
+                        <div class="option-item" onclick="selectOption(this, 'q6')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">كِتَابَاتٌ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q6')" data-correct="true">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">كُتُبٌ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q6')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">كَاتِبُونَ</span>
+                        </div>
+                        <div class="option-item" onclick="selectOption(this, 'q6')">
+                            <div class="option-radio"></div>
+                            <span class="arabic" style="font-size: 1.3rem;">مَكْتَبَاتٌ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== NIVEAU 2 : EXERCICES MOYENS ===== -->
+            <div class="difficulty-section medium">
+                <div class="difficulty-header">
+                    <span class="difficulty-icon">🟡</span>
+                    <h3 class="difficulty-title">Niveau 2 : Compléter et traduire</h3>
+                </div>
+                <p class="difficulty-description">On passe aux choses sérieuses ! Complète les phrases et traduis.</p>
+
+                <!-- Exercice 7 : Compléter -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">7</span>
+                        <span class="exercise-points">+3 pts</span>
+                    </div>
+                    <p class="exercise-question">Complète avec le bon démonstratif (هَذَا ou ذَلِكَ) :</p>
+                    <div class="instruction-box">
+                        <h4>📌 Rappel</h4>
+                        <p>هَذَا = proche | ذَلِكَ = éloigné</p>
+                    </div>
+                    <div class="fill-sentence">
+                        <p class="arabic">
+                            (proche) _______ كِتَابٌ وَ (loin) _______ قَلَمٌ
+                        </p>
+                    </div>
+                    <textarea class="answer-area" placeholder="Écris la phrase complète en arabe..." data-key="sheet1_q7" onchange="saveAnswer(this)"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q7">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 8 : Compléter -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">8</span>
+                        <span class="exercise-points">+3 pts</span>
+                    </div>
+                    <p class="exercise-question">Complète avec مَا ou مَنْ :</p>
+                    <div class="fill-sentence">
+                        <p class="arabic">
+                            _______ هَذَا ؟ هَذَا كِتَابٌ
+                        </p>
+                        <p class="arabic" style="margin-top: 1rem;">
+                            _______ ذَلِكَ ؟ ذَلِكَ طَبِيبٌ
+                        </p>
+                    </div>
+                    <textarea class="answer-area" placeholder="Écris les deux phrases complètes..." data-key="sheet1_q8" onchange="saveAnswer(this)"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q8">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 9 : Traduire arabe → français -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">9</span>
+                        <span class="exercise-points">+3 pts</span>
+                    </div>
+                    <p class="exercise-question">Traduis en français :</p>
+                    <div class="exercise-arabic arabic">أَهَذَا بَيْتٌ ؟ نَعَمْ، هَذَا بَيْتٌ جَدِيدٌ</div>
+                    <textarea class="answer-area ltr" placeholder="Écris ta traduction en français..." data-key="sheet1_q9" onchange="saveAnswer(this)"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q9">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 10 : Traduire arabe → français -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">10</span>
+                        <span class="exercise-points">+3 pts</span>
+                    </div>
+                    <p class="exercise-question">Traduis en français :</p>
+                    <div class="exercise-arabic arabic">مَنْ هَذَا ؟ هَذَا طَالِبٌ. وَمَنْ ذَلِكَ ؟ ذَلِكَ مُدَرِّسٌ</div>
+                    <textarea class="answer-area ltr" placeholder="Écris ta traduction en français..." data-key="sheet1_q10" onchange="saveAnswer(this)"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q10">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 11 : Traduire français → arabe -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">11</span>
+                        <span class="exercise-points">+4 pts</span>
+                    </div>
+                    <p class="exercise-question">Traduis en arabe :</p>
+                    <div class="instruction-box">
+                        <p style="font-size: 1.2rem; text-align: center;">"Est-ce ceci une mosquée ? Oui, c'est une mosquée."</p>
+                    </div>
+                    <textarea class="answer-area" placeholder="اكتب بالعربية..." data-key="sheet1_q11" onchange="saveAnswer(this)"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q11">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 12 : Vocabulaire pluriels -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">12</span>
+                        <span class="exercise-points">+4 pts</span>
+                    </div>
+                    <p class="exercise-question">Donne le pluriel des mots suivants :</p>
+                    <table class="vocab-table">
+                        <thead>
+                            <tr>
+                                <th>Singulier</th>
+                                <th>Pluriel (à compléter)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="arabic-cell arabic">مَسْجِدٌ</td>
+                                <td><input type="text" class="blank-input" style="width: 100%;" data-key="sheet1_q12a" onchange="saveAnswer(this)"></td>
+                            </tr>
+                            <tr>
+                                <td class="arabic-cell arabic">طَبِيبٌ</td>
+                                <td><input type="text" class="blank-input" style="width: 100%;" data-key="sheet1_q12b" onchange="saveAnswer(this)"></td>
+                            </tr>
+                            <tr>
+                                <td class="arabic-cell arabic">بَيْتٌ</td>
+                                <td><input type="text" class="blank-input" style="width: 100%;" data-key="sheet1_q12c" onchange="saveAnswer(this)"></td>
+                            </tr>
+                            <tr>
+                                <td class="arabic-cell arabic">قَلَمٌ</td>
+                                <td><input type="text" class="blank-input" style="width: 100%;" data-key="sheet1_q12d" onchange="saveAnswer(this)"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ===== NIVEAU 3 : DIFFICILE ===== -->
+            <div class="difficulty-section hard">
+                <div class="difficulty-header">
+                    <span class="difficulty-icon">🔴</span>
+                    <h3 class="difficulty-title">Niveau 3 : Exercices avancés</h3>
+                </div>
+                <p class="difficulty-description">Ici ça se corse ! Analyse grammaticale et productions écrites.</p>
+
+                <!-- Exercice 13 : Analyse grammaticale -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">13</span>
+                        <span class="exercise-points">+5 pts</span>
+                    </div>
+                    <p class="exercise-question">Analyse grammaticale : Pour chaque mot souligné, indique s'il s'agit d'un اِسْمٌ (nom), فِعْلٌ (verbe) ou حَرْفٌ (particule), et précise sa fonction.</p>
+                    <div class="exercise-arabic arabic">أَهَذَا مُدَرِّسٌ ؟ لَا، هَذَا طَالِبٌ</div>
+                    <p style="margin: 1rem 0;">Analyse les mots : <span class="arabic" style="color: var(--primary);">أَ</span> • <span class="arabic" style="color: var(--primary);">هَذَا</span> • <span class="arabic" style="color: var(--primary);">لَا</span></p>
+                    <textarea class="answer-area ltr" placeholder="أَ = ...
+هَذَا = ...
+لَا = ..." data-key="sheet1_q13" onchange="saveAnswer(this)" style="min-height: 150px;"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q13">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 14 : Construction de phrases -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">14</span>
+                        <span class="exercise-points">+5 pts</span>
+                    </div>
+                    <p class="exercise-question">Construis 4 phrases en utilisant TOUS les éléments suivants au moins une fois :</p>
+                    <div class="instruction-box">
+                        <p class="arabic" style="text-align: center; font-size: 1.4rem;">هَذَا • ذَلِكَ • مَا • مَنْ • نَعَمْ • لَا • كِتَابٌ • طَبِيبٌ • بَيْتٌ</p>
+                    </div>
+                    <textarea class="answer-area" placeholder="1. 
+2. 
+3. 
+4. " data-key="sheet1_q14" onchange="saveAnswer(this)" style="min-height: 180px;"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q14">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 15 : Dialogue -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">15</span>
+                        <span class="exercise-points">+5 pts</span>
+                    </div>
+                    <p class="exercise-question">Traduis ce dialogue complet en arabe :</p>
+                    <div class="instruction-box" style="background: rgba(255,255,255,0.05);">
+                        <p><strong>A :</strong> Qu'est-ce que ceci ?</p>
+                        <p><strong>B :</strong> Ceci est un stylo.</p>
+                        <p><strong>A :</strong> Et qu'est-ce que cela (loin) ?</p>
+                        <p><strong>B :</strong> Cela est un livre.</p>
+                        <p><strong>A :</strong> Est-ce que cela est un livre nouveau ?</p>
+                        <p><strong>B :</strong> Oui, c'est un livre nouveau.</p>
+                    </div>
+                    <textarea class="answer-area" placeholder="اكتب الحوار بالعربية..." data-key="sheet1_q15" onchange="saveAnswer(this)" style="min-height: 200px;"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q15">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 16 : Correction d'erreurs -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">16</span>
+                        <span class="exercise-points">+5 pts</span>
+                    </div>
+                    <p class="exercise-question">Corrige les erreurs dans les phrases suivantes et explique chaque correction :</p>
+                    <div class="exercise-arabic arabic" style="background: rgba(231, 76, 60, 0.1); border: 1px solid var(--accent);">
+                        <p style="margin-bottom: 0.5rem;">1. مَنْ هَذَا ؟ هَذَا كِتَابٌ ❌</p>
+                        <p style="margin-bottom: 0.5rem;">2. هَذَا مُدَرِّسَةٌ ❌</p>
+                        <p>3. ذَلِكَ قَرِيبٌ ❌</p>
+                    </div>
+                    <textarea class="answer-area" placeholder="1. Correction : ... Explication : ...
+2. Correction : ... Explication : ...
+3. Correction : ... Explication : ..." data-key="sheet1_q16" onchange="saveAnswer(this)" style="min-height: 180px;"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q16">💾 Modifications enregistrées automatiquement</div>
+                </div>
+            </div>
+
+            <!-- ===== NIVEAU 4 : EXPERT ===== -->
+            <div class="difficulty-section expert">
+                <div class="difficulty-header">
+                    <span class="difficulty-icon">🟣</span>
+                    <h3 class="difficulty-title">Niveau 4 : Défi Expert</h3>
+                </div>
+                <p class="difficulty-description">⚠️ Réservé aux plus courageux ! Production libre et analyse approfondie.</p>
+
+                <!-- Exercice 17 : Rédaction -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">17</span>
+                        <span class="exercise-points">+8 pts</span>
+                    </div>
+                    <p class="exercise-question">Rédige un petit texte (6-8 phrases minimum) décrivant une salle de classe en utilisant :</p>
+                    <div class="instruction-box">
+                        <h4>📌 Éléments obligatoires</h4>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li>Les deux démonstratifs (هَذَا pour le proche, ذَلِكَ pour le loin)</li>
+                            <li>Au moins 2 questions avec مَا et 2 questions avec مَنْ</li>
+                            <li>Les réponses avec نَعَمْ et لَا</li>
+                            <li>Au moins 6 mots de vocabulaire différents</li>
+                        </ul>
+                    </div>
+                    <textarea class="answer-area" placeholder="اكتب نصًّا عن الفصل الدراسي..." data-key="sheet1_q17" onchange="saveAnswer(this)" style="min-height: 250px;"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q17">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 18 : Analyse comparative -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">18</span>
+                        <span class="exercise-points">+8 pts</span>
+                    </div>
+                    <p class="exercise-question">Analyse comparative : Explique en détail la différence entre مَا et مَنْ, puis entre أَ et مَا :</p>
+                    <div class="instruction-box">
+                        <h4>📌 Ta réponse doit inclure</h4>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li>La nature grammaticale de chaque mot (اِسْمٌ ou حَرْفٌ)</li>
+                            <li>Les conditions d'utilisation</li>
+                            <li>Des exemples en arabe pour chaque cas</li>
+                            <li>Les traductions françaises correspondantes</li>
+                        </ul>
+                    </div>
+                    <textarea class="answer-area ltr" placeholder="مَا vs مَنْ :
+...
+
+أَ vs مَا :
+..." data-key="sheet1_q18" onchange="saveAnswer(this)" style="min-height: 250px;"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q18">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 19 : Création de mini-dialogue -->
+                <div class="exercise-item">
+                    <div class="exercise-header">
+                        <span class="exercise-number">19</span>
+                        <span class="exercise-points">+10 pts</span>
+                    </div>
+                    <p class="exercise-question">Crée un dialogue complet (10 répliques minimum) entre un professeur et un élève visitant une bibliothèque. Le professeur montre différents objets proches et éloignés, pose des questions et l'élève répond.</p>
+                    <div class="instruction-box">
+                        <h4>📌 Consignes</h4>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li>Utilise المُدَرِّسُ et الطَّالِبُ pour identifier qui parle</li>
+                            <li>Varie les types de questions (أَ, مَا, مَنْ)</li>
+                            <li>Alterne هَذَا et ذَلِكَ de manière logique</li>
+                            <li>Inclus des réponses positives ET négatives</li>
+                            <li>Utilise au moins 8 mots de vocabulaire différents</li>
+                        </ul>
+                    </div>
+                    <textarea class="answer-area" placeholder="المُدَرِّسُ : ...
+الطَّالِبُ : ...
+المُدَرِّسُ : ...
+..." data-key="sheet1_q19" onchange="saveAnswer(this)" style="min-height: 300px;"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q19">💾 Modifications enregistrées automatiquement</div>
+                </div>
+
+                <!-- Exercice 20 : Défi ultime -->
+                <div class="exercise-item" style="border: 2px solid #9B59B6;">
+                    <div class="exercise-header">
+                        <span class="exercise-number" style="background: linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%);">20</span>
+                        <span class="exercise-points" style="background: rgba(155, 89, 182, 0.2); color: #9B59B6;">+12 pts 🏆</span>
+                    </div>
+                    <p class="exercise-question" style="font-size: 1.2rem;">🏆 DÉFI ULTIME : Traduis ce texte complexe en arabe en respectant toutes les règles grammaticales :</p>
+                    <div class="instruction-box" style="background: rgba(155, 89, 182, 0.1); border-color: #9B59B6;">
+                        <p style="font-size: 1.1rem; line-height: 1.8;">
+                            "Regarde ! Ceci est une nouvelle mosquée et cela (au loin) est une vieille maison. 
+                            Qui est cet homme près de la mosquée ? C'est un imam. 
+                            Et qui est cette personne là-bas près de la maison ? C'est un médecin. 
+                            Qu'est-ce que ceci dans ma main ? C'est un stylo. 
+                            Est-ce que c'est un stylo nouveau ? Non, c'est un vieux stylo mais c'est un bon stylo. 
+                            Et qu'est-ce que cela sur la table là-bas ? Ce sont des livres. 
+                            Est-ce que ce sont des livres de l'imam ? Oui, ce sont ses livres."
+                        </p>
+                    </div>
+                    <textarea class="answer-area" placeholder="اكتب النص كاملاً بالعربية..." data-key="sheet1_q20" onchange="saveAnswer(this)" style="min-height: 300px;"></textarea>
+                    <div class="save-indicator" id="save_sheet1_q20">💾 Modifications enregistrées automatiquement</div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="sheet-footer">
+                <div class="progress-info">
+                    <span class="progress-text" id="progressText">Progression : 0/20 exercices</span>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="save-btn" onclick="saveAllAnswers()">💾 Sauvegarder tout</button>
+                    <a href="corrections.html" class="corrections-btn">✅ Voir les corrections →</a>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- FICHE 2 - QCM Only -->
+        <div class="exercise-sheet" id="sheet2">
+            <div class="sheet-header">
+                <div>
+                    <h2 class="sheet-title">📋 Fiche 2 : Leçons 4, 5, 6 & 7</h2>
+                    <p style="color: var(--text-muted); margin-top: 0.5rem;">النكرة والمعرفة • حروف الجر • العَلَم • الإضافة</p>
+                </div>
+                <button class="back-btn" onclick="closeSheet()">← Retour</button>
+            </div>
+            <div class="exercises-list">
+                <div class="difficulty-header" style="margin: 2rem 0 1rem;"><span style="font-size: 1.5rem;">🟢</span><span style="font-size: 1.3rem; color: var(--success);">Niveau Facile (1-8)</span></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">1</span><span class="exercise-points">+2 pts</span></div><p class="exercise-question">Quelle est la marque du nom indéfini (النَّكِرَة) ?</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q1')">L'article ال</div><div class="option-item" onclick="selectOption(this, 'sheet2_q1')" data-correct="true">Le tanwin (ٌ ً ٍ)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q1')">La hamza ء</div><div class="option-item" onclick="selectOption(this, 'sheet2_q1')">Le soukoune ْ</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">2</span><span class="exercise-points">+2 pts</span></div><p class="exercise-question">La lettre ش (shin) est :</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q2')">Lunaire - on prononce le lam</div><div class="option-item" onclick="selectOption(this, 'sheet2_q2')" data-correct="true">Solaire - on assimile le lam</div><div class="option-item" onclick="selectOption(this, 'sheet2_q2')">Ni l'un ni l'autre</div><div class="option-item" onclick="selectOption(this, 'sheet2_q2')">Ça dépend du mot</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">3</span><span class="exercise-points">+2 pts</span></div><p class="exercise-question">Quelle préposition signifie "dans" ?</p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q3')">عَلَى</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q3')">مِنْ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q3')" data-correct="true">فِي</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q3')">إِلَى</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">4</span><span class="exercise-points">+2 pts</span></div><p class="exercise-question">Comment dit-on "Où ?" en arabe ?</p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q4')">مَا</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q4')">مَنْ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q4')" data-correct="true">أَيْنَ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q4')">أَ</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">5</span><span class="exercise-points">+2 pts</span></div><p class="exercise-question">Les noms propres (العَلَم) sont toujours :</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q5')">Indéfinis (نكرة)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q5')" data-correct="true">Définis (معرفة)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q5')">Masculins uniquement</div><div class="option-item" onclick="selectOption(this, 'sheet2_q5')">Féminins uniquement</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">6</span><span class="exercise-points">+2 pts</span></div><p class="exercise-question">Quel nom féminin n'accepte PAS le tanwin ?</p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q6')">مُحَمَّدٌ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q6')">خَالِدٌ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q6')" data-correct="true">فَاطِمَةُ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q6')">زَيْدٌ</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">7</span><span class="exercise-points">+2 pts</span></div><p class="exercise-question">Quelle est la marque du nominatif (الرَّفْعُ) ?</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q7')" data-correct="true">الضَّمَّة (ُ)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q7')">الفَتْحَة (َ)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q7')">الكَسْرَة (ِ)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q7')">السُّكُون (ْ)</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">8</span><span class="exercise-points">+2 pts</span></div><p class="exercise-question">Dans l'annexion, le مُضَافُ إِلَيْهِ est toujours :</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q8')">مَرْفُوع (nominatif)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q8')">مَنْصُوب (accusatif)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q8')" data-correct="true">مَجْرُور (génitif)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q8')">Variable</div></div></div>
+
+                <div class="difficulty-header" style="margin: 2rem 0 1rem;"><span style="font-size: 1.5rem;">🟡</span><span style="font-size: 1.3rem; color: var(--warning);">Niveau Moyen (9-14)</span></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">9</span><span class="exercise-points">+4 pts</span></div><p class="exercise-question">Comment dit-on "dans la maison" ?</p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q9')" data-correct="true">فِي البَيْتِ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q9')">فِي البَيْتُ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q9')">فِي البَيْتَ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q9')">عَلَى البَيْتِ</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">10</span><span class="exercise-points">+4 pts</span></div><p class="exercise-question">Comment dit-on "le livre de Mohammed" ?</p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q10')" data-correct="true">كِتَابُ مُحَمَّدٍ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q10')">الكِتَابُ مُحَمَّدٍ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q10')">كِتَابٌ مُحَمَّدٌ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q10')">كِتَابُ مُحَمَّدُ</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">11</span><span class="exercise-points">+4 pts</span></div><p class="exercise-question">Comment dit-on "D'où viens-tu ?" ?</p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q11')">أَيْنَ أَنْتَ ؟</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q11')" data-correct="true">مِنْ أَيْنَ أَنْتَ ؟</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q11')">إِلَى أَيْنَ أَنْتَ ؟</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q11')">مَا أَنْتَ ؟</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">12</span><span class="exercise-points">+4 pts</span></div><p class="exercise-question"><span class="arabic">مُحَمَّدٌ</span> est défini car :</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q12')">Il a le tanwin</div><div class="option-item" onclick="selectOption(this, 'sheet2_q12')" data-correct="true">C'est un nom propre</div><div class="option-item" onclick="selectOption(this, 'sheet2_q12')">Il a l'article ال</div><div class="option-item" onclick="selectOption(this, 'sheet2_q12')">C'est un démonstratif</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">13</span><span class="exercise-points">+4 pts</span></div><p class="exercise-question">"Je viens du Japon" se dit :</p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q13')" data-correct="true">أَنَا مِنَ اليَابَانِ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q13')">أَنَا فِي اليَابَانِ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q13')">أَنَا إِلَى اليَابَانِ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q13')">أَنَا مِنَ اليَابَانُ</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">14</span><span class="exercise-points">+4 pts</span></div><p class="exercise-question">Dans <span class="arabic">كِتَابُ الطَّالِبِ</span>, quel est le cas de الطَّالِبِ ?</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q14')">مَرْفُوع (sujet)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q14')">مَنْصُوب (COD)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q14')" data-correct="true">مَجْرُور (مضاف إليه)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q14')">Pas de cas</div></div></div>
+
+                <div class="difficulty-header" style="margin: 2rem 0 1rem;"><span style="font-size: 1.5rem;">🔴</span><span style="font-size: 1.3rem; color: var(--accent);">Niveau Difficile (15-20)</span></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">15</span><span class="exercise-points">+6 pts</span></div><p class="exercise-question">Comment se prononce <span class="arabic">الشَّمْسُ</span> ?</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q15')">al-shamsu</div><div class="option-item" onclick="selectOption(this, 'sheet2_q15')" data-correct="true">ash-shamsu</div><div class="option-item" onclick="selectOption(this, 'sheet2_q15')">a-shamsu</div><div class="option-item" onclick="selectOption(this, 'sheet2_q15')">el-shamsu</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">16</span><span class="exercise-points">+6 pts</span></div><p class="exercise-question"><span class="arabic">هَذَا الكِتَابُ</span> signifie :</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q16')">Ceci est un livre</div><div class="option-item" onclick="selectOption(this, 'sheet2_q16')" data-correct="true">Ce livre-ci</div><div class="option-item" onclick="selectOption(this, 'sheet2_q16')">Un livre</div><div class="option-item" onclick="selectOption(this, 'sheet2_q16')">Le livre là-bas</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">17</span><span class="exercise-points">+6 pts</span></div><p class="exercise-question">"La cuisine" en arabe :</p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q17')">الغُرْفَةُ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q17')" data-correct="true">المَطْبَخُ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q17')">الحَمَّامُ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q17')">المَكْتَبُ</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">18</span><span class="exercise-points">+6 pts</span></div><p class="exercise-question">Dans <span class="arabic">بَيْتُ اللهِ</span>, pourquoi الله a une kasra ?</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q18')">C'est le sujet</div><div class="option-item" onclick="selectOption(this, 'sheet2_q18')">C'est après une préposition</div><div class="option-item" onclick="selectOption(this, 'sheet2_q18')" data-correct="true">C'est le مُضَاف إِلَيْهِ</div><div class="option-item" onclick="selectOption(this, 'sheet2_q18')">C'est un nom propre</div></div></div>
+                
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">19</span><span class="exercise-points">+6 pts</span></div><p class="exercise-question"><span class="arabic">فَاطِمَةُ مِنْ مَكَّةَ</span> signifie :</p><div class="options-list"><div class="option-item" onclick="selectOption(this, 'sheet2_q19')">Fatima est à La Mecque</div><div class="option-item" onclick="selectOption(this, 'sheet2_q19')" data-correct="true">Fatima est de La Mecque (originaire)</div><div class="option-item" onclick="selectOption(this, 'sheet2_q19')">Fatima va à La Mecque</div><div class="option-item" onclick="selectOption(this, 'sheet2_q19')">Fatima était à La Mecque</div></div></div>
+                
+                <div class="exercise-item" style="border: 2px solid #9B59B6;"><div class="exercise-header"><span class="exercise-number" style="background: linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%);">20</span><span class="exercise-points" style="background: rgba(155, 89, 182, 0.2); color: #9B59B6;">+8 pts 🏆</span></div><p class="exercise-question">🏆 DÉFI : Quelle phrase est entièrement correcte ?<br><span style="color: var(--text-muted);">"Mohammed est dans la mosquée. C'est le livre de l'enseignant."</span></p><div class="options-list"><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q20')" data-correct="true">مُحَمَّدٌ فِي المَسْجِدِ. هَذَا كِتَابُ المُدَرِّسِ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q20')">مُحَمَّدٌ فِي المَسْجِدُ. هَذَا الكِتَابُ المُدَرِّسِ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q20')">مُحَمَّدٌ عَلَى المَسْجِدِ. هَذَا كِتَابٌ مُدَرِّسٍ</div><div class="option-item arabic" onclick="selectOption(this, 'sheet2_q20')">مُحَمَّدٌ فِي مَسْجِدٍ. هَذَا كِتَابُ المُدَرِّسُ</div></div></div>
+            </div>
+            <div class="sheet-footer"><div class="progress-info"><span class="progress-text" id="progressText2">Progression : 0/20</span><div class="progress-bar-container"><div class="progress-bar" id="progressBar2" style="width: 0%"></div></div></div><div class="action-buttons"><button class="save-btn" onclick="saveAllAnswers()">💾 Sauvegarder</button><a href="corrections.html#fiche2" class="corrections-btn">✅ Corrections →</a></div></div>
+        </div>
+    </main>
+
+    <div class="toast" id="toast">✅ Réponses sauvegardées !</div>
+
+    <script>
+        let currentSheet = null;
+        function openSheet(num) { document.getElementById('sheetsGrid').style.display = 'none'; document.getElementById('sheet' + num).classList.add('active'); currentSheet = num; loadSavedAnswers(); updateProgress(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        function closeSheet() { document.querySelectorAll('.exercise-sheet').forEach(sheet => { sheet.classList.remove('active'); }); document.getElementById('sheetsGrid').style.display = 'grid'; currentSheet = null; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        function selectOption(element, questionId) { const parent = element.closest('.options-list'); parent.querySelectorAll('.option-item').forEach(opt => { opt.classList.remove('selected'); }); element.classList.add('selected'); const selectedIndex = Array.from(parent.children).indexOf(element); localStorage.setItem('qcm_' + questionId, selectedIndex); updateProgress(); }
+        function saveAnswer(element) { const key = element.dataset.key; const value = element.value; localStorage.setItem(key, value); const indicator = document.getElementById('save_' + key); if (indicator) { indicator.classList.add('saved'); indicator.innerHTML = '✅ Sauvegardé !'; setTimeout(() => { indicator.classList.remove('saved'); indicator.innerHTML = '💾 Auto-save'; }, 2000); } updateProgress(); }
+        function loadSavedAnswers() { document.querySelectorAll('.options-list').forEach((optionsList, i) => { const qId = optionsList.querySelector('.option-item')?.getAttribute('onclick')?.match(/'([^']+)'/)?.[1]; if (qId) { const savedIndex = localStorage.getItem('qcm_' + qId); if (savedIndex !== null) { const options = optionsList.querySelectorAll('.option-item'); if (options[savedIndex]) { options[savedIndex].classList.add('selected'); } } } }); document.querySelectorAll('[data-key]').forEach(element => { const saved = localStorage.getItem(element.dataset.key); if (saved) { element.value = saved; } }); }
+        function saveAllAnswers() { document.querySelectorAll('[data-key]').forEach(element => { localStorage.setItem(element.dataset.key, element.value); }); showToast(); }
+        function showToast() { const toast = document.getElementById('toast'); toast.classList.add('show'); setTimeout(() => { toast.classList.remove('show'); }, 3000); }
+        function updateProgress() { let answered = 0; const total = 20; document.querySelectorAll('.options-list').forEach(optionsList => { if (optionsList.querySelector('.option-item.selected')) { answered++; } }); document.querySelectorAll('[data-key]').forEach(element => { const saved = localStorage.getItem(element.dataset.key); if (saved && saved.trim() !== '') { answered++; } }); answered = Math.min(answered, total); const percent = (answered / total) * 100; const progressText = document.getElementById('progressText' + (currentSheet === 2 ? '2' : '')); const progressBar = document.getElementById('progressBar' + (currentSheet === 2 ? '2' : '')); if (progressText) progressText.textContent = 'Progression : ' + answered + '/' + total; if (progressBar) progressBar.style.width = percent + '%'; }
+        document.addEventListener('DOMContentLoaded', () => { document.querySelectorAll('textarea, input[type="text"]').forEach(element => { element.addEventListener('input', () => { clearTimeout(element.saveTimeout); element.saveTimeout = setTimeout(() => { if (element.dataset.key) { saveAnswer(element); } }, 1000); }); }); });
+    </script>
+</body>
+</html>
