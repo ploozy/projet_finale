@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مبادئ اللغة - Apprends l'Arabe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #D4A574;
+            --primary-dark: #B8956A;
+            --secondary: #2C3E50;
+            --accent: #E74C3C;
+            --success: #27AE60;
+            --warning: #F39C12;
+            --bg-dark: #1A1A2E;
+            --bg-card: #16213E;
+            --bg-light: #0F3460;
+            --text-light: #EAEAEA;
+            --text-muted: #A0A0A0;
+            --gold: #FFD700;
+            --gradient-primary: linear-gradient(135deg, #D4A574 0%, #B8956A 100%);
+            --gradient-dark: linear-gradient(180deg, #1A1A2E 0%, #0F3460 100%);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: var(--gradient-dark); min-height: 100vh; color: var(--text-light); overflow-x: hidden; }
+        .arabic { font-family: 'Noto Naskh Arabic', 'Amiri', serif; direction: rtl; }
+        .bg-pattern { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.03; background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D4A574' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); z-index: 0; }
+        nav { background: rgba(26, 26, 46, 0.95); backdrop-filter: blur(10px); padding: 1rem 2rem; position: fixed; width: 100%; top: 0; z-index: 1000; border-bottom: 1px solid rgba(212, 165, 116, 0.2); }
+        .nav-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 1rem; }
+        .logo-icon { width: 50px; height: 50px; background: var(--gradient-primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 4px 15px rgba(212, 165, 116, 0.3); }
+        .logo-text { font-size: 1.5rem; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a { color: var(--text-light); text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 8px; transition: all 0.3s ease; position: relative; }
+        .nav-links a:hover, .nav-links a.active { color: var(--primary); background: rgba(212, 165, 116, 0.1); }
+        .nav-links a.active::after { content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 30px; height: 3px; background: var(--primary); border-radius: 2px; }
+        .progress-section { margin-top: 80px; padding: 2rem; background: rgba(22, 33, 62, 0.8); border-bottom: 1px solid rgba(212, 165, 116, 0.1); }
+        .progress-container { max-width: 1200px; margin: 0 auto; }
+        .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .progress-title { font-size: 1.2rem; color: var(--text-light); }
+        .xp-display { display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 215, 0, 0.1); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid rgba(255, 215, 0, 0.3); }
+        .xp-icon { font-size: 1.2rem; }
+        .xp-value { color: var(--gold); font-weight: 600; }
+        .progress-bar-container { background: rgba(255, 255, 255, 0.1); border-radius: 10px; height: 12px; overflow: hidden; }
+        .progress-bar { height: 100%; background: var(--gradient-primary); border-radius: 10px; transition: width 0.5s ease; position: relative; }
+        .progress-bar::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: shimmer 2s infinite; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        main { max-width: 1200px; margin: 0 auto; padding: 2rem; position: relative; z-index: 1; }
+        .lessons-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem; margin-top: 2rem; }
+        .lesson-card { background: var(--bg-card); border-radius: 20px; overflow: hidden; border: 1px solid rgba(212, 165, 116, 0.2); transition: all 0.4s ease; cursor: pointer; position: relative; }
+        .lesson-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3); border-color: var(--primary); }
+        .lesson-card.locked { opacity: 0.6; cursor: not-allowed; }
+        .lesson-card.locked:hover { transform: none; }
+        .lesson-header { background: var(--gradient-primary); padding: 1.5rem; position: relative; overflow: hidden; }
+        .lesson-header::before { content: ''; position: absolute; top: -50%; right: -50%; width: 100%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); }
+        .lesson-number { font-size: 0.9rem; opacity: 0.8; margin-bottom: 0.5rem; }
+        .lesson-title-ar { font-size: 2rem; margin-bottom: 0.3rem; }
+        .lesson-title-fr { font-size: 1.1rem; opacity: 0.9; }
+        .lesson-body { padding: 1.5rem; }
+        .lesson-description { color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6; }
+        .lesson-stats { display: flex; gap: 1.5rem; margin-bottom: 1rem; }
+        .stat { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--text-muted); }
+        .stat-icon { font-size: 1.1rem; }
+        .lesson-progress { background: rgba(255, 255, 255, 0.1); border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 1rem; }
+        .lesson-progress-fill { height: 100%; background: var(--success); border-radius: 8px; transition: width 0.3s ease; }
+        .start-btn { width: 100%; padding: 1rem; background: var(--gradient-primary); border: none; border-radius: 12px; color: var(--secondary); font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .start-btn:hover { transform: scale(1.02); box-shadow: 0 5px 20px rgba(212, 165, 116, 0.4); }
+        .learning-container { display: none; background: var(--bg-card); border-radius: 20px; padding: 2rem; margin-top: 2rem; border: 1px solid rgba(212, 165, 116, 0.2); animation: slideIn 0.5s ease; }
+        .learning-container.active { display: block; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .lesson-content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(212, 165, 116, 0.2); }
+        .close-lesson { background: rgba(231, 76, 60, 0.2); border: 1px solid var(--accent); color: var(--accent); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; }
+        .close-lesson:hover { background: var(--accent); color: white; }
+        .step-indicator { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 2rem; }
+        .step-dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); transition: all 0.3s ease; }
+        .step-dot.active { background: var(--primary); transform: scale(1.2); }
+        .step-dot.completed { background: var(--success); }
+        .theory-section { background: rgba(15, 52, 96, 0.5); border-radius: 15px; padding: 2rem; margin-bottom: 2rem; }
+        .theory-title { font-size: 1.5rem; color: var(--primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .theory-content { line-height: 1.8; color: var(--text-light); }
+        .arabic-example { background: rgba(212, 165, 116, 0.1); border-left: 4px solid var(--primary); padding: 1.5rem; margin: 1.5rem 0; border-radius: 0 12px 12px 0; }
+        .arabic-word { font-size: 2.5rem; color: var(--primary); margin-bottom: 0.5rem; text-align: center; }
+        .arabic-translation { text-align: center; color: var(--text-muted); }
+        .grammar-box { background: rgba(39, 174, 96, 0.1); border: 1px solid var(--success); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .grammar-box h4 { color: var(--success); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        .warning-box { background: rgba(243, 156, 18, 0.1); border: 1px solid var(--warning); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .warning-box h4 { color: var(--warning); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        .exercise-section { background: rgba(15, 52, 96, 0.5); border-radius: 15px; padding: 2rem; margin-bottom: 2rem; }
+        .exercise-title { font-size: 1.3rem; color: var(--primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .exercise-question { font-size: 1.2rem; margin-bottom: 1.5rem; text-align: center; }
+        .exercise-arabic { font-size: 3rem; color: var(--primary); margin: 1rem 0; }
+        .options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+        .option-btn { padding: 1rem 1.5rem; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 12px; color: var(--text-light); font-size: 1.1rem; cursor: pointer; transition: all 0.3s ease; }
+        .option-btn:hover { border-color: var(--primary); background: rgba(212, 165, 116, 0.1); }
+        .option-btn.correct { border-color: var(--success); background: rgba(39, 174, 96, 0.2); animation: pulse 0.5s ease; }
+        .option-btn.incorrect { border-color: var(--accent); background: rgba(231, 76, 60, 0.2); animation: shake 0.5s ease; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .feedback-message { text-align: center; padding: 1rem; border-radius: 12px; margin-top: 1rem; display: none; }
+        .feedback-message.show { display: block; animation: fadeIn 0.3s ease; }
+        .feedback-message.success { background: rgba(39, 174, 96, 0.2); border: 1px solid var(--success); color: var(--success); }
+        .feedback-message.error { background: rgba(231, 76, 60, 0.2); border: 1px solid var(--accent); color: var(--accent); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .nav-buttons { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { padding: 1rem 2rem; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-btn.prev { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: var(--text-light); }
+        .nav-btn.next { background: var(--gradient-primary); border: none; color: var(--secondary); }
+        .nav-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); }
+        .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .vocab-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; border: 1px solid rgba(212, 165, 116, 0.3); border-radius: 8px; overflow: hidden; }
+        .vocab-table th, .vocab-table td { padding: 1rem; text-align: center; border: 1px solid rgba(255, 255, 255, 0.15); }
+        .vocab-table th { background: rgba(212, 165, 116, 0.25); color: var(--primary); font-weight: 600; }
+        .vocab-table td { background: rgba(255, 255, 255, 0.03); }
+        .vocab-table tr:hover td { background: rgba(255, 255, 255, 0.08); }
+        .vocab-table .vocab-arabic { font-size: 1.5rem; color: var(--primary); direction: rtl; font-family: 'Noto Naskh Arabic', 'Amiri', serif; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; z-index: 2000; }
+        .modal-overlay.show { display: flex; }
+        .modal-content { background: var(--bg-card); border-radius: 20px; padding: 3rem; text-align: center; max-width: 500px; border: 2px solid var(--primary); animation: modalPop 0.5s ease; }
+        @keyframes modalPop { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .modal-icon { font-size: 5rem; margin-bottom: 1rem; }
+        .modal-title { font-size: 2rem; color: var(--primary); margin-bottom: 1rem; }
+        .modal-xp { font-size: 1.5rem; color: var(--gold); margin-bottom: 1.5rem; }
+        .modal-btn { padding: 1rem 3rem; background: var(--gradient-primary); border: none; border-radius: 12px; color: var(--secondary); font-weight: 600; font-size: 1.1rem; cursor: pointer; transition: all 0.3s ease; }
+        .modal-btn:hover { transform: scale(1.05); }
+        .speakable { cursor: pointer; position: relative; transition: all 0.3s ease; display: inline-block; padding: 0.1em 0.2em; border-radius: 6px; }
+        .speakable:hover { background: rgba(212, 165, 116, 0.2); transform: scale(1.05); }
+        .speakable::after { content: '🔊'; font-size: 0.5em; position: absolute; top: -5px; right: -15px; opacity: 0; transition: opacity 0.3s ease; }
+        .speakable:hover::after { opacity: 1; }
+        .speakable.speaking { background: rgba(212, 165, 116, 0.4); animation: speakPulse 0.5s ease; }
+        @keyframes speakPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .audio-hint { display: flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1rem; background: rgba(212, 165, 116, 0.1); border: 1px dashed var(--primary); border-radius: 10px; margin-bottom: 1.5rem; font-size: 0.9rem; color: var(--text-muted); }
+        .audio-hint-icon { font-size: 1.2rem; }
+        @media (max-width: 768px) { .nav-links { display: none; } .lessons-grid { grid-template-columns: 1fr; } .options-grid { grid-template-columns: 1fr; } .arabic-word, .exercise-arabic { font-size: 2rem; } }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <nav>
+        <div class="nav-content">
+            <div class="logo">
+                <div class="logo-icon">ض</div>
+                <span class="logo-text">مبادئ اللغة</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html" class="active">📚 Cours</a></li>
+                <li><a href="exercices.html">✏️ Exercices</a></li>
+                <li><a href="corrections.html">✅ Corrections</a></li>
+            </ul>
+        </div>
+    </nav>
+    <section class="progress-section">
+        <div class="progress-container">
+            <div class="progress-header">
+                <span class="progress-title">📈 Progression globale</span>
+                <div class="xp-display"><span class="xp-icon">⭐</span><span class="xp-value" id="totalXP">0 XP</span></div>
+            </div>
+            <div class="progress-bar-container"><div class="progress-bar" id="globalProgress" style="width: 0%"></div></div>
+        </div>
+    </section>
+    <main>
+        <h1 style="text-align: center; margin-bottom: 1rem; color: var(--primary);"><span class="arabic" style="font-size: 2.5rem;">تعلم العربية</span></h1>
+        <p style="text-align: center; color: var(--text-muted); margin-bottom: 2rem;">Apprends l'arabe classique de manière interactive et ludique</p>
+        <div class="lessons-grid" id="lessonsGrid">
+            <div class="lesson-card" data-lesson="1">
+                <div class="lesson-header"><div class="lesson-number">الدرس الأول - Leçon 1</div><div class="lesson-title-ar arabic">أسماء الإشارة</div><div class="lesson-title-fr">Les noms démonstratifs (هذا)</div></div>
+                <div class="lesson-body"><p class="lesson-description">Découvre le démonstratif هذا (ceci/celui-ci) pour désigner quelque chose de proche, masculin et singulier.</p><div class="lesson-stats"><div class="stat"><span class="stat-icon">📖</span><span>5 sections</span></div><div class="stat"><span class="stat-icon">⭐</span><span>+50 XP</span></div></div><div class="lesson-progress"><div class="lesson-progress-fill" id="lesson1Progress" style="width: 0%"></div></div><button class="start-btn" onclick="startLesson(1)">🚀 Commencer</button></div>
+            </div>
+            <div class="lesson-card" data-lesson="2">
+                <div class="lesson-header"><div class="lesson-number">الدرس الثاني - Leçon 2</div><div class="lesson-title-ar arabic">الاستفهام</div><div class="lesson-title-fr">L'interrogatif (ما / من / أ)</div></div>
+                <div class="lesson-body"><p class="lesson-description">Apprends à poser des questions avec أ (est-ce que), ما (qu'est-ce que) et من (qui est-ce).</p><div class="lesson-stats"><div class="stat"><span class="stat-icon">📖</span><span>6 sections</span></div><div class="stat"><span class="stat-icon">⭐</span><span>+60 XP</span></div></div><div class="lesson-progress"><div class="lesson-progress-fill" id="lesson2Progress" style="width: 0%"></div></div><button class="start-btn" onclick="startLesson(2)">🚀 Commencer</button></div>
+            </div>
+            <div class="lesson-card" data-lesson="3">
+                <div class="lesson-header"><div class="lesson-number">الدرس الثالث - Leçon 3</div><div class="lesson-title-ar arabic">ذلك</div><div class="lesson-title-fr">Le démonstratif éloigné</div></div>
+                <div class="lesson-body"><p class="lesson-description">Découvre ذلك (cela/celui-là) pour désigner quelque chose d'éloigné et la différence avec هذا.</p><div class="lesson-stats"><div class="stat"><span class="stat-icon">📖</span><span>5 sections</span></div><div class="stat"><span class="stat-icon">⭐</span><span>+50 XP</span></div></div><div class="lesson-progress"><div class="lesson-progress-fill" id="lesson3Progress" style="width: 0%"></div></div><button class="start-btn" onclick="startLesson(3)">🚀 Commencer</button></div>
+            </div>
+            <div class="lesson-card" data-lesson="4">
+                <div class="lesson-header"><div class="lesson-number">الدرس الرابع - Leçon 4</div><div class="lesson-title-ar arabic">النَّكِرَةُ وَالمَعْرِفَةُ</div><div class="lesson-title-fr">Le défini et l'indéfini</div></div>
+                <div class="lesson-body"><p class="lesson-description">Apprends à distinguer les noms définis (المَعْرِفَة) des noms indéfinis (النَّكِرَة), l'article défini (ال), et les lettres solaires et lunaires.</p><div class="lesson-stats"><div class="stat"><span class="stat-icon">📖</span><span>7 sections</span></div><div class="stat"><span class="stat-icon">⭐</span><span>+70 XP</span></div></div><div class="lesson-progress"><div class="lesson-progress-fill" id="lesson4Progress" style="width: 0%"></div></div><button class="start-btn" onclick="startLesson(4)">🚀 Commencer</button></div>
+            </div>
+            <div class="lesson-card" data-lesson="5">
+                <div class="lesson-header"><div class="lesson-number">الدرس الخامس - Leçon 5</div><div class="lesson-title-ar arabic">حُرُوفُ الجَرِّ</div><div class="lesson-title-fr">Les prépositions</div></div>
+                <div class="lesson-body"><p class="lesson-description">Découvre les prépositions (في، من، على، إلى) et leur effet sur les noms. Apprends aussi أَيْنَ (où ?).</p><div class="lesson-stats"><div class="stat"><span class="stat-icon">📖</span><span>6 sections</span></div><div class="stat"><span class="stat-icon">⭐</span><span>+60 XP</span></div></div><div class="lesson-progress"><div class="lesson-progress-fill" id="lesson5Progress" style="width: 0%"></div></div><button class="start-btn" onclick="startLesson(5)">🚀 Commencer</button></div>
+            </div>
+            <div class="lesson-card" data-lesson="6">
+                <div class="lesson-header"><div class="lesson-number">الدرس السادس - Leçon 6</div><div class="lesson-title-ar arabic">العَلَمُ</div><div class="lesson-title-fr">Les noms propres</div></div>
+                <div class="lesson-body"><p class="lesson-description">Découvre les noms propres (العَلَمُ), le tanwin, et apprends à dire d'où tu viens avec مِنْ أَيْنَ.</p><div class="lesson-stats"><div class="stat"><span class="stat-icon">📖</span><span>7 sections</span></div><div class="stat"><span class="stat-icon">⭐</span><span>+65 XP</span></div></div><div class="lesson-progress"><div class="lesson-progress-fill" id="lesson6Progress" style="width: 0%"></div></div><button class="start-btn" onclick="startLesson(6)">🚀 Commencer</button></div>
+            </div>
+            <div class="lesson-card" data-lesson="7">
+                <div class="lesson-header"><div class="lesson-number">الدرس السابع - Leçon 7</div><div class="lesson-title-ar arabic">الإِضَافَةُ</div><div class="lesson-title-fr">L'annexion approfondie</div></div>
+                <div class="lesson-body"><p class="lesson-description">Maîtrise la déclinaison (الإِعْرَاب) et l'annexion (الإِضَافَة) pour exprimer la possession en arabe.</p><div class="lesson-stats"><div class="stat"><span class="stat-icon">📖</span><span>9 sections</span></div><div class="stat"><span class="stat-icon">⭐</span><span>+80 XP</span></div></div><div class="lesson-progress"><div class="lesson-progress-fill" id="lesson7Progress" style="width: 0%"></div></div><button class="start-btn" onclick="startLesson(7)">🚀 Commencer</button></div>
+            </div>
+            <div class="lesson-card locked" data-lesson="8">
+                <div class="lesson-header"><div class="lesson-number">الدرس الثامن - Leçon 8</div><div class="lesson-title-ar arabic">🔒 قريباً</div><div class="lesson-title-fr">Bientôt disponible</div></div>
+                <div class="lesson-body"><p class="lesson-description">Cette leçon sera disponible prochainement. Continue à progresser !</p><div class="lesson-stats"><div class="stat"><span class="stat-icon">📖</span><span>? sections</span></div><div class="stat"><span class="stat-icon">⭐</span><span>+?? XP</span></div></div><div class="lesson-progress"><div class="lesson-progress-fill" style="width: 0%"></div></div><button class="start-btn" disabled style="opacity: 0.5; cursor: not-allowed;">🔒 Bientôt</button></div>
+            </div>
+        </div>
+        <div class="learning-container" id="learningContainer">
+            <div class="lesson-content-header"><h2 id="lessonTitle">Leçon</h2><button class="close-lesson" onclick="closeLesson()">✕ Fermer</button></div>
+            <div class="step-indicator" id="stepIndicator"></div>
+            <div id="lessonContent"></div>
+            <div class="nav-buttons"><button class="nav-btn prev" id="prevBtn" onclick="prevStep()">← Précédent</button><button class="nav-btn next" id="nextBtn" onclick="nextStep()">Suivant →</button></div>
+        </div>
+    </main>
+    <div class="modal-overlay" id="completionModal">
+        <div class="modal-content"><div class="modal-icon">🎉</div><h2 class="modal-title">Félicitations !</h2><p>Tu as terminé cette leçon avec succès !</p><p class="modal-xp" id="modalXP">+50 XP</p><button class="modal-btn" onclick="closeModal()">Continuer</button></div>
+    </div>
+    <script src="lessons.js"></script>
+</body>
+</html>
