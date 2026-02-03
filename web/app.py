@@ -2,6 +2,7 @@
 Site Web - Version Finale
 1. Entre ton ID → Affiche TON examen automatiquement
 2. Promotion automatique après réussite
+3. Cours d'arabe filtré par niveau
 """
 
 from flask import Flask, render_template, request, jsonify, session
@@ -21,6 +22,87 @@ app.secret_key = 'secret'
 # Charger les examens
 with open('exam.json', 'r', encoding='utf-8') as f:
     exams_data = json.load(f)
+
+# Charger les cours d'arabe
+with open('arabic_courses.json', 'r', encoding='utf-8') as f:
+    arabic_courses = json.load(f)
+
+# Charger les données des leçons depuis lessons.js (copié du dossier courses/)
+LESSONS_DATA = {
+    1: {
+        "title": "الدرس الأول - Les noms démonstratifs (هذا)",
+        "xp": 50,
+        "steps": [
+            {"type": "theory", "content": """<div class="audio-hint"><span class="audio-hint-icon">🔊</span><span>Clique sur les mots arabes pour entendre leur prononciation !</span></div><div class="theory-section"><h3 class="theory-title">📚 Introduction aux types de mots</h3><div class="theory-content"><p>En arabe, les mots (الكَلِمَةُ) se divisent en <strong>trois catégories</strong> :</p><div class="grammar-box"><h4>📝 Les trois types de mots</h4><table class="vocab-table"><thead><tr><th>Arabe</th><th>Français</th><th>Définition</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">اِسْمٌ</td><td>Nom</td><td>Indique un sens par lui-même</td></tr><tr><td class="vocab-arabic arabic">فِعْلٌ</td><td>Verbe</td><td>Indique une action et un temps</td></tr><tr><td class="vocab-arabic arabic">حَرْفٌ</td><td>Particule</td><td>N'a de sens qu'avec un autre mot</td></tr></tbody></table></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Le démonstratif هذا</h3><div class="theory-content"><div class="arabic-example"><div class="arabic-word arabic">هَذَا</div><div class="arabic-translation">Ceci / Celui-ci</div></div><p><span class="arabic">هَذَا</span> est un <strong>nom démonstratif</strong> (اِسْمُ إشَارَةٍ). Il s'utilise pour :</p><div class="grammar-box"><h4>✅ Conditions d'utilisation</h4><ul style="list-style:none;padding:0;"><li>• <strong class="arabic">مُفْرَد</strong> - Singulier</li><li>• <strong class="arabic">مُذَكَّر</strong> - Masculin</li><li>• <strong class="arabic">قَرِيب</strong> - Proche</li></ul></div><div class="arabic-example"><div class="arabic-word arabic">هَذَا كَلْبٌ</div><div class="arabic-translation">Ceci est un chien</div></div></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice pratique</h3><div class="exercise-question"><p>Comment dit-on "Ceci est un livre" en arabe ?</p></div><div class="options-grid"><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">ذلِكَ كِتَابٌ</span></button><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">هَذَا كِتَابٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَا كِتَابٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَنْ كِتَابٌ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Vocabulaire : Singulier et Pluriel</h3><div class="theory-content"><div class="warning-box"><h4>⚠️ Particularité orthographique</h4><p>Le alif après le ه se prononce mais ne s'écrit pas :</p><div class="arabic-example"><div class="arabic-word arabic">هَذَا = هَاذَا</div></div></div><table class="vocab-table"><thead><tr><th>Singulier</th><th>Pluriel</th><th>Traduction</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">كِتَابٌ</td><td class="vocab-arabic arabic">كُتُبٌ</td><td>Livre(s)</td></tr><tr><td class="vocab-arabic arabic">مَسْجِدٌ</td><td class="vocab-arabic arabic">مَسَاجِدُ</td><td>Mosquée(s)</td></tr><tr><td class="vocab-arabic arabic">بَيْتٌ</td><td class="vocab-arabic arabic">بُيُوتٌ</td><td>Maison(s)</td></tr><tr><td class="vocab-arabic arabic">قَلَمٌ</td><td class="vocab-arabic arabic">أَقْلَامٌ</td><td>Stylo(s)</td></tr></tbody></table></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice final</h3><div class="exercise-question"><p>Quel est le pluriel de <span class="arabic" style="font-size:1.5rem;color:var(--primary);">بَابٌ</span> (porte) ?</p></div><div class="options-grid"><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">بُيُوتٌ</span></button><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">أَبْوَابٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">كُتُبٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَفَاتِحُ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""}
+        ]
+    },
+    2: {
+        "title": "الدرس الثاني - L'interrogatif",
+        "xp": 60,
+        "steps": [
+            {"type": "theory", "content": """<div class="audio-hint"><span class="audio-hint-icon">🔊</span><span>Clique sur les mots arabes pour entendre leur prononciation !</span></div><div class="theory-section"><h3 class="theory-title">📚 L'interrogatif (الاِسْتِفْهَامُ)</h3><div class="theory-content"><p>Pour poser des questions en arabe :</p><div class="grammar-box"><h4>📝 Les particules et noms interrogatifs</h4><table class="vocab-table"><thead><tr><th>Arabe</th><th>Type</th><th>Traduction</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">أَ</td><td>Particule</td><td>Est-ce que ?</td></tr><tr><td class="vocab-arabic arabic">مَا</td><td>Nom</td><td>Qu'est-ce que ?</td></tr><tr><td class="vocab-arabic arabic">مَنْ</td><td>Nom</td><td>Qui est-ce ?</td></tr></tbody></table></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 La hamza interrogative (أَ)</h3><div class="theory-content"><div class="arabic-example"><div class="arabic-word arabic">أَ</div><div class="arabic-translation">Est-ce que ?</div></div><div class="grammar-box"><h4>✅ Comment répondre ?</h4><ul style="list-style:none;padding:0;"><li>• <span class="arabic" style="color:var(--success);font-size:1.3rem;">نَعَمْ</span> - Oui</li><li>• <span class="arabic" style="color:var(--accent);font-size:1.3rem;">لَا</span> - Non</li></ul></div><div class="arabic-example"><div class="arabic-word arabic">أَهَذَا كِتَابٌ؟</div><div class="arabic-translation">Est-ce que ceci est un livre ?</div></div></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice pratique</h3><div class="exercise-question"><p class="arabic" style="font-size:2rem;color:var(--primary);">أَهَذَا بَيْتٌ؟</p><p>(En regardant une mosquée)</p></div><div class="options-grid"><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">لَا، هَذَا مَسْجِدٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">نَعَمْ، هَذَا بَيْتٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَا هَذَا</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَنْ هَذَا</span></button></div><div class="feedback-message" id="feedback"></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 مَا vs مَنْ</h3><div class="theory-content"><div class="grammar-box"><h4>🔑 Différence clé</h4><table class="vocab-table"><thead><tr><th>Interrogatif</th><th>Utilisation</th><th>Exemple</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">مَا</td><td>Non-humain</td><td class="vocab-arabic arabic">مَا هَذَا؟ هَذَا كَلْبٌ</td></tr><tr><td class="vocab-arabic arabic">مَنْ</td><td>Humain</td><td class="vocab-arabic arabic">مَنْ هَذَا؟ هَذَا طَبِيبٌ</td></tr></tbody></table></div></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice pratique</h3><div class="exercise-question"><p>Pour demander "Qui est cet enseignant ?", j'utilise :</p></div><div class="options-grid"><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَا هَذَا المُدَرِّسُ؟</span></button><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">مَنْ هَذَا المُدَرِّسُ؟</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">أَهَذَا مُدَرِّسٌ؟</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">هَذَا مُدَرِّسٌ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Vocabulaire</h3><div class="theory-content"><table class="vocab-table"><thead><tr><th>Singulier</th><th>Pluriel</th><th>Traduction</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">طَبِيبٌ</td><td class="vocab-arabic arabic">أَطِبَّاءُ</td><td>Médecin(s)</td></tr><tr><td class="vocab-arabic arabic">مُدَرِّسٌ</td><td class="vocab-arabic arabic">مُدَرِّسُونَ</td><td>Enseignant(s)</td></tr><tr><td class="vocab-arabic arabic">طَالِبٌ</td><td class="vocab-arabic arabic">طُلَّابٌ</td><td>Étudiant(s)</td></tr><tr><td class="vocab-arabic arabic">كَلْبٌ</td><td class="vocab-arabic arabic">كِلَابٌ</td><td>Chien(s)</td></tr></tbody></table></div></div>"""}
+        ]
+    },
+    3: {
+        "title": "الدرس الثالث - Le démonstratif éloigné (ذلك)",
+        "xp": 50,
+        "steps": [
+            {"type": "theory", "content": """<div class="audio-hint"><span class="audio-hint-icon">🔊</span><span>Clique sur les mots arabes pour entendre leur prononciation !</span></div><div class="theory-section"><h3 class="theory-title">📚 Le démonstratif ذَلِكَ</h3><div class="theory-content"><div class="arabic-example"><div class="arabic-word arabic">ذَلِكَ</div><div class="arabic-translation">Cela / Celui-là</div></div><p><span class="arabic">ذَلِكَ</span> s'utilise pour désigner quelque chose qui est :</p><div class="grammar-box"><h4>✅ Conditions d'utilisation</h4><ul style="list-style:none;padding:0;"><li>• <strong class="arabic">مُفْرَد</strong> - Singulier</li><li>• <strong class="arabic">مُذَكَّر</strong> - Masculin</li><li>• <strong class="arabic" style="color:var(--accent);">بَعِيد</strong> - <strong>Éloigné</strong></li></ul></div><div class="arabic-example"><div class="arabic-word arabic">ذَلِكَ نَجْمٌ</div><div class="arabic-translation">Cela est une étoile (loin)</div></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Différence entre هَذَا et ذَلِكَ</h3><div class="theory-content"><div class="grammar-box"><h4>🔑 La seule différence : la distance</h4><table class="vocab-table"><thead><tr><th>Démonstratif</th><th>Distance</th><th>Exemple</th></tr></thead><tbody><tr><td class="vocab-arabic arabic" style="color:var(--success);">هَذَا</td><td style="color:var(--success);">Proche</td><td class="vocab-arabic arabic">هَذَا مَسْجِدٌ</td></tr><tr><td class="vocab-arabic arabic" style="color:var(--accent);">ذَلِكَ</td><td style="color:var(--accent);">Éloigné</td><td class="vocab-arabic arabic">ذَلِكَ بَيْتٌ</td></tr></tbody></table></div></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice pratique</h3><div class="exercise-question"><p>Tu vois une étoile dans le ciel (loin). Comment dis-tu "Cela est une étoile" ?</p></div><div class="options-grid"><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">هَذَا نَجْمٌ</span></button><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">ذَلِكَ نَجْمٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَا نَجْمٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَنْ نَجْمٌ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Vocabulaire supplémentaire</h3><div class="theory-content"><table class="vocab-table"><thead><tr><th>Singulier</th><th>Pluriel</th><th>Traduction</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">إِمَامٌ</td><td class="vocab-arabic arabic">أَئِمَّةٌ</td><td>Imam(s)</td></tr><tr><td class="vocab-arabic arabic">سُكَّرٌ</td><td class="vocab-arabic arabic">-</td><td>Sucre</td></tr><tr><td class="vocab-arabic arabic">حَجَرٌ</td><td class="vocab-arabic arabic">حِجَارٌ</td><td>Pierre(s)</td></tr><tr><td class="vocab-arabic arabic">لَبَنٌ</td><td class="vocab-arabic arabic">أَلْبَانٌ</td><td>Lait(s)</td></tr></tbody></table></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice final</h3><div class="exercise-question"><p>"Ceci est du sucre (proche) et cela est du lait (loin)"</p></div><div class="options-grid"><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">هَذَا سُكَّرٌ وَذَلِكَ لَبَنٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">ذَلِكَ سُكَّرٌ وَهَذَا لَبَنٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">هَذَا سُكَّرٌ وَهَذَا لَبَنٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">ذَلِكَ سُكَّرٌ وَذَلِكَ لَبَنٌ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""}
+        ]
+    },
+    4: {
+        "title": "الدرس الرابع - Le défini et l'indéfini",
+        "xp": 70,
+        "steps": [
+            {"type": "theory", "content": """<div class="audio-hint"><span class="audio-hint-icon">🔊</span><span>Clique sur les mots arabes pour entendre leur prononciation !</span></div><div class="theory-section"><h3 class="theory-title">📚 L'indéfini et le défini</h3><div class="theory-content"><div class="grammar-box"><h4>📝 L'indéfini (النَّكِرَة)</h4><ul style="list-style:none;padding:0;"><li>• Base du nom</li><li>• Non désigné</li><li>• Tanwin (ٌ ً ٍ)</li></ul></div><div class="warning-box"><h4>⚠️ Le défini (المَعْرِفَة)</h4><ul style="list-style:none;padding:0;"><li>• Déterminé</li><li>• Article <span class="arabic" style="color:var(--primary);">ال</span></li><li>• Perd le tanwin</li></ul></div><div class="arabic-example"><div class="arabic-word arabic">كِتَابٌ → الكِتَابُ</div><div class="arabic-translation">un livre → le livre</div></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 L'article défini (ال)</h3><div class="theory-content"><p>L'article <span class="arabic" style="font-size:1.5em;color:var(--primary);">ال</span> = ا (hamza de liaison) + ل</p><div class="warning-box"><h4>⚠️ Important</h4><p>La hamza de liaison ne se prononce qu'en <strong>début de phrase</strong> !</p></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Les lettres lunaires 🌙</h3><div class="theory-content"><p>Devant ces lettres, le <strong>لام se prononce</strong> :</p><div class="grammar-box"><h4>📝 Les 14 lettres lunaires</h4><p class="arabic" style="font-size:1.5rem;text-align:center;">أ ب ج ح خ ع غ ف ق ك م و هـ ي</p></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Les lettres solaires ☀️</h3><div class="theory-content"><p>Devant ces lettres, le <strong>لام NE se prononce PAS</strong> :</p><div class="warning-box"><h4>⚠️ Les 14 lettres solaires</h4><p class="arabic" style="font-size:1.5rem;text-align:center;">ت ث د ذ ر ز س ش ص ض ط ظ ل ن</p></div></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice pratique</h3><div class="exercise-question"><p>Dans <span class="arabic" style="font-size:1.5em;">الشَّمْسُ</span>, le لام se prononce-t-il ?</p></div><div class="options-grid"><button class="option-btn" data-correct="false" onclick="checkAnswer(this)">Oui, car ش est lunaire</button><button class="option-btn" data-correct="true" onclick="checkAnswer(this)">Non, car ش est solaire</button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)">Oui, toujours</button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)">Non, jamais</button></div><div class="feedback-message" id="feedback"></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Vocabulaire nouveau</h3><div class="theory-content"><table class="vocab-table"><thead><tr><th>Singulier</th><th>Pluriel</th><th>Traduction</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">مَاءٌ</td><td class="vocab-arabic arabic">مِيَاهٌ</td><td>Eau</td></tr><tr><td class="vocab-arabic arabic">جَدِيدٌ</td><td class="vocab-arabic arabic">جُدُدٌ</td><td>Nouveau</td></tr><tr><td class="vocab-arabic arabic">شَمْسٌ</td><td class="vocab-arabic arabic">شُمُوسٌ</td><td>Soleil</td></tr><tr><td class="vocab-arabic arabic">قَمَرٌ</td><td class="vocab-arabic arabic">أَقْمَارٌ</td><td>Lune</td></tr></tbody></table></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice final</h3><div class="exercise-question"><p>"Le livre est nouveau et la porte est ouverte"</p></div><div class="options-grid"><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">الكِتَابُ جَدِيدٌ وَالبَابُ مَفْتُوحٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">كِتَابٌ جَدِيدٌ وَبَابٌ مَفْتُوحٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">هَذَا كِتَابٌ وَهَذَا بَابٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">الكِتَابُ مَفْتُوحٌ وَالبَابُ جَدِيدٌ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""}
+        ]
+    },
+    5: {
+        "title": "الدرس الخامس - Les prépositions (حُرُوفُ الجَرِّ)",
+        "xp": 60,
+        "steps": [
+            {"type": "theory", "content": """<div class="audio-hint"><span class="audio-hint-icon">🔊</span><span>Clique sur les mots arabes pour entendre leur prononciation !</span></div><div class="theory-section"><h3 class="theory-title">📚 Introduction : الإِعْرَابُ (la flexion)</h3><div class="theory-content"><p>En arabe, les terminaisons des mots peuvent <strong>varier</strong>. Cette variation s'appelle <span class="arabic" style="color:var(--primary);font-size:1.3em;">الإِعْرَابُ</span>.</p></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Les prépositions (حُرُوفُ الجَرِّ)</h3><div class="theory-content"><div class="grammar-box"><h4>📝 Le rôle de la préposition</h4><ul style="list-style:none;padding:0;"><li>• Elle agit sur le <strong>sens</strong> d'un nom qui la suit</li><li>• Elle agit sur la <strong>voyelle finale</strong></li><li>• Le nom devient <strong>مَجْرُور</strong> (génitif)</li></ul></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Les principales prépositions</h3><div class="theory-content"><table class="vocab-table"><thead><tr><th>Préposition</th><th>Sens</th><th>Exemple</th></tr></thead><tbody><tr><td class="vocab-arabic arabic" style="font-size:2rem;">فِي</td><td>Dans</td><td class="vocab-arabic arabic">فِي البَيْتِ</td></tr><tr><td class="vocab-arabic arabic" style="font-size:2rem;">عَلَى</td><td>Sur</td><td class="vocab-arabic arabic">عَلَى الطَّاوِلَةِ</td></tr><tr><td class="vocab-arabic arabic" style="font-size:2rem;">مِنْ</td><td>De</td><td class="vocab-arabic arabic">مِنَ المَسْجِدِ</td></tr><tr><td class="vocab-arabic arabic" style="font-size:2rem;">إِلَى</td><td>Vers</td><td class="vocab-arabic arabic">إِلَى المَسْجِدِ</td></tr></tbody></table></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice pratique</h3><div class="exercise-question"><p>Comment dit-on "dans la maison" ?</p></div><div class="options-grid"><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">فِي البَيْتِ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">فِي البَيْتُ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">عَلَى البَيْتِ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مِنَ البَيْتِ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 أَيْنَ - Où ?</h3><div class="theory-content"><div class="arabic-example"><div class="arabic-word arabic">أَيْنَ</div><div class="arabic-translation">Où ?</div></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Vocabulaire : Les lieux</h3><div class="theory-content"><table class="vocab-table"><thead><tr><th>Arabe</th><th>Traduction</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">الغُرْفَةُ</td><td>La chambre</td></tr><tr><td class="vocab-arabic arabic">الحَمَّامُ</td><td>La salle de bain</td></tr><tr><td class="vocab-arabic arabic">المَطْبَخُ</td><td>La cuisine</td></tr><tr><td class="vocab-arabic arabic">المَكْتَبُ</td><td>Le bureau</td></tr></tbody></table></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice final</h3><div class="exercise-question"><p class="arabic" style="font-size:2rem;color:var(--primary);">أَيْنَ الكِتَابُ؟</p><p>Le livre est sur le bureau.</p></div><div class="options-grid"><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">هُوَ عَلَى المَكْتَبِ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">هُوَ فِي المَكْتَبِ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">هُوَ عَلَى المَكْتَبُ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">هُوَ مِنَ المَكْتَبِ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""}
+        ]
+    },
+    6: {
+        "title": "الدرس السادس - Les noms propres (العَلَمُ)",
+        "xp": 65,
+        "steps": [
+            {"type": "theory", "content": """<div class="audio-hint"><span class="audio-hint-icon">🔊</span><span>Clique sur les mots arabes pour entendre leur prononciation !</span></div><div class="theory-section"><h3 class="theory-title">📚 Les noms propres (العَلَمُ)</h3><div class="theory-content"><p>Les noms propres sont toujours <strong>définis</strong> (مَعْرِفَة).</p></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Les types de noms définis</h3><div class="theory-content"><div class="grammar-box"><table class="vocab-table"><thead><tr><th>Type</th><th>Exemple</th></tr></thead><tbody><tr><td>Défini par ال</td><td class="vocab-arabic arabic">الكِتَابُ</td></tr><tr><td>Démonstratifs</td><td class="vocab-arabic arabic">هَذَا ، ذَلِكَ</td></tr><tr><td>Noms propres</td><td class="vocab-arabic arabic">مُحَمَّدٌ ، مَكَّةُ</td></tr></tbody></table></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Le tanwin (التَّنْوِينُ)</h3><div class="theory-content"><div class="warning-box"><h4>⚠️ Exception</h4><p>Certains noms n'acceptent pas le tanwin :</p><p class="arabic" style="font-size:1.3rem;text-align:center;">عَائِشَةُ ، فَاطِمَةُ ، مَكَّةُ</p></div></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice pratique</h3><div class="exercise-question"><p>Quel nom propre prend le tanwin ?</p></div><div class="options-grid"><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">مُحَمَّدٌ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">فَاطِمَةُ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">عَائِشَةُ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">مَكَّةُ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 مِنْ أَيْنَ ؟ - D'où ?</h3><div class="theory-content"><div class="arabic-example"><div class="arabic-word arabic">مِنْ أَيْنَ أَنْتَ ؟</div><div class="arabic-translation">D'où viens-tu ?</div></div></div></div>"""},
+            {"type": "theory", "content": """<div class="theory-section"><h3 class="theory-title">📚 Vocabulaire : Pays</h3><div class="theory-content"><table class="vocab-table"><thead><tr><th>Arabe</th><th>Français</th></tr></thead><tbody><tr><td class="vocab-arabic arabic">فَرَنْسَا</td><td>France</td></tr><tr><td class="vocab-arabic arabic">اليَابَانُ</td><td>Japon</td></tr><tr><td class="vocab-arabic arabic">الصِّينُ</td><td>Chine</td></tr></tbody></table></div></div>"""},
+            {"type": "exercise", "content": """<div class="exercise-section"><h3 class="exercise-title">🎯 Exercice final</h3><div class="exercise-question"><p class="arabic" style="font-size:2rem;color:var(--primary);">مِنْ أَيْنَ أَنْتَ ؟</p><p>Tu viens du Japon.</p></div><div class="options-grid"><button class="option-btn" data-correct="true" onclick="checkAnswer(this)"><span class="arabic">أَنَا مِنَ اليَابَانِ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">أَنَا فِي اليَابَانِ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">أَنَا إِلَى اليَابَانِ</span></button><button class="option-btn" data-correct="false" onclick="checkAnswer(this)"><span class="arabic">أَنَا مِنَ اليَابَانُ</span></button></div><div class="feedback-message" id="feedback"></div></div>"""}
+        ]
+    }
+}
 
 
 def check_user_has_admin_role(user_id: int) -> bool:
@@ -183,54 +265,143 @@ def index():
     """
 
 
-@app.route('/course/<course_id>')
-def course_detail(course_id):
-    """Page d'affichage d'un cours spécifique"""
+# ==================== ROUTES COURS D'ARABE ====================
+
+@app.route('/courses', methods=['GET', 'POST'])
+def courses():
+    """Page d'accès aux cours d'arabe avec filtrage par niveau"""
+    if request.method == 'GET':
+        return render_template('courses_id.html')
+
+    db = None
     try:
-        with open('course_content.json', 'r', encoding='utf-8') as f:
-            courses_data = json.load(f)
-        
-        # Trouver le cours (par ID)
-        course = None
-        for c in courses_data['courses']:
-            # Convertir course_id en int si c'est un nombre
-            try:
-                search_id = int(course_id)
-                if c['id'] == search_id:
-                    course = c
-                    break
-            except ValueError:
-                # Si course_id n'est pas un nombre, chercher par string
-                if str(c.get('id')) == course_id:
-                    course = c
-                    break
-        
-        if not course:
-            return f"Cours '{course_id}' introuvable", 404
-        
-        # Parser le contenu
-        if isinstance(course['content'], list) and course['content'] and isinstance(course['content'][0], dict):
-            # Structure complexe avec sections
-            course['content'] = parse_course_content(course['content'])
-        elif isinstance(course['content'], list):
-            # Liste simple de strings
-            content_text = '\n\n'.join(course['content'])
-            content_html = content_text.replace('\n\n', '</p><p>')
-            course['content'] = f'<p>{content_html}</p>'
-        else:
-            # String simple
-            content_html = course['content'].replace('\n\n', '</p><p>')
-            course['content'] = f'<p>{content_html}</p>'
-        
-        return render_template('course_detail.html', course=course)
-    
-    except FileNotFoundError:
-        return "Fichier course_content.json introuvable", 404
+        user_id_str = request.form.get('user_id', '').strip()
+
+        if not user_id_str:
+            return render_template('courses_id.html', error="Entre ton ID Discord")
+
+        user_id = int(user_id_str)
+
+        # Chercher l'utilisateur
+        db = SessionLocal()
+        user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+
+        if not user:
+            return render_template('courses_id.html',
+                error="Utilisateur non trouve. Utilise /register sur Discord d'abord.")
+
+        # Préparer les infos utilisateur
+        user_info = {
+            'user_id': user.user_id,
+            'username': user.username,
+            'niveau_actuel': user.niveau_actuel,
+            'groupe': user.groupe
+        }
+
+        # Afficher les cours filtrés par niveau
+        return render_template('courses_main.html',
+            user_info=user_info,
+            levels=arabic_courses['levels'])
+
+    except ValueError:
+        return render_template('courses_id.html', error="ID Discord invalide")
     except Exception as e:
-        print(f"Erreur /course/{course_id}: {e}")
-        import traceback
-        traceback.print_exc()
-        return f"Erreur : {e}", 500
+        print(f"Erreur /courses: {e}")
+        return render_template('courses_id.html', error=f"Erreur: {e}")
+    finally:
+        if db:
+            db.close()
+
+
+@app.route('/courses/lesson/<int:lesson_id>')
+def course_lesson(lesson_id):
+    """Page d'affichage d'une leçon spécifique"""
+    db = None
+    try:
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return render_template('courses_id.html', error="ID utilisateur manquant")
+
+        user_id = int(user_id)
+
+        # Vérifier l'utilisateur et son niveau
+        db = SessionLocal()
+        user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+
+        if not user:
+            return render_template('courses_id.html', error="Utilisateur non trouve")
+
+        # Déterminer le niveau requis pour cette leçon
+        required_level = 1 if lesson_id <= 3 else 2
+
+        if user.niveau_actuel < required_level:
+            return render_template('courses_id.html',
+                error=f"Tu n'as pas acces a cette lecon. Niveau requis: {required_level}")
+
+        # Récupérer la leçon
+        if lesson_id not in LESSONS_DATA:
+            return render_template('courses_id.html', error="Lecon introuvable")
+
+        lesson = LESSONS_DATA[lesson_id]
+
+        user_info = {
+            'user_id': user.user_id,
+            'username': user.username,
+            'niveau_actuel': user.niveau_actuel
+        }
+
+        return render_template('course_lesson.html',
+            lesson_id=lesson_id,
+            lesson=lesson,
+            user_info=user_info)
+
+    except Exception as e:
+        print(f"Erreur /courses/lesson/{lesson_id}: {e}")
+        return render_template('courses_id.html', error=f"Erreur: {e}")
+    finally:
+        if db:
+            db.close()
+
+
+@app.route('/courses/exercises/<int:sheet_id>')
+def course_exercises(sheet_id):
+    """Page d'exercices pour une fiche donnée"""
+    db = None
+    try:
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return render_template('courses_id.html', error="ID utilisateur manquant")
+
+        user_id = int(user_id)
+
+        # Vérifier l'utilisateur et son niveau
+        db = SessionLocal()
+        user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+
+        if not user:
+            return render_template('courses_id.html', error="Utilisateur non trouve")
+
+        # Vérifier le niveau requis
+        if user.niveau_actuel < sheet_id:
+            return render_template('courses_id.html',
+                error=f"Tu n'as pas acces a cette fiche. Niveau requis: {sheet_id}")
+
+        user_info = {
+            'user_id': user.user_id,
+            'username': user.username,
+            'niveau_actuel': user.niveau_actuel
+        }
+
+        return render_template('course_exercises.html',
+            sheet_id=sheet_id,
+            user_info=user_info)
+
+    except Exception as e:
+        print(f"Erreur /courses/exercises/{sheet_id}: {e}")
+        return render_template('courses_id.html', error=f"Erreur: {e}")
+    finally:
+        if db:
+            db.close()
 
 
 @app.route('/exam_secure')
