@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Cours - مبادئ اللغة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #D4A574;
+            --primary-dark: #B8956A;
+            --secondary: #2C3E50;
+            --accent: #E74C3C;
+            --success: #27AE60;
+            --warning: #F39C12;
+            --bg-dark: #1A1A2E;
+            --bg-card: #16213E;
+            --bg-light: #0F3460;
+            --text-light: #EAEAEA;
+            --text-muted: #A0A0A0;
+            --gold: #FFD700;
+            --gradient-primary: linear-gradient(135deg, #D4A574 0%, #B8956A 100%);
+            --gradient-dark: linear-gradient(180deg, #1A1A2E 0%, #0F3460 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--gradient-dark);
+            min-height: 100vh;
+            color: var(--text-light);
+            overflow-x: hidden;
+        }
+
+        .arabic { font-family: 'Noto Naskh Arabic', 'Amiri', serif; direction: rtl; }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D4A574' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            z-index: 0;
+        }
+
+        /* Navigation */
+        nav {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(212, 165, 116, 0.2);
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo { display: flex; align-items: center; gap: 1rem; }
+
+        .logo-icon {
+            width: 50px; height: 50px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 4px 15px rgba(212, 165, 116, 0.3);
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(212, 165, 116, 0.1);
+            padding: 0.5rem 1.5rem;
+            border-radius: 30px;
+            border: 1px solid rgba(212, 165, 116, 0.3);
+        }
+
+        .user-info span { color: var(--text-light); }
+        .user-level {
+            background: var(--gradient-primary);
+            color: var(--secondary);
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        /* Main Content */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 100px 2rem 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .page-subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Level Section */
+        .level-section {
+            margin-bottom: 3rem;
+        }
+
+        .level-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid rgba(212, 165, 116, 0.2);
+        }
+
+        .level-badge {
+            background: var(--gradient-primary);
+            color: var(--secondary);
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .level-badge.locked {
+            background: rgba(160, 160, 160, 0.3);
+            color: var(--text-muted);
+        }
+
+        .level-title {
+            font-size: 1.3rem;
+            color: var(--text-light);
+        }
+
+        .level-title.locked {
+            color: var(--text-muted);
+        }
+
+        /* Lessons Grid */
+        .lessons-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Lesson Card */
+        .lesson-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(212, 165, 116, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .lesson-card:not(.locked):hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+            border-color: var(--primary);
+        }
+
+        .lesson-card.locked {
+            opacity: 0.5;
+            filter: grayscale(50%);
+        }
+
+        .lesson-header {
+            background: var(--gradient-primary);
+            padding: 1.2rem;
+            position: relative;
+        }
+
+        .lesson-card.locked .lesson-header {
+            background: linear-gradient(135deg, #666 0%, #444 100%);
+        }
+
+        .lesson-number {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            margin-bottom: 0.3rem;
+        }
+
+        .lesson-title-ar {
+            font-size: 1.6rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .lesson-title-fr {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .lesson-body {
+            padding: 1.2rem;
+        }
+
+        .lesson-description {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .lesson-stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .start-btn {
+            width: 100%;
+            padding: 0.9rem;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 10px;
+            color: var(--secondary);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(212, 165, 116, 0.4);
+        }
+
+        /* Locked Lesson */
+        .locked-lesson {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            border: 2px dashed rgba(160, 160, 160, 0.3);
+            opacity: 0.6;
+        }
+
+        .lock-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            filter: grayscale(100%);
+        }
+
+        .locked-text {
+            color: var(--text-muted);
+            font-size: 1.2rem;
+        }
+
+        /* Exercise Card */
+        .exercise-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 2px solid rgba(39, 174, 96, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .exercise-card:not(.locked):hover {
+            border-color: var(--success);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(39, 174, 96, 0.2);
+        }
+
+        .exercise-card.locked {
+            border-color: rgba(160, 160, 160, 0.3);
+            opacity: 0.5;
+        }
+
+        .exercise-icon {
+            font-size: 2.5rem;
+        }
+
+        .exercise-info {
+            flex: 1;
+        }
+
+        .exercise-title {
+            font-size: 1.2rem;
+            color: var(--success);
+            margin-bottom: 0.3rem;
+        }
+
+        .exercise-card.locked .exercise-title {
+            color: var(--text-muted);
+        }
+
+        .exercise-meta {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .exercise-btn {
+            padding: 0.8rem 1.5rem;
+            background: rgba(39, 174, 96, 0.2);
+            border: 2px solid var(--success);
+            color: var(--success);
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .exercise-btn:hover {
+            background: var(--success);
+            color: white;
+        }
+
+        /* Back Button */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: var(--primary);
+            background: rgba(212, 165, 116, 0.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .user-info { display: none; }
+            .lessons-grid { grid-template-columns: 1fr; }
+            .exercise-card { flex-direction: column; text-align: center; }
+            .page-title { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+
+    <nav>
+        <div class="nav-content">
+            <div class="logo">
+                <div class="logo-icon arabic">ض</div>
+                <span class="logo-text">مبادئ اللغة</span>
+            </div>
+            <div class="user-info">
+                <span>{{ user_info.username }}</span>
+                <span class="user-level">Niveau {{ user_info.niveau_actuel }}</span>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <a href="/courses" class="back-link">< Changer d'utilisateur</a>
+
+        <div class="page-header">
+            <h1 class="page-title arabic" style="font-size: 2.5rem;">تعلم العربية</h1>
+            <p class="page-subtitle">Tes cours d'arabe - Niveau {{ user_info.niveau_actuel }}</p>
+        </div>
+
+        {% for level_num, level_data in levels.items() %}
+        {% set level_int = level_num|int %}
+        {% set is_accessible = user_info.niveau_actuel >= level_int %}
+
+        <section class="level-section">
+            <div class="level-header">
+                <span class="level-badge {% if not is_accessible %}locked{% endif %}">
+                    {% if is_accessible %}Niveau {{ level_num }}{% else %}🔒{% endif %}
+                </span>
+                <h2 class="level-title {% if not is_accessible %}locked{% endif %}">
+                    {% if is_accessible %}
+                        {{ level_data.name }}
+                    {% else %}
+                        Niveau {{ level_num }} - Verrouille
+                    {% endif %}
+                </h2>
+            </div>
+
+            <div class="lessons-grid">
+                {% for lesson in level_data.lessons %}
+                {% if is_accessible %}
+                <!-- Lesson Accessible -->
+                <div class="lesson-card">
+                    <div class="lesson-header">
+                        <div class="lesson-number">Lecon {{ lesson.id }}</div>
+                        <div class="lesson-title-ar arabic">{{ lesson.title_ar }}</div>
+                        <div class="lesson-title-fr">{{ lesson.title_fr }}</div>
+                    </div>
+                    <div class="lesson-body">
+                        <p class="lesson-description">{{ lesson.description }}</p>
+                        <div class="lesson-stats">
+                            <div class="stat"><span>📖</span> {{ lesson.sections }} sections</div>
+                            <div class="stat"><span>⭐</span> +{{ lesson.xp }} XP</div>
+                        </div>
+                        <a href="/courses/lesson/{{ lesson.id }}?user_id={{ user_info.user_id }}" class="start-btn">Commencer</a>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Lesson Locked -->
+                <div class="locked-lesson">
+                    <div class="lock-icon">🔒</div>
+                    <p class="locked-text">Lecon {{ lesson.id }}</p>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Exercise Sheet -->
+            {% if level_data.exercises %}
+            {% if is_accessible %}
+            <div class="exercise-card">
+                <div class="exercise-icon">✏️</div>
+                <div class="exercise-info">
+                    <h3 class="exercise-title">{{ level_data.exercises.title }}</h3>
+                    <p class="exercise-meta">{{ level_data.exercises.count }} exercices • {{ level_data.exercises.duration }}</p>
+                </div>
+                <a href="/courses/exercises/{{ level_data.exercises.id }}?user_id={{ user_info.user_id }}" class="exercise-btn">Faire les exercices</a>
+            </div>
+            {% else %}
+            <div class="exercise-card locked">
+                <div class="exercise-icon" style="filter: grayscale(100%);">🔒</div>
+                <div class="exercise-info">
+                    <h3 class="exercise-title">Fiche d'exercices {{ level_num }}</h3>
+                    <p class="exercise-meta">Verrouille - Atteins le niveau {{ level_num }} pour debloquer</p>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </section>
+        {% endfor %}
+    </main>
+</body>
+</html>

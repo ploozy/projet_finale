@@ -1,0 +1,80 @@
+{
+  "levels": {
+    "1": {
+      "name": "Niveau 1 - Les bases",
+      "description": "Les fondamentaux de la langue arabe",
+      "min_formation_days": 2,
+      "lessons": [
+        {
+          "id": 1,
+          "title_ar": "أسماء الإشارة",
+          "title_fr": "Les noms démonstratifs (هذا)",
+          "description": "Découvre le démonstratif هذا (ceci/celui-ci) pour désigner quelque chose de proche, masculin et singulier.",
+          "xp": 50,
+          "sections": 5
+        },
+        {
+          "id": 2,
+          "title_ar": "الاستفهام",
+          "title_fr": "L'interrogatif (ما / من / أ)",
+          "description": "Apprends à poser des questions avec أ (est-ce que), ما (qu'est-ce que) et من (qui est-ce).",
+          "xp": 60,
+          "sections": 6
+        },
+        {
+          "id": 3,
+          "title_ar": "ذلك",
+          "title_fr": "Le démonstratif éloigné",
+          "description": "Découvre ذلك (cela/celui-là) pour désigner quelque chose d'éloigné et la différence avec هذا.",
+          "xp": 50,
+          "sections": 5
+        }
+      ],
+      "exercises": {
+        "id": 1,
+        "title": "Fiche 1 : Les démonstratifs et l'interrogation",
+        "description": "Leçons 1, 2 & 3 : هذا - الاستفهام - ذلك",
+        "count": 20,
+        "duration": "45 min"
+      }
+    },
+    "2": {
+      "name": "Niveau 2 - Grammaire intermédiaire",
+      "description": "Approfondissement des règles grammaticales",
+      "min_formation_days": 3,
+      "lessons": [
+        {
+          "id": 4,
+          "title_ar": "النَّكِرَةُ وَالمَعْرِفَةُ",
+          "title_fr": "Le défini et l'indéfini",
+          "description": "Apprends à distinguer les noms définis des noms indéfinis, l'article défini (ال), et les lettres solaires et lunaires.",
+          "xp": 70,
+          "sections": 7
+        },
+        {
+          "id": 5,
+          "title_ar": "حُرُوفُ الجَرِّ",
+          "title_fr": "Les prépositions",
+          "description": "Découvre les prépositions (في، من، على، إلى) et leur effet sur les noms. Apprends aussi أَيْنَ (où ?).",
+          "xp": 60,
+          "sections": 7
+        },
+        {
+          "id": 6,
+          "title_ar": "العَلَمُ",
+          "title_fr": "Les noms propres",
+          "description": "Découvre les noms propres (العَلَمُ), le tanwin, et apprends à dire d'où tu viens avec مِنْ أَيْنَ.",
+          "xp": 65,
+          "sections": 6
+        }
+      ],
+      "exercises": {
+        "id": 2,
+        "title": "Fiche 2 : Le défini, prépositions et noms propres",
+        "description": "Leçons 4, 5 & 6 : النكرة والمعرفة - حروف الجر - العَلَم",
+        "count": 20,
+        "duration": "40 min"
+      }
+    }
+  }
+}
