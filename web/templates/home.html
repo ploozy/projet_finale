@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formation d'Arabe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .header {
+            margin-bottom: 60px;
+        }
+
+        .arabic-title {
+            font-family: 'Amiri', serif;
+            font-size: 4rem;
+            color: #ffd700;
+            text-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+            margin-bottom: 10px;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 300;
+        }
+
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 600px) {
+            .cards-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            padding: 50px 30px;
+            text-decoration: none;
+            transition: all 0.4s ease;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+
+        .card-courses {
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+
+        .card-courses:hover {
+            border-color: rgba(102, 126, 234, 0.6);
+            box-shadow: 0 25px 50px rgba(102, 126, 234, 0.2);
+        }
+
+        .card-courses .card-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-exams {
+            border-color: rgba(72, 187, 120, 0.3);
+        }
+
+        .card-exams:hover {
+            border-color: rgba(72, 187, 120, 0.6);
+            box-shadow: 0 25px 50px rgba(72, 187, 120, 0.2);
+        }
+
+        .card-exams .card-icon {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .card-description {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.6;
+        }
+
+        .card-arrow {
+            font-size: 1.5rem;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover .card-arrow {
+            transform: translateX(10px);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .footer {
+            margin-top: 60px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.9rem;
+        }
+
+        .footer a {
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            color: white;
+        }
+
+        /* Animation d'entrée */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .card-courses {
+            animation: fadeInUp 0.8s ease 0.2s backwards;
+        }
+
+        .card-exams {
+            animation: fadeInUp 0.8s ease 0.4s backwards;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="arabic-title">مرحباً</div>
+            <h1 class="title">Formation d'Arabe</h1>
+            <p class="subtitle">Apprends l'arabe à ton rythme avec des cours structurés</p>
+        </div>
+
+        <div class="cards-container">
+            <a href="/courses" class="card card-courses">
+                <div class="card-icon">📚</div>
+                <h2 class="card-title">Cours</h2>
+                <p class="card-description">
+                    Accède aux leçons interactives adaptées à ton niveau
+                </p>
+                <div class="card-arrow">→</div>
+            </a>
+
+            <a href="/exams" class="card card-exams">
+                <div class="card-icon">📝</div>
+                <h2 class="card-title">Examens</h2>
+                <p class="card-description">
+                    Passe tes examens pour progresser au niveau suivant
+                </p>
+                <div class="card-arrow">→</div>
+            </a>
+        </div>
+
+        <div class="footer">
+            <p>Tu auras besoin de ton <strong>ID Discord</strong> pour accéder aux cours et examens</p>
+        </div>
+    </div>
+</body>
+</html>

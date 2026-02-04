@@ -116,11 +116,6 @@ async def on_ready():
     except Exception as e:
         print(f'❌ Erreur sync: {e}')
 
-    # Configurer les salons de ressources et envoyer les cours
-    print("🔧 Configuration des salons de ressources...")
-    await setup_resources_channels()
-    print("✅ Configuration terminée")
-
     # Démarrer le planificateur de révisions
     print("📅 Démarrage du planificateur de révisions...")
     from review_scheduler import start_scheduler, load_scheduled_reviews
@@ -247,23 +242,105 @@ async def create_group_channels(guild: discord.Guild, groupe: str, role: discord
         guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
     }
 
+    # Cacher aussi pour le rôle "nouveau"
+    nouveau_role = discord.utils.get(guild.roles, name="nouveau")
+    if nouveau_role:
+        overwrites[nouveau_role] = discord.PermissionOverwrite(read_messages=False)
+
     category = await guild.create_category(category_name, overwrites=overwrites)
 
     # Créer les salons avec le bon format de nommage
     groupe_lower = groupe.lower()
-    await guild.create_text_channel(f"groupe-{groupe_lower}-ressources", category=category, overwrites=overwrites)
-    await guild.create_text_channel(f"groupe-{groupe_lower}-entraide", category=category, overwrites=overwrites)
+
+    # Salon ressources (lecture seule pour les membres, bot peut écrire)
+    resources_overwrites = {
+        guild.default_role: discord.PermissionOverwrite(read_messages=False),
+        role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
+        guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+    }
+    if nouveau_role:
+        resources_overwrites[nouveau_role] = discord.PermissionOverwrite(read_messages=False)
+
+    resources_channel = await guild.create_text_channel(
+        f"📖-ressources",
+        category=category,
+        overwrites=resources_overwrites
+    )
+
+    # Salon entraide
+    await guild.create_text_channel(f"💬-entraide", category=category, overwrites=overwrites)
     await guild.create_voice_channel(f"🎙️ Vocal {groupe}", category=category, overwrites=overwrites)
 
     # Créer le salon "mon-examen" (lecture seule, seul le bot peut écrire)
     exam_overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
-        role: discord.PermissionOverwrite(read_messages=True, send_messages=False),  # Lecture seule pour les membres
-        guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)  # Bot peut écrire
+        role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
+        guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
     }
-    await guild.create_text_channel(f"📝-mon-examen", category=category, overwrites=exam_overwrites)
+    if nouveau_role:
+        exam_overwrites[nouveau_role] = discord.PermissionOverwrite(read_messages=False)
+
+    exam_channel = await guild.create_text_channel(f"📝-mon-examen", category=category, overwrites=exam_overwrites)
 
     print(f"✅ Catégorie et salons créés pour {groupe}")
+
+    # Envoyer l'embed des cours dans le salon ressources
+    courses_embed = discord.Embed(
+        title="📚 Cours d'Arabe",
+        description="Accède à tous les cours de ton niveau sur notre plateforme en ligne.",
+        color=discord.Color.blue()
+    )
+    courses_embed.add_field(
+        name="🔗 Lien des cours",
+        value="**http://localhost:5000/courses**",
+        inline=False
+    )
+    courses_embed.add_field(
+        name="🆔 Comment accéder ?",
+        value=(
+            "1. Clique sur le lien ci-dessus\n"
+            "2. Entre ton **ID Discord** (visible dans ton profil)\n"
+            "3. Tu verras uniquement les cours de ton niveau"
+        ),
+        inline=False
+    )
+    courses_embed.add_field(
+        name="💡 Astuce",
+        value="Tu peux mettre ce lien en favoris, il restera le même peu importe ton niveau !",
+        inline=False
+    )
+    courses_embed.set_footer(text="Bon apprentissage ! 📖")
+
+    await resources_channel.send(embed=courses_embed)
+
+    # Envoyer l'embed des examens dans le salon mon-examen
+    exams_embed = discord.Embed(
+        title="📝 Examens",
+        description="Passe tes examens pour progresser au niveau suivant.",
+        color=discord.Color.green()
+    )
+    exams_embed.add_field(
+        name="🔗 Lien des examens",
+        value="**http://localhost:5000/exams**",
+        inline=False
+    )
+    exams_embed.add_field(
+        name="🆔 Comment passer l'examen ?",
+        value=(
+            "1. Clique sur le lien ci-dessus\n"
+            "2. Entre ton **ID Discord**\n"
+            "3. Si un examen est programmé, tu pourras le passer"
+        ),
+        inline=False
+    )
+    exams_embed.add_field(
+        name="⚠️ Important",
+        value="Tu recevras une notification quand un examen sera disponible pour ton groupe.",
+        inline=False
+    )
+    exams_embed.set_footer(text="Bonne chance ! 💪")
+
+    await exam_channel.send(embed=exams_embed)
 
 
 @bot.tree.command(name="register", description="S'inscrire dans le système")
@@ -409,6 +486,7 @@ async def register(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="clear_db", description="[ADMIN] Vider la base de données")
+@app_commands.default_permissions(administrator=True)
 @commands.has_permissions(administrator=True)
 async def clear_db(interaction: discord.Interaction):
     """Vide toute la base de données"""
@@ -470,173 +548,6 @@ class ConfirmClearView(discord.ui.View):
             content="✅ Annulé",
             view=None
         )
-
-
-# ==================== SETUP INSCRIPTIONS (À UTILISER UNE SEULE FOIS) ====================
-
-@bot.tree.command(name="setup_inscriptions", description="[ADMIN] Créer le rôle 'nouveau' et le salon #inscriptions")
-@commands.has_permissions(administrator=True)
-async def setup_inscriptions(interaction: discord.Interaction):
-    """
-    Crée le rôle 'nouveau' et le salon #inscriptions avec les bonnes permissions.
-    À utiliser UNE SEULE FOIS lors de la configuration initiale du serveur.
-    """
-    await interaction.response.defer(ephemeral=True)
-
-    guild = interaction.guild
-    results = []
-
-    try:
-        # 1. Créer le rôle "nouveau" s'il n'existe pas
-        nouveau_role = discord.utils.get(guild.roles, name="nouveau")
-
-        if nouveau_role:
-            results.append("⚠️ Rôle 'nouveau' existe déjà")
-        else:
-            nouveau_role = await guild.create_role(
-                name="nouveau",
-                color=discord.Color.orange(),
-                mentionable=False,
-                hoist=True,  # Afficher séparément dans la liste des membres
-                reason="Setup inscriptions - Rôle pour les nouveaux membres"
-            )
-            results.append("✅ Rôle 'nouveau' créé")
-
-        # 2. Créer le salon #inscriptions s'il n'existe pas
-        inscriptions_channel = discord.utils.get(guild.text_channels, name="inscriptions")
-
-        if inscriptions_channel:
-            results.append("⚠️ Salon #inscriptions existe déjà")
-        else:
-            # Permissions pour le salon #inscriptions
-            overwrites = {
-                # @everyone ne peut pas voir le salon
-                guild.default_role: discord.PermissionOverwrite(
-                    read_messages=False,
-                    send_messages=False
-                ),
-                # Le rôle "nouveau" peut voir et envoyer des messages
-                nouveau_role: discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=True,
-                    read_message_history=True,
-                    use_application_commands=True  # Permet d'utiliser les commandes slash
-                ),
-                # Le bot peut tout faire
-                guild.me: discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=True,
-                    manage_messages=True
-                )
-            }
-
-            inscriptions_channel = await guild.create_text_channel(
-                name="inscriptions",
-                overwrites=overwrites,
-                topic="📝 Tape /register pour t'inscrire et rejoindre un groupe !",
-                reason="Setup inscriptions - Salon pour les inscriptions"
-            )
-            results.append("✅ Salon #inscriptions créé")
-
-            # 3. Envoyer le message de bienvenue/guide dans le salon
-            embed = discord.Embed(
-                title="📝 Bienvenue ! Inscris-toi ici",
-                description=(
-                    "Pour accéder à la formation et rejoindre un groupe, "
-                    "tu dois d'abord t'inscrire."
-                ),
-                color=discord.Color.blue()
-            )
-
-            embed.add_field(
-                name="🎯 Comment s'inscrire ?",
-                value=(
-                    "**1.** Tape la commande `/register`\n"
-                    "**2.** Tu seras automatiquement assigné à un groupe\n"
-                    "**3.** Tu auras accès aux salons de ton groupe"
-                ),
-                inline=False
-            )
-
-            embed.add_field(
-                name="📚 Ce qui t'attend",
-                value=(
-                    "• Cours d'arabe par niveau\n"
-                    "• Salons d'entraide avec ton groupe\n"
-                    "• Examens pour progresser\n"
-                    "• Système de bonus pour l'entraide"
-                ),
-                inline=False
-            )
-
-            embed.add_field(
-                name="⚠️ Important",
-                value="Tu ne peux utiliser que la commande `/register` ici.",
-                inline=False
-            )
-
-            embed.set_footer(text="Tape /register pour commencer !")
-
-            await inscriptions_channel.send(embed=embed)
-            results.append("✅ Message de guide envoyé dans #inscriptions")
-
-        # 4. Modifier les permissions des autres salons pour exclure "nouveau"
-        # On fait ça pour les catégories existantes
-        modified_channels = 0
-        for category in guild.categories:
-            if "Groupe" in category.name or category.name.startswith("📚"):
-                # S'assurer que le rôle "nouveau" ne peut pas voir ces catégories
-                await category.set_permissions(nouveau_role, read_messages=False)
-                modified_channels += 1
-
-        if modified_channels > 0:
-            results.append(f"✅ {modified_channels} catégorie(s) de groupe(s) cachée(s) pour le rôle 'nouveau'")
-
-        # Rapport final
-        embed = discord.Embed(
-            title="🔧 Configuration Inscriptions",
-            description="\n".join(results),
-            color=discord.Color.green()
-        )
-
-        embed.add_field(
-            name="📋 Résumé",
-            value=(
-                f"**Rôle:** `nouveau` (orange, affiché séparément)\n"
-                f"**Salon:** #inscriptions\n"
-                f"**Permissions:** Seul 'nouveau' voit #inscriptions"
-            ),
-            inline=False
-        )
-
-        embed.add_field(
-            name="🔄 Flux d'inscription",
-            value=(
-                "1. Nouveau membre rejoint → Reçoit rôle 'nouveau'\n"
-                "2. Voit uniquement #inscriptions\n"
-                "3. Tape `/register`\n"
-                "4. Perd 'nouveau', reçoit 'Groupe X-Y'\n"
-                "5. Accès aux salons du groupe"
-            ),
-            inline=False
-        )
-
-        embed.add_field(
-            name="⚠️ À faire manuellement",
-            value=(
-                "• Cache les autres salons publics pour le rôle 'nouveau'\n"
-                "• Tu peux supprimer cette commande après utilisation"
-            ),
-            inline=False
-        )
-
-        await interaction.followup.send(embed=embed, ephemeral=True)
-
-    except Exception as e:
-        print(f"❌ Erreur setup_inscriptions: {e}")
-        import traceback
-        traceback.print_exc()
-        await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
 
 
 @bot.tree.command(name="my_info", description="Voir mes informations")
@@ -968,42 +879,8 @@ class ReviewQuestionView(discord.ui.View):
 
 # ==================== COMMANDES ADMIN ====================
 
-@bot.tree.command(name="send_course", description="[ADMIN] Envoyer un cours avec quiz")
-@commands.has_permissions(administrator=True)
-async def send_course(interaction: discord.Interaction, course_id: int, channel: discord.TextChannel = None):
-    """
-    Envoie un cours avec bouton quiz
-
-    Args:
-        course_id: ID du cours (1, 2, 3, 4)
-        channel: Salon où envoyer (optionnel, défaut = salon actuel)
-    """
-    await interaction.response.defer(ephemeral=True)
-
-    if channel is None:
-        channel = interaction.channel
-
-    # Vérifier que le cours existe
-    course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == course_id), None)
-
-    if not course:
-        await interaction.followup.send(
-            f"❌ Cours {course_id} introuvable. IDs disponibles : 1, 2, 3, 4",
-            ephemeral=True
-        )
-        return
-
-    # Utiliser la fonction helper pour envoyer le cours
-    await send_course_to_channel(course_id, channel)
-
-    await interaction.followup.send(
-        f"✅ Cours **{course['title']}** envoyé dans {channel.mention}",
-        ephemeral=True
-    )
-
-
 @bot.tree.command(name="list_users", description="[ADMIN] Liste tous les utilisateurs")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 async def list_users(interaction: discord.Interaction):
     """Liste tous les utilisateurs"""
     await interaction.response.defer(ephemeral=True)
@@ -1035,131 +912,6 @@ async def list_users(interaction: discord.Interaction):
         db.close()
 
 
-def get_courses_for_level(niveau: int) -> list:
-    """
-    Retourne la liste des IDs de cours pour un niveau donné
-    """
-    courses_map = {
-        1: [1],  # Niveau 1 : POO
-        2: [2],  # Niveau 2 : Structures de données
-        3: [3],  # Niveau 3 : Exceptions
-        4: [4],  # Niveau 4 : Algorithmique
-        5: []    # Niveau 5 : Pas de cours (niveau final)
-    }
-    return courses_map.get(niveau, [])
-
-
-async def setup_resources_channels():
-    """
-    Envoie les cours dans les salons 📖-ressources de chaque groupe existant
-    """
-    from db_connection import SessionLocal
-    from models import Utilisateur
-    
-    db = SessionLocal()
-    try:
-        # Récupérer tous les groupes actifs
-        groupes_actifs = db.query(Utilisateur.groupe, Utilisateur.niveau_actuel).distinct().all()
-        
-        print(f"📚 Groupes actifs détectés : {len(groupes_actifs)}")
-        
-        for guild in bot.guilds:
-            for groupe, niveau in groupes_actifs:
-                # Trouver la catégorie "📚 Groupe X-Y" (avec emoji livre + espace)
-                category_name = f"📚 Groupe {groupe}"
-                category = discord.utils.get(guild.categories, name=category_name)
-                
-                if not category:
-                    print(f"⚠️ Catégorie '{category_name}' introuvable")
-                    continue
-                
-                # Chercher le salon 📖-ressources (livre ouvert) dans cette catégorie
-                resources_channel = None
-                for channel in category.text_channels:
-                    if channel.name == "📖-ressources":
-                        resources_channel = channel
-                        break
-                
-                if not resources_channel:
-                    print(f"⚠️ Salon 📖-ressources introuvable dans {category_name}")
-                    continue
-                
-                # Vérifier si les cours ont déjà été envoyés
-                messages_count = 0
-                async for message in resources_channel.history(limit=50):
-                    if message.author == bot.user and message.embeds:
-                        messages_count += 1
-                
-                course_ids = get_courses_for_level(niveau)
-                
-                if messages_count >= len(course_ids) and messages_count > 0:
-                    print(f"✅ Cours déjà envoyés dans {category_name}")
-                    continue
-                
-                if not course_ids:
-                    print(f"ℹ️ Pas de cours pour le niveau {niveau}")
-                    continue
-                
-                print(f"📤 Envoi de {len(course_ids)} cours dans {category_name} 📖-ressources...")
-                
-                for course_id in course_ids:
-                    await send_course_to_channel(course_id, resources_channel)
-                    await asyncio.sleep(1)
-                
-                print(f"✅ Cours envoyés dans {category_name}")
-    
-    finally:
-        db.close()
-
-
-async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
-    """
-    Envoie un cours avec son bouton quiz dans un salon
-    Utilise QUIZZES_DATA (déjà chargé en mémoire)
-    """
-    try:
-        # Trouver le cours dans les données déjà chargées
-        course = next((c for c in QUIZZES_DATA['courses'] if c['id'] == course_id), None)
-
-        if not course:
-            print(f"  ❌ Cours {course_id} introuvable")
-            return
-        
-        course_title = course['title']
-        
-        # Créer l'embed
-        embed = discord.Embed(
-            title=f"📚 {course_title}",
-            description=f"Accède au cours en ligne et teste tes connaissances !",
-            color=discord.Color.blue()
-        )
-        
-        # URL vers la page du cours
-        course_url = f"http://localhost:5000/course/{course_id}"
-        
-        embed.add_field(
-            name="🌐 Lien du cours",
-            value=f"[Cliquez ici pour accéder au cours]({course_url})",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="📝 Quiz Interactif",
-            value="Clique sur le bouton ci-dessous pour faire le quiz en MP !",
-            inline=False
-        )
-        
-        # Créer la vue avec le bouton
-        view = QuizButton(course_id)
-        
-        # Envoyer dans le salon
-        await channel.send(embed=embed, view=view)
-        print(f"  ✅ Cours {course_id} envoyé")
-
-    except Exception as e:
-        print(f"  ❌ Erreur lors de l'envoi du cours {course_id}: {e}")
-
-
 # ==================== COMMANDE /vote ====================
 @bot.tree.command(name="vote", description="Voter pour 1 à 3 personnes qui t'ont aidé")
 @app_commands.describe(
@@ -1179,20 +931,21 @@ async def vote(
 
 
 # ==================== COMMANDE /create_exam_period ====================
-@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen de 30 minutes")
+@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen")
+@app_commands.default_permissions(administrator=True)
 @commands.has_permissions(administrator=True)
 @app_commands.describe(
-    group="Numéro du groupe (1-5)",
-    start_time="Date et heure de début EN HEURE LOCALE (format: YYYY-MM-DD HH:MM)",
-    timezone_offset="Décalage horaire par rapport à UTC (ex: +1 pour Paris, défaut: +1)"
+    group="Niveau du groupe (1-5)",
+    start_time="Date et heure de début (format: YYYY-MM-DD HH:MM)",
+    duration_hours="Durée de la fenêtre d'examen en heures (défaut: 2)"
 )
 async def create_exam_period(
     interaction: discord.Interaction,
     group: int,
     start_time: str,
-    timezone_offset: int = 1
+    duration_hours: int = 2
 ):
-    """Crée une période d'examen de 30 minutes"""
+    """Crée une période d'examen (fenêtre pendant laquelle les élèves peuvent passer l'examen)"""
     await interaction.response.defer(ephemeral=True)
 
     from datetime import datetime, timedelta
@@ -1200,12 +953,9 @@ async def create_exam_period(
     from models import ExamPeriod
 
     try:
-        # Parser la date (heure locale)
-        start_local = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
-
-        # Convertir en UTC pour la DB (soustraire le décalage)
-        start = start_local - timedelta(hours=timezone_offset)
-        end = start + timedelta(minutes=30)
+        # Parser la date
+        start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
+        end = start + timedelta(hours=duration_hours)
         vote_start = start - timedelta(days=1)  # Votes ouverts 24h avant
 
         # Générer l'ID
@@ -1330,7 +1080,7 @@ async def create_exam_period(
 
 
 @bot.tree.command(name="delete_exam_period", description="[ADMIN] Supprimer une période d'examen")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 @app_commands.describe(
     period_id="ID de la période (format: YYYY-MM-DD_groupX)"
 )
@@ -1375,7 +1125,7 @@ async def delete_exam_period(
 
 
 @bot.tree.command(name="list_exam_periods", description="[ADMIN] Lister toutes les périodes d'examen")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 async def list_exam_periods_command(interaction: discord.Interaction):
     """Liste toutes les périodes d'examen"""
     await interaction.response.defer(ephemeral=True)
@@ -1435,7 +1185,7 @@ async def list_exam_periods_command(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="actualiser_exams", description="[ADMIN] Actualiser les rôles Discord selon la base de données")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 async def actualiser_exams(interaction: discord.Interaction):
     """
     Synchronise les rôles Discord avec la base de données
@@ -1579,7 +1329,7 @@ async def actualiser_exams(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="change_group", description="[ADMIN] Modifier le groupe d'un utilisateur")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 @app_commands.describe(
     user_id="ID Discord de l'utilisateur",
     niveau="Nouveau niveau (1, 2, 3, 4, 5)",
@@ -1662,7 +1412,7 @@ async def change_group(
 # ==================== COMMANDES UTILITAIRES ADMIN ====================
 
 @bot.tree.command(name="user_info", description="[ADMIN] Voir les informations d'un utilisateur")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 @app_commands.describe(
     user="L'utilisateur à consulter (mention ou ID)"
 )
@@ -1738,7 +1488,7 @@ async def user_info(interaction: discord.Interaction, user: str):
 
 
 @bot.tree.command(name="delete_user", description="[ADMIN] Supprimer un utilisateur de la base de données")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 @app_commands.describe(
     user="L'utilisateur à supprimer"
 )
@@ -1808,7 +1558,7 @@ class ConfirmDeleteUserView(discord.ui.View):
 
 
 @bot.tree.command(name="group_members", description="[ADMIN] Lister les membres d'un groupe")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 @app_commands.describe(
     groupe="Le groupe à consulter (ex: 1-A, 2-B)"
 )
@@ -1873,7 +1623,7 @@ async def group_members(interaction: discord.Interaction, groupe: str):
 
 
 @bot.tree.command(name="waiting_list", description="[ADMIN] Afficher la liste d'attente")
-@commands.has_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True)
 @app_commands.describe(
     niveau="Filtrer par niveau (optionnel)"
 )

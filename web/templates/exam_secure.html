@@ -472,8 +472,15 @@
     
     <script>
         // ==================== CONFIGURATION ====================
-        // Temps de fin de la période d'examen (en millisecondes)
-        const EXAM_END_TIME = new Date("{{ exam_period.end_time.isoformat() }}").getTime();
+        // Durée de l'examen en minutes (définie dans exam.json)
+        const EXAM_DURATION_MINUTES = {{ exam.duration_minutes }};
+        // Heure de début de l'examen (maintenant)
+        const EXAM_START_TIME = Date.now();
+        // Heure de fin calculée (début + durée)
+        const EXAM_END_TIME = EXAM_START_TIME + (EXAM_DURATION_MINUTES * 60 * 1000);
+        // Fin de la fenêtre d'examen (backup, au cas où)
+        const EXAM_WINDOW_END = new Date("{{ exam_period.end_time.isoformat() }}").getTime();
+
         let timerInterval = null;
         let focusLost = false;
         let examSubmitted = false;
@@ -482,12 +489,21 @@
         function startTimer() {
             function updateTimer() {
                 const now = Date.now();
+
+                // Vérifier si la fenêtre d'examen est fermée
+                if (now >= EXAM_WINDOW_END) {
+                    clearInterval(timerInterval);
+                    alert('⏱️ La fenêtre d\'examen est terminée ! Ton examen va être soumis automatiquement.');
+                    submitExamAutomatically();
+                    return;
+                }
+
+                // Calculer le temps restant pour cet examen
                 const remainingMs = EXAM_END_TIME - now;
 
                 if (remainingMs <= 0) {
                     clearInterval(timerInterval);
-                    alert('⏱️ La fenêtre d\'examen est terminée ! Ton examen va être soumis automatiquement.');
-                    // Soumettre automatiquement le formulaire
+                    alert('⏱️ Le temps est écoulé ! Ton examen va être soumis automatiquement.');
                     submitExamAutomatically();
                     return;
                 }

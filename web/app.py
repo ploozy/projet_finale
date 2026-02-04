@@ -225,44 +225,7 @@ def parse_course_content(content):
 @app.route('/')
 def index():
     """Page d'accueil"""
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Formation Python</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                text-align: center;
-                padding: 50px;
-            }
-            a {
-                display: inline-block;
-                margin: 10px;
-                padding: 15px 30px;
-                background: white;
-                color: #667eea;
-                text-decoration: none;
-                border-radius: 25px;
-                font-weight: bold;
-                transition: all 0.3s;
-            }
-            a:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 5px 15px rgba(255,255,255,0.3);
-            }
-        </style>
-    </head>
-    <body>
-        <h1>🎓 Formation Python</h1>
-        <p>Plateforme d'examens et de cours en ligne</p>
-        <a href="/courses">📚 Voir les Cours</a>
-        <a href="/exams">📝 Accéder aux Examens</a>
-    </body>
-    </html>
-    """
+    return render_template('home.html')
 
 
 # ==================== ROUTES COURS D'ARABE ====================
