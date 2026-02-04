@@ -145,134 +145,62 @@ async def on_ready():
 @bot.event
 async def on_member_join(member: discord.Member):
     """
-    ONBOARDING AUTOMATIQUE
-    Quand quelqu'un rejoint le serveur
+    Quand quelqu'un rejoint le serveur : assigner le rôle "nouveau"
+    L'inscription complète se fait via /register dans #inscriptions
     """
     guild = member.guild
-    
+
     print(f"\n{'='*50}")
     print(f"👋 NOUVEAU MEMBRE : {member.name} (ID: {member.id})")
-    
+
     try:
-        # 1. Trouver le groupe disponible au niveau 1
-        groupe = await get_available_group(guild, niveau=1)
-        print(f"📌 Groupe attribué : {groupe}")
-        
-        # 2. Créer ou récupérer le rôle
-        role = discord.utils.get(guild.roles, name=f"Groupe {groupe}")
-        if not role:
-            role = await guild.create_role(
-                name=f"Groupe {groupe}",
-                color=discord.Color.green(),
-                mentionable=True,
-                hoist=True  # Afficher séparément à gauche sur Discord
-            )
-            print(f"✅ Rôle créé : {role.name}")
-        
-        # 3. Attribuer le rôle
-        await member.add_roles(role)
-        print(f"✅ Rôle attribué")
-        
-        # 4. Créer les salons si nécessaire
-        await create_group_channels(guild, groupe, role)
-        print(f"✅ Salons créés/vérifiés")
-        
-        # 5. Enregistrer en base de données
-        from db_connection import SessionLocal
-        from models import Utilisateur, Cohorte
-        
-        db = SessionLocal()
-        try:
-            # Vérifier si existe déjà
-            existing = db.query(Utilisateur).filter(Utilisateur.user_id == member.id).first()
-            
-            if not existing:
-                # Créer ou récupérer la cohorte
-                now = datetime.now()
-                month = now.strftime("%b").upper()
-                year = str(now.year)[-2:]
-                cohorte_id = f"{month}{year}-A"
-                
-                cohorte = db.query(Cohorte).filter(Cohorte.id == cohorte_id).first()
-                if not cohorte:
-                    cohorte = Cohorte(
-                        id=cohorte_id,
-                        date_creation=now,
-                        date_premier_examen=now + timedelta(days=14),
-                        niveau_actuel=1,
-                        statut='active'
-                    )
-                    db.add(cohorte)
-                    db.flush()
-                
-                # Créer l'utilisateur
-                new_user = Utilisateur(
-                    user_id=member.id,
-                    username=member.name,
-                    cohorte_id=cohorte_id,
-                    niveau_actuel=1,
-                    groupe=groupe,
-                    examens_reussis=0,
-                    date_inscription=now
-                )
-                
-                db.add(new_user)
-                db.commit()
-                print(f"✅ Utilisateur enregistré en DB")
-        
-        finally:
-            db.close()
-        
-        # 6. Message de bienvenue
+        # Trouver ou créer le rôle "nouveau"
+        nouveau_role = discord.utils.get(guild.roles, name="nouveau")
+
+        if not nouveau_role:
+            print("⚠️ Rôle 'nouveau' introuvable. Utilise /setup_inscriptions d'abord.")
+            return
+
+        # Attribuer le rôle "nouveau"
+        await member.add_roles(nouveau_role)
+        print(f"✅ Rôle 'nouveau' attribué à {member.name}")
+
+        # Message de bienvenue en MP
         try:
             embed = discord.Embed(
-                title="🎓 Bienvenue dans la Formation Python !",
-                description=f"Salut {member.mention}, nous sommes ravis de t'accueillir !",
-                color=discord.Color.green()
+                title="🎓 Bienvenue dans la Formation d'Arabe !",
+                description=f"Salut {member.name}, nous sommes ravis de t'accueillir !",
+                color=discord.Color.orange()
             )
-            
+
             embed.add_field(
-                name="📌 Ton Groupe",
-                value=f"**Groupe {groupe}**\nTu as été assigné automatiquement.",
-                inline=False
-            )
-            
-            embed.add_field(
-                name="🎯 Prochaines Étapes",
+                name="📝 Pour t'inscrire",
                 value=(
-                    "1️⃣ Consulte les ressources dans ton salon\n"
-                    "2️⃣ Prépare-toi pour l'examen du Niveau 1\n"
-                    "3️⃣ Utilise `/my_info` pour voir tes infos\n"
-                    f"4️⃣ Passe ton examen sur le site avec ton ID : `{member.id}`"
+                    "1️⃣ Va dans le salon **#inscriptions**\n"
+                    "2️⃣ Tape la commande `/register`\n"
+                    "3️⃣ Tu seras automatiquement assigné à un groupe !"
                 ),
                 inline=False
             )
-            
+
             embed.add_field(
-                name="🌐 Lien du Site",
-                value="http://localhost:5000/exams",
+                name="⚠️ Important",
+                value="Tu n'auras accès aux autres salons qu'après ton inscription.",
                 inline=False
             )
-            
-            embed.add_field(
-                name="🤖 Notification Automatique",
-                value="Tu recevras automatiquement tes résultats en MP dès que tu auras terminé un examen !",
-                inline=False
-            )
-            
+
             embed.set_footer(text=f"Ton ID Discord : {member.id}")
-            
+
             await member.send(embed=embed)
             print(f"✅ Message de bienvenue envoyé")
-        
+
         except discord.Forbidden:
             print(f"⚠️ Impossible d'envoyer un MP à {member.name}")
-        
-        print(f"🎉 Onboarding terminé pour {member.name}")
+
         print(f"{'='*50}\n")
-    
+
     except Exception as e:
-        print(f"❌ Erreur onboarding: {e}")
+        print(f"❌ Erreur on_member_join: {e}")
         import traceback
         traceback.print_exc()
 
@@ -340,49 +268,142 @@ async def create_group_channels(guild: discord.Guild, groupe: str, role: discord
 
 @bot.tree.command(name="register", description="S'inscrire dans le système")
 async def register(interaction: discord.Interaction):
-    """Inscription manuelle"""
-    await interaction.response.send_message("🔄 Inscription en cours...", ephemeral=True)
-    
+    """
+    Inscription complète : assigne un groupe, crée les salons, retire le rôle 'nouveau'
+    """
+    await interaction.response.defer(ephemeral=True)
+
     from db_connection import SessionLocal
-    from models import Utilisateur
-    
+    from models import Utilisateur, Cohorte
+
+    guild = interaction.guild
+    member = interaction.user
+    user_id = member.id
+    username = member.name
+
     db = SessionLocal()
-    
+
     try:
-        user_id = interaction.user.id
-        username = interaction.user.name
-        
-        # Vérifier si existe déjà
+        # Vérifier si déjà inscrit
         existing = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-        
+
         if existing:
-            await interaction.edit_original_response(
-                content=f"✅ **Déjà inscrit !**\n\n"
-                       f"**Groupe** : {existing.groupe}\n"
-                       f"**Niveau** : {existing.niveau_actuel}\n"
-                       f"**ID** : `{user_id}`\n\n"
-                       f"🌐 Site : http://localhost:5000/exams"
+            await interaction.followup.send(
+                f"✅ **Déjà inscrit !**\n\n"
+                f"**Groupe** : {existing.groupe}\n"
+                f"**Niveau** : {existing.niveau_actuel}\n"
+                f"**ID** : `{user_id}`\n\n"
+                f"🌐 Site des cours : http://localhost:5000/courses\n"
+                f"🌐 Site des examens : http://localhost:5000/exams",
+                ephemeral=True
             )
             return
-        
-        # Simuler l'onboarding
-        member = interaction.guild.get_member(user_id)
-        if member:
-            await on_member_join(member)
-            await asyncio.sleep(1)
-            
-            user = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
-            
-            if user:
-                await interaction.edit_original_response(
-                    content=f"✅ **Inscription réussie !**\n\n"
-                           f"**Groupe** : {user.groupe}\n"
-                           f"**Niveau** : {user.niveau_actuel}\n"
-                           f"**ID** : `{user_id}`\n\n"
-                           f"🌐 Site : http://localhost:5000/exams\n\n"
-                           f"🤖 Tu recevras tes résultats automatiquement en MP !"
-                )
-        
+
+        # 1. Trouver le groupe disponible au niveau 1
+        groupe = await get_available_group(guild, niveau=1)
+        print(f"📌 Groupe attribué à {username} : {groupe}")
+
+        # 2. Créer ou récupérer le rôle du groupe
+        group_role = discord.utils.get(guild.roles, name=f"Groupe {groupe}")
+        if not group_role:
+            group_role = await guild.create_role(
+                name=f"Groupe {groupe}",
+                color=discord.Color.green(),
+                mentionable=True,
+                hoist=True
+            )
+            print(f"✅ Rôle créé : {group_role.name}")
+
+        # 3. Attribuer le rôle du groupe
+        await member.add_roles(group_role)
+        print(f"✅ Rôle {group_role.name} attribué à {username}")
+
+        # 4. Retirer le rôle "nouveau"
+        nouveau_role = discord.utils.get(guild.roles, name="nouveau")
+        if nouveau_role and nouveau_role in member.roles:
+            await member.remove_roles(nouveau_role)
+            print(f"✅ Rôle 'nouveau' retiré de {username}")
+
+        # 5. Créer les salons si nécessaire
+        await create_group_channels(guild, groupe, group_role)
+
+        # 6. Enregistrer en base de données
+        now = datetime.now()
+        month = now.strftime("%b").upper()
+        year = str(now.year)[-2:]
+        cohorte_id = f"{month}{year}-A"
+
+        cohorte = db.query(Cohorte).filter(Cohorte.id == cohorte_id).first()
+        if not cohorte:
+            cohorte = Cohorte(
+                id=cohorte_id,
+                date_creation=now,
+                date_premier_examen=now + timedelta(days=14),
+                niveau_actuel=1,
+                statut='active'
+            )
+            db.add(cohorte)
+            db.flush()
+
+        new_user = Utilisateur(
+            user_id=user_id,
+            username=username,
+            cohorte_id=cohorte_id,
+            niveau_actuel=1,
+            groupe=groupe,
+            examens_reussis=0,
+            date_inscription=now
+        )
+
+        db.add(new_user)
+        db.commit()
+        print(f"✅ Utilisateur {username} enregistré en DB")
+
+        # 7. Réponse de confirmation
+        embed = discord.Embed(
+            title="✅ Inscription réussie !",
+            description=f"Bienvenue dans la formation, {member.mention} !",
+            color=discord.Color.green()
+        )
+
+        embed.add_field(name="👥 Groupe", value=f"**{groupe}**", inline=True)
+        embed.add_field(name="📊 Niveau", value="**1**", inline=True)
+        embed.add_field(name="🆔 Ton ID", value=f"`{user_id}`", inline=True)
+
+        embed.add_field(
+            name="🎯 Prochaines étapes",
+            value=(
+                f"1️⃣ Va dans ta catégorie **📚 Groupe {groupe}**\n"
+                "2️⃣ Consulte les ressources et le salon d'entraide\n"
+                "3️⃣ Accède aux cours sur le site\n"
+                "4️⃣ Prépare-toi pour l'examen du Niveau 1"
+            ),
+            inline=False
+        )
+
+        embed.add_field(
+            name="🌐 Liens utiles",
+            value=(
+                f"📚 Cours : http://localhost:5000/courses\n"
+                f"📝 Examens : http://localhost:5000/exams\n"
+                f"Utilise ton ID : `{user_id}`"
+            ),
+            inline=False
+        )
+
+        embed.set_footer(text="Tu recevras tes résultats automatiquement en MP après chaque examen !")
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    except Exception as e:
+        print(f"❌ Erreur inscription: {e}")
+        import traceback
+        traceback.print_exc()
+        await interaction.followup.send(
+            f"❌ Une erreur s'est produite lors de l'inscription. Contacte un administrateur.",
+            ephemeral=True
+        )
+
     finally:
         db.close()
 
@@ -449,6 +470,173 @@ class ConfirmClearView(discord.ui.View):
             content="✅ Annulé",
             view=None
         )
+
+
+# ==================== SETUP INSCRIPTIONS (À UTILISER UNE SEULE FOIS) ====================
+
+@bot.tree.command(name="setup_inscriptions", description="[ADMIN] Créer le rôle 'nouveau' et le salon #inscriptions")
+@commands.has_permissions(administrator=True)
+async def setup_inscriptions(interaction: discord.Interaction):
+    """
+    Crée le rôle 'nouveau' et le salon #inscriptions avec les bonnes permissions.
+    À utiliser UNE SEULE FOIS lors de la configuration initiale du serveur.
+    """
+    await interaction.response.defer(ephemeral=True)
+
+    guild = interaction.guild
+    results = []
+
+    try:
+        # 1. Créer le rôle "nouveau" s'il n'existe pas
+        nouveau_role = discord.utils.get(guild.roles, name="nouveau")
+
+        if nouveau_role:
+            results.append("⚠️ Rôle 'nouveau' existe déjà")
+        else:
+            nouveau_role = await guild.create_role(
+                name="nouveau",
+                color=discord.Color.orange(),
+                mentionable=False,
+                hoist=True,  # Afficher séparément dans la liste des membres
+                reason="Setup inscriptions - Rôle pour les nouveaux membres"
+            )
+            results.append("✅ Rôle 'nouveau' créé")
+
+        # 2. Créer le salon #inscriptions s'il n'existe pas
+        inscriptions_channel = discord.utils.get(guild.text_channels, name="inscriptions")
+
+        if inscriptions_channel:
+            results.append("⚠️ Salon #inscriptions existe déjà")
+        else:
+            # Permissions pour le salon #inscriptions
+            overwrites = {
+                # @everyone ne peut pas voir le salon
+                guild.default_role: discord.PermissionOverwrite(
+                    read_messages=False,
+                    send_messages=False
+                ),
+                # Le rôle "nouveau" peut voir et envoyer des messages
+                nouveau_role: discord.PermissionOverwrite(
+                    read_messages=True,
+                    send_messages=True,
+                    read_message_history=True,
+                    use_application_commands=True  # Permet d'utiliser les commandes slash
+                ),
+                # Le bot peut tout faire
+                guild.me: discord.PermissionOverwrite(
+                    read_messages=True,
+                    send_messages=True,
+                    manage_messages=True
+                )
+            }
+
+            inscriptions_channel = await guild.create_text_channel(
+                name="inscriptions",
+                overwrites=overwrites,
+                topic="📝 Tape /register pour t'inscrire et rejoindre un groupe !",
+                reason="Setup inscriptions - Salon pour les inscriptions"
+            )
+            results.append("✅ Salon #inscriptions créé")
+
+            # 3. Envoyer le message de bienvenue/guide dans le salon
+            embed = discord.Embed(
+                title="📝 Bienvenue ! Inscris-toi ici",
+                description=(
+                    "Pour accéder à la formation et rejoindre un groupe, "
+                    "tu dois d'abord t'inscrire."
+                ),
+                color=discord.Color.blue()
+            )
+
+            embed.add_field(
+                name="🎯 Comment s'inscrire ?",
+                value=(
+                    "**1.** Tape la commande `/register`\n"
+                    "**2.** Tu seras automatiquement assigné à un groupe\n"
+                    "**3.** Tu auras accès aux salons de ton groupe"
+                ),
+                inline=False
+            )
+
+            embed.add_field(
+                name="📚 Ce qui t'attend",
+                value=(
+                    "• Cours d'arabe par niveau\n"
+                    "• Salons d'entraide avec ton groupe\n"
+                    "• Examens pour progresser\n"
+                    "• Système de bonus pour l'entraide"
+                ),
+                inline=False
+            )
+
+            embed.add_field(
+                name="⚠️ Important",
+                value="Tu ne peux utiliser que la commande `/register` ici.",
+                inline=False
+            )
+
+            embed.set_footer(text="Tape /register pour commencer !")
+
+            await inscriptions_channel.send(embed=embed)
+            results.append("✅ Message de guide envoyé dans #inscriptions")
+
+        # 4. Modifier les permissions des autres salons pour exclure "nouveau"
+        # On fait ça pour les catégories existantes
+        modified_channels = 0
+        for category in guild.categories:
+            if "Groupe" in category.name or category.name.startswith("📚"):
+                # S'assurer que le rôle "nouveau" ne peut pas voir ces catégories
+                await category.set_permissions(nouveau_role, read_messages=False)
+                modified_channels += 1
+
+        if modified_channels > 0:
+            results.append(f"✅ {modified_channels} catégorie(s) de groupe(s) cachée(s) pour le rôle 'nouveau'")
+
+        # Rapport final
+        embed = discord.Embed(
+            title="🔧 Configuration Inscriptions",
+            description="\n".join(results),
+            color=discord.Color.green()
+        )
+
+        embed.add_field(
+            name="📋 Résumé",
+            value=(
+                f"**Rôle:** `nouveau` (orange, affiché séparément)\n"
+                f"**Salon:** #inscriptions\n"
+                f"**Permissions:** Seul 'nouveau' voit #inscriptions"
+            ),
+            inline=False
+        )
+
+        embed.add_field(
+            name="🔄 Flux d'inscription",
+            value=(
+                "1. Nouveau membre rejoint → Reçoit rôle 'nouveau'\n"
+                "2. Voit uniquement #inscriptions\n"
+                "3. Tape `/register`\n"
+                "4. Perd 'nouveau', reçoit 'Groupe X-Y'\n"
+                "5. Accès aux salons du groupe"
+            ),
+            inline=False
+        )
+
+        embed.add_field(
+            name="⚠️ À faire manuellement",
+            value=(
+                "• Cache les autres salons publics pour le rôle 'nouveau'\n"
+                "• Tu peux supprimer cette commande après utilisation"
+            ),
+            inline=False
+        )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    except Exception as e:
+        print(f"❌ Erreur setup_inscriptions: {e}")
+        import traceback
+        traceback.print_exc()
+        await interaction.followup.send(f"❌ Erreur : {e}", ephemeral=True)
 
 
 @bot.tree.command(name="my_info", description="Voir mes informations")
