@@ -387,24 +387,6 @@ async def register(interaction: discord.Interaction):
         db.close()
 
 
-@bot.tree.command(name="check_exam_results", description="[ADMIN] Vérifier manuellement les résultats")
-@commands.has_permissions(administrator=True)
-async def check_exam_results(interaction: discord.Interaction):
-    """
-    Commande manuelle pour forcer la vérification
-    (normalement, c'est automatique toutes les 30s)
-    """
-    await interaction.response.send_message("🔄 Vérification manuelle en cours...", ephemeral=True)
-    
-    # Forcer l'exécution de la tâche
-    await check_results_task()
-    
-    await interaction.edit_original_response(
-        content="✅ Vérification manuelle terminée !\n\n"
-               "💡 Les résultats sont normalement traités automatiquement toutes les 30 secondes."
-    )
-
-
 @bot.tree.command(name="clear_db", description="[ADMIN] Vider la base de données")
 @commands.has_permissions(administrator=True)
 async def clear_db(interaction: discord.Interaction):
@@ -865,30 +847,6 @@ async def list_users(interaction: discord.Interaction):
         db.close()
 
 
-@bot.tree.command(name="task_status", description="[ADMIN] Statut de la tâche automatique")
-@commands.has_permissions(administrator=True)
-async def task_status(interaction: discord.Interaction):
-    """Affiche le statut de la tâche automatique"""
-    await interaction.response.defer(ephemeral=True)
-    
-    status = "✅ Active" if check_results_task.is_running() else "❌ Inactive"
-    
-    embed = discord.Embed(
-        title="🤖 Statut de la Tâche Automatique",
-        color=discord.Color.green() if check_results_task.is_running() else discord.Color.red()
-    )
-    
-    embed.add_field(name="Statut", value=status, inline=True)
-    embed.add_field(name="Intervalle", value="30 secondes", inline=True)
-    embed.add_field(
-        name="Fonction",
-        value="Vérifie automatiquement les nouveaux résultats d'examens et notifie les utilisateurs",
-        inline=False
-    )
-    
-    await interaction.followup.send(embed=embed, ephemeral=True)
-
-
 def get_courses_for_level(niveau: int) -> list:
     """
     Retourne la liste des IDs de cours pour un niveau donné
@@ -1014,25 +972,6 @@ async def send_course_to_channel(course_id: int, channel: discord.TextChannel):
         print(f"  ❌ Erreur lors de l'envoi du cours {course_id}: {e}")
 
 
-@bot.tree.command(name="setup_resources", description="[ADMIN] Configurer les salons de ressources")
-@commands.has_permissions(administrator=True)
-async def setup_resources_command(interaction: discord.Interaction):
-    """
-    Force la création des salons de ressources et l'envoi des cours
-    """
-    await interaction.response.defer(ephemeral=True)
-    
-    try:
-        await setup_resources_channels()
-        await interaction.followup.send(
-            "✅ Salons de ressources configurés avec succès !",
-            ephemeral=True
-        )
-    except Exception as e:
-        await interaction.followup.send(
-            f"❌ Erreur : {e}",
-            ephemeral=True
-        )
 # ==================== COMMANDE /vote ====================
 @bot.tree.command(name="vote", description="Voter pour 1 à 3 personnes qui t'ont aidé")
 @app_commands.describe(
@@ -1532,70 +1471,296 @@ async def change_group(
         db.close()
 
 
-# ==================== COMMANDE /my_vote_status ====================
-@bot.tree.command(name="my_vote_status", description="Vérifier si tu as voté")
-async def my_vote_status(interaction: discord.Interaction):
-    """Vérifie si l'utilisateur a voté"""
+# ==================== COMMANDES UTILITAIRES ADMIN ====================
+
+@bot.tree.command(name="user_info", description="[ADMIN] Voir les informations d'un utilisateur")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    user="L'utilisateur à consulter (mention ou ID)"
+)
+async def user_info(interaction: discord.Interaction, user: str):
+    """Affiche les informations d'un utilisateur"""
     await interaction.response.defer(ephemeral=True)
-    
+
     from db_connection import SessionLocal
-    from models import Utilisateur, Vote
-    
+    from models import Utilisateur, ExamResult
+
+    # Extraire l'ID de la mention ou utiliser directement l'ID
+    user_id_str = user.strip()
+    if user_id_str.startswith("<@") and user_id_str.endswith(">"):
+        user_id_str = user_id_str.replace("<@", "").replace(">", "").replace("!", "")
+
+    try:
+        user_id_int = int(user_id_str)
+    except ValueError:
+        await interaction.followup.send("❌ ID invalide. Utilise une mention (@user) ou un ID numérique.", ephemeral=True)
+        return
+
     db = SessionLocal()
     try:
-        user = db.query(Utilisateur).filter(
-            Utilisateur.user_id == interaction.user.id
-        ).first()
-        
-        if not user:
+        user_db = db.query(Utilisateur).filter(Utilisateur.user_id == user_id_int).first()
+
+        if not user_db:
             await interaction.followup.send(
-                "❌ Tu n'es pas inscrit. Utilise `/register`",
+                f"❌ Aucun utilisateur trouvé avec l'ID `{user_id_int}`",
                 ephemeral=True
             )
             return
-        
-        vote_system = VoteSystem(bot)
-        exam_period = vote_system.get_active_exam_period(user.niveau_actuel)
-        
-        if not exam_period:
-            await interaction.followup.send(
-                "ℹ️ Aucune période d'examen active pour ton groupe.",
-                ephemeral=True
-            )
-            return
-        
-        votes = db.query(Vote).filter(
-            Vote.voter_id == interaction.user.id,
-            Vote.exam_period_id == exam_period.id
-        ).all()
-        
-        if len(votes) == 0:
-            embed = discord.Embed(
-                title="⚠️ Tu n'as pas encore voté",
-                description=f"Tu dois voter avant de passer l'examen !",
-                color=discord.Color.orange()
-            )
-            embed.add_field(
-                name="📝 Comment voter ?",
-                value="Utilise `/vote @user1 @user2 @user3`",
-                inline=False
-            )
+
+        # Récupérer le membre Discord si possible
+        member = interaction.guild.get_member(user_id_int)
+        member_name = member.display_name if member else user_db.username
+
+        # Récupérer les résultats d'examen
+        exam_results = db.query(ExamResult).filter(
+            ExamResult.user_id == user_id_int
+        ).order_by(ExamResult.date_passage.desc()).limit(5).all()
+
+        embed = discord.Embed(
+            title=f"📋 Informations de {member_name}",
+            color=discord.Color.blue()
+        )
+
+        embed.add_field(name="🆔 ID Discord", value=f"`{user_db.user_id}`", inline=True)
+        embed.add_field(name="👥 Groupe", value=f"**{user_db.groupe}**", inline=True)
+        embed.add_field(name="📊 Niveau", value=f"**{user_db.niveau_actuel}**", inline=True)
+        embed.add_field(name="📅 Inscrit le", value=user_db.date_inscription.strftime("%d/%m/%Y") if user_db.date_inscription else "N/A", inline=True)
+        embed.add_field(name="🎓 Examens réussis", value=f"**{user_db.examens_reussis or 0}**", inline=True)
+        embed.add_field(name="🏷️ Cohorte", value=f"`{user_db.cohorte_id}`" if user_db.cohorte_id else "N/A", inline=True)
+
+        # Derniers examens
+        if exam_results:
+            exams_text = ""
+            for result in exam_results:
+                status = "✅" if result.reussi else "❌"
+                exams_text += f"{status} Niveau {result.niveau} - {result.score}% ({result.date_passage.strftime('%d/%m/%Y')})\n"
+            embed.add_field(name="📝 Derniers examens", value=exams_text, inline=False)
+
+        # Statut Discord
+        if member:
+            embed.set_thumbnail(url=member.display_avatar.url)
+            embed.add_field(name="💻 Statut Discord", value="✅ Sur le serveur", inline=True)
         else:
-            voted_for = [f"• <@{vote.voted_for_id}>" for vote in votes]
-            embed = discord.Embed(
-                title="✅ Tu as déjà voté",
-                color=discord.Color.green()
-            )
-            embed.add_field(
-                name=f"👥 Tes Votes ({len(votes)})",
-                value="\n".join(voted_for),
-                inline=False
-            )
-        
+            embed.add_field(name="💻 Statut Discord", value="❌ Plus sur le serveur", inline=True)
+
         await interaction.followup.send(embed=embed, ephemeral=True)
-    
+
     finally:
         db.close()
+
+
+@bot.tree.command(name="delete_user", description="[ADMIN] Supprimer un utilisateur de la base de données")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    user="L'utilisateur à supprimer"
+)
+async def delete_user(interaction: discord.Interaction, user: discord.Member):
+    """Supprime un utilisateur de la base de données"""
+    await interaction.response.send_message(
+        f"⚠️ **Confirmer la suppression ?**\n\n"
+        f"Utilisateur : {user.mention} (`{user.id}`)\n\n"
+        f"Cela supprimera :\n"
+        f"• Les informations de l'utilisateur\n"
+        f"• Ses résultats d'examen\n"
+        f"• Ses votes\n\n"
+        f"**Cette action est irréversible !**",
+        view=ConfirmDeleteUserView(user.id, user.name),
+        ephemeral=True
+    )
+
+
+class ConfirmDeleteUserView(discord.ui.View):
+    def __init__(self, user_id: int, username: str):
+        super().__init__(timeout=30)
+        self.user_id = user_id
+        self.username = username
+
+    @discord.ui.button(label="✅ Confirmer la suppression", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+
+        from db_connection import SessionLocal
+        from sqlalchemy import text
+
+        db = SessionLocal()
+        try:
+            # Supprimer les votes de/pour cet utilisateur
+            db.execute(text("DELETE FROM votes WHERE voter_id = :uid OR voted_for_id = :uid"), {"uid": self.user_id})
+
+            # Supprimer les résultats d'examen
+            db.execute(text("DELETE FROM exam_results WHERE user_id = :uid"), {"uid": self.user_id})
+
+            # Supprimer l'utilisateur
+            result = db.execute(text("DELETE FROM utilisateurs WHERE user_id = :uid"), {"uid": self.user_id})
+
+            db.commit()
+
+            if result.rowcount > 0:
+                await interaction.edit_original_response(
+                    content=f"✅ **Utilisateur supprimé**\n\n"
+                           f"👤 {self.username} (`{self.user_id}`)\n"
+                           f"🗑️ Données supprimées de la base",
+                    view=None
+                )
+            else:
+                await interaction.edit_original_response(
+                    content=f"⚠️ Aucun utilisateur trouvé avec l'ID `{self.user_id}`",
+                    view=None
+                )
+
+        finally:
+            db.close()
+
+    @discord.ui.button(label="❌ Annuler", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            content="✅ Suppression annulée",
+            view=None
+        )
+
+
+@bot.tree.command(name="group_members", description="[ADMIN] Lister les membres d'un groupe")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    groupe="Le groupe à consulter (ex: 1-A, 2-B)"
+)
+async def group_members(interaction: discord.Interaction, groupe: str):
+    """Liste tous les membres d'un groupe spécifique"""
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import Utilisateur
+
+    # Normaliser le format du groupe (ex: "1a" -> "1-A")
+    groupe_clean = groupe.upper().strip()
+    if len(groupe_clean) == 2 and groupe_clean[0].isdigit() and groupe_clean[1].isalpha():
+        groupe_clean = f"{groupe_clean[0]}-{groupe_clean[1]}"
+
+    db = SessionLocal()
+    try:
+        users = db.query(Utilisateur).filter(Utilisateur.groupe == groupe_clean).all()
+
+        if not users:
+            await interaction.followup.send(
+                f"📭 Aucun membre dans le groupe **{groupe_clean}**",
+                ephemeral=True
+            )
+            return
+
+        embed = discord.Embed(
+            title=f"👥 Membres du Groupe {groupe_clean}",
+            description=f"**{len(users)}** membre(s) au total",
+            color=discord.Color.blue()
+        )
+
+        # Séparer les membres présents et absents du serveur
+        members_present = []
+        members_absent = []
+
+        for user_db in users:
+            member = interaction.guild.get_member(user_db.user_id)
+            if member:
+                members_present.append(f"• {member.mention} - Niveau {user_db.niveau_actuel}")
+            else:
+                members_absent.append(f"• {user_db.username} (`{user_db.user_id}`) - ⚠️ Plus sur le serveur")
+
+        if members_present:
+            embed.add_field(
+                name=f"✅ Sur le serveur ({len(members_present)})",
+                value="\n".join(members_present[:15]) + ("\n..." if len(members_present) > 15 else ""),
+                inline=False
+            )
+
+        if members_absent:
+            embed.add_field(
+                name=f"❌ Hors serveur ({len(members_absent)})",
+                value="\n".join(members_absent[:10]) + ("\n..." if len(members_absent) > 10 else ""),
+                inline=False
+            )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    finally:
+        db.close()
+
+
+@bot.tree.command(name="waiting_list", description="[ADMIN] Afficher la liste d'attente")
+@commands.has_permissions(administrator=True)
+@app_commands.describe(
+    niveau="Filtrer par niveau (optionnel)"
+)
+async def waiting_list(interaction: discord.Interaction, niveau: int = None):
+    """Affiche les personnes en liste d'attente"""
+    await interaction.response.defer(ephemeral=True)
+
+    from db_connection import SessionLocal
+    from models import WaitingList
+
+    db = SessionLocal()
+    try:
+        query = db.query(WaitingList).order_by(WaitingList.position)
+
+        if niveau:
+            query = query.filter(WaitingList.niveau == niveau)
+
+        waiting_users = query.all()
+
+        if not waiting_users:
+            msg = f"📭 Aucune personne en liste d'attente"
+            if niveau:
+                msg += f" pour le niveau {niveau}"
+            await interaction.followup.send(msg, ephemeral=True)
+            return
+
+        title = "📋 Liste d'Attente"
+        if niveau:
+            title += f" - Niveau {niveau}"
+
+        embed = discord.Embed(
+            title=title,
+            description=f"**{len(waiting_users)}** personne(s) en attente",
+            color=discord.Color.orange()
+        )
+
+        # Grouper par niveau si pas de filtre
+        if not niveau:
+            by_level = {}
+            for w in waiting_users:
+                lvl = w.niveau
+                if lvl not in by_level:
+                    by_level[lvl] = []
+                by_level[lvl].append(w)
+
+            for lvl in sorted(by_level.keys()):
+                users_text = ""
+                for w in by_level[lvl][:10]:
+                    member = interaction.guild.get_member(w.user_id)
+                    name = member.mention if member else f"`{w.user_id}`"
+                    users_text += f"#{w.position} - {name}\n"
+                if len(by_level[lvl]) > 10:
+                    users_text += f"... et {len(by_level[lvl]) - 10} autre(s)"
+
+                embed.add_field(
+                    name=f"Niveau {lvl} ({len(by_level[lvl])})",
+                    value=users_text,
+                    inline=False
+                )
+        else:
+            users_text = ""
+            for w in waiting_users[:20]:
+                member = interaction.guild.get_member(w.user_id)
+                name = member.mention if member else f"`{w.user_id}`"
+                users_text += f"#{w.position} - {name}\n"
+            if len(waiting_users) > 20:
+                users_text += f"... et {len(waiting_users) - 20} autre(s)"
+
+            embed.add_field(name="En attente", value=users_text, inline=False)
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    finally:
+        db.close()
+
 
 if __name__ == "__main__":
     print("🚀 Démarrage du bot...")
