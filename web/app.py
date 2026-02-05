@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 import os
 from db_connection import SessionLocal
 from models import Utilisateur, ExamResult, ExamPeriod
-from sqlalchemy import func
+from sqlalchemy import func, or_
 import exercise_types
 import requests
 from group_manager import GroupManager
@@ -572,23 +572,27 @@ def exams():
         # Debug : afficher l'heure actuelle
         print(f"🕐 Heure serveur (UTC): {now.strftime('%d/%m/%Y %H:%M:%S')}")
 
+        # Chercher d'abord par groupe spécifique, puis fallback par niveau seul (legacy)
         exam_period = db.query(ExamPeriod).filter(
             ExamPeriod.group_number == user.niveau_actuel,
+            or_(ExamPeriod.groupe == user.groupe, ExamPeriod.groupe == None),
             ExamPeriod.start_time <= now,
             ExamPeriod.end_time >= now
         ).first()
 
         # Debug : afficher les périodes trouvées
         all_periods = db.query(ExamPeriod).filter(
-            ExamPeriod.group_number == user.niveau_actuel
+            ExamPeriod.group_number == user.niveau_actuel,
+            or_(ExamPeriod.groupe == user.groupe, ExamPeriod.groupe == None)
         ).all()
         for p in all_periods:
-            print(f"📅 Période trouvée - Début: {p.start_time}, Fin: {p.end_time}, Active: {p.start_time <= now <= p.end_time}")
+            print(f"📅 Période trouvée - Groupe: {p.groupe}, Début: {p.start_time}, Fin: {p.end_time}, Active: {p.start_time <= now <= p.end_time}")
 
         if not exam_period:
             # Chercher la prochaine période d'examen
             next_period = db.query(ExamPeriod).filter(
                 ExamPeriod.group_number == user.niveau_actuel,
+                or_(ExamPeriod.groupe == user.groupe, ExamPeriod.groupe == None),
                 ExamPeriod.start_time > now
             ).order_by(ExamPeriod.start_time).first()
 

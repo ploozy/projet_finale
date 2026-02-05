@@ -1,7 +1,9 @@
 """
 Bot Discord - Version Ultime
-✅ Onboarding automatique
-✅ Notifications automatiques des résultats d'examens (toutes les 30s)
+✅ Onboarding via /register avec GroupManager (waiting list + validation temps)
+✅ Auto-scheduling d'examens pour les nouveaux groupes
+✅ Tâche de fond : traitement des waiting lists (toutes les 5 min)
+✅ Notifications automatiques des résultats d'examens
 ✅ Sync automatique des rôles Discord
 """
 
@@ -129,12 +131,95 @@ async def on_ready():
     load_pending_exam_periods(bot)
     print("✅ Planificateur de bonus prêt")
 
+    # Démarrer la tâche de traitement des waiting lists
+    if not process_waiting_lists_task.is_running():
+        process_waiting_lists_task.start()
+        print("✅ Tâche waiting list démarrée (vérification toutes les 5 min)")
 
-# ANCIENNE MÉTHODE : Vérification périodique toutes les 30 secondes (DÉSACTIVÉE)
-# La promotion se fait maintenant immédiatement via l'API /api/promote
-# @tasks.loop(seconds=30)
-# async def check_results_task():
-#     pass
+
+# ==================== TÂCHE DE FOND : WAITING LIST ====================
+@tasks.loop(minutes=5)
+async def process_waiting_lists_task():
+    """
+    Tâche périodique qui vérifie les waiting lists tous les 5 minutes.
+    - Si 7+ personnes en attente pour un niveau → crée un nouveau groupe
+    - Si des places se libèrent → assigne les utilisateurs en attente
+    """
+    from db_connection import SessionLocal
+    from group_manager import GroupManager
+    from models import WaitingList, Utilisateur
+
+    db = SessionLocal()
+    try:
+        gm = GroupManager(db)
+
+        # Trouver tous les niveaux avec des gens en attente
+        niveaux_en_attente = db.query(WaitingList.niveau).distinct().all()
+
+        for (niveau,) in niveaux_en_attente:
+            # Traiter la waiting list via GroupManager
+            gm.check_and_process_waiting_lists(niveau)
+
+            # Après traitement, vérifier si des utilisateurs ont été assignés
+            # et leur envoyer un message + créer les salons Discord
+            assigned_users = db.query(Utilisateur).filter(
+                Utilisateur.niveau_actuel == niveau,
+                Utilisateur.groupe.like(f"{niveau}-%")
+            ).all()
+
+            for user in assigned_users:
+                # Vérifier si cet utilisateur était en waiting list
+                still_waiting = db.query(WaitingList).filter(
+                    WaitingList.user_id == user.user_id
+                ).first()
+
+                if still_waiting:
+                    continue  # Toujours en attente
+
+                # L'utilisateur a été assigné, mettre à jour Discord
+                if bot.guilds:
+                    guild = bot.guilds[0]
+                    member = guild.get_member(user.user_id)
+
+                    if member:
+                        try:
+                            await finalize_registration(guild, member, user.groupe, user.niveau_actuel)
+
+                            # Envoyer MP de notification
+                            embed = discord.Embed(
+                                title="🎉 Tu as été assigné à un groupe !",
+                                description=(
+                                    f"Bonne nouvelle ! Tu as été assigné au **Groupe {user.groupe}**.\n"
+                                    "Tu as maintenant accès à tes salons de groupe."
+                                ),
+                                color=discord.Color.green()
+                            )
+                            embed.add_field(name="👥 Groupe", value=user.groupe, inline=True)
+                            embed.add_field(name="📊 Niveau", value=str(user.niveau_actuel), inline=True)
+                            embed.add_field(
+                                name="🌐 Liens utiles",
+                                value=(
+                                    "📚 Cours : http://localhost:5000/courses\n"
+                                    "📝 Examens : http://localhost:5000/exams"
+                                ),
+                                inline=False
+                            )
+                            await member.send(embed=embed)
+                            print(f"✅ Waiting list : {user.username} assigné au groupe {user.groupe}")
+                        except Exception as e:
+                            print(f"⚠️ Erreur notification waiting list pour {user.user_id}: {e}")
+
+    except Exception as e:
+        print(f"❌ Erreur process_waiting_lists_task: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
+
+
+@process_waiting_lists_task.before_loop
+async def before_waiting_list_task():
+    await bot.wait_until_ready()
 
 
 @bot.event
@@ -204,22 +289,136 @@ async def get_available_group(guild: discord.Guild, niveau: int) -> str:
     """
     Trouve le premier groupe non plein pour un niveau donné
     Limite : 15 membres par groupe
+    (Fonction simple de fallback - le flux principal utilise GroupManager)
     """
     letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
-    
+
     for letter in letters:
         groupe_name = f"{niveau}-{letter}"
         role = discord.utils.get(guild.roles, name=f"Groupe {groupe_name}")
-        
+
         if role is None:
             return groupe_name
-        
+
         member_count = len(role.members)
-        
+
         if member_count < 15:
             return groupe_name
-    
+
     return f"{niveau}-A"
+
+
+async def auto_schedule_exam_for_new_group(guild: discord.Guild, groupe: str, niveau: int):
+    """
+    Quand un nouveau groupe est créé, vérifie si d'autres groupes du même niveau
+    ont des examens programmés. Si oui, programme un examen pour ce groupe aussi.
+
+    - Si l'examen existant est dans >= TEMPS_FORMATION_MINIMUM jours : même date
+    - Sinon : programmer à now + TEMPS_FORMATION_MINIMUM jours
+    """
+    from db_connection import SessionLocal
+    from models import ExamPeriod
+    from cohort_config import TEMPS_FORMATION_MINIMUM
+
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        temps_minimum = TEMPS_FORMATION_MINIMUM.get(niveau, 3)
+
+        # Chercher un examen à venir pour un autre groupe du même niveau
+        existing_exam = db.query(ExamPeriod).filter(
+            ExamPeriod.group_number == niveau,
+            ExamPeriod.end_time > now,
+            ExamPeriod.groupe != groupe,
+            ExamPeriod.groupe != None
+        ).order_by(ExamPeriod.start_time).first()
+
+        # Aussi vérifier les anciens ExamPeriod sans groupe spécifique (legacy)
+        if not existing_exam:
+            existing_exam = db.query(ExamPeriod).filter(
+                ExamPeriod.group_number == niveau,
+                ExamPeriod.end_time > now,
+                ExamPeriod.groupe == None
+            ).order_by(ExamPeriod.start_time).first()
+
+        if not existing_exam:
+            print(f"ℹ️ Pas d'examen existant pour le niveau {niveau}, pas d'auto-scheduling")
+            return
+
+        # Calculer la date de l'examen pour le nouveau groupe
+        temps_restant_jours = (existing_exam.start_time - now).total_seconds() / 86400
+        duration = existing_exam.end_time - existing_exam.start_time
+
+        if temps_restant_jours >= temps_minimum:
+            # Assez de temps → même date que les autres groupes
+            new_start = existing_exam.start_time
+        else:
+            # Pas assez de temps → programmer dans TEMPS_FORMATION_MINIMUM jours
+            new_start = now + timedelta(days=temps_minimum)
+
+        new_end = new_start + duration
+        vote_start = new_start - timedelta(days=1)
+
+        period_id = f"{new_start.strftime('%Y-%m-%d_%H%M')}_{groupe}"
+
+        # Vérifier que la période n'existe pas déjà
+        existing = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
+        if existing:
+            print(f"ℹ️ Période {period_id} existe déjà")
+            return
+
+        period = ExamPeriod(
+            id=period_id,
+            group_number=niveau,
+            groupe=groupe,
+            vote_start_time=vote_start,
+            start_time=new_start,
+            end_time=new_end,
+            votes_closed=False,
+            bonuses_applied=False
+        )
+        db.add(period)
+        db.commit()
+
+        print(f"✅ Examen auto-programmé pour {groupe} : {new_start.strftime('%d/%m/%Y %H:%M')} - {new_end.strftime('%d/%m/%Y %H:%M')}")
+
+        # Envoyer notification dans le salon mon-examen du groupe
+        category_name = f"📚 Groupe {groupe}"
+        category = discord.utils.get(guild.categories, name=category_name)
+        if category:
+            exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
+            if exam_channel:
+                exam_embed = discord.Embed(
+                    title="📝 Examen Programmé !",
+                    description=f"Un examen a été automatiquement programmé pour le **Groupe {groupe}**.",
+                    color=discord.Color.blue(),
+                    timestamp=datetime.now()
+                )
+                exam_embed.add_field(
+                    name="🗳️ Votes",
+                    value=f"Du {vote_start.strftime('%d/%m à %H:%M')} au {new_start.strftime('%d/%m à %H:%M')}",
+                    inline=False
+                )
+                exam_embed.add_field(
+                    name="📝 Fenêtre d'examen",
+                    value=f"Du {new_start.strftime('%d/%m à %H:%M')} au {new_end.strftime('%d/%m à %H:%M')}",
+                    inline=False
+                )
+                exam_embed.add_field(
+                    name="🔗 Lien vers l'examen",
+                    value="[Clique ici pour accéder à la page d'examen](http://localhost:5000/exams)\n\n"
+                          "⚠️ N'oublie pas de voter avant de passer l'examen !",
+                    inline=False
+                )
+                exam_embed.set_footer(text="Bonne chance ! 💪")
+                await exam_channel.send(embed=exam_embed)
+
+    except Exception as e:
+        print(f"❌ Erreur auto_schedule_exam: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
 
 
 async def create_group_channels(guild: discord.Guild, groupe: str, role: discord.Role):
@@ -343,15 +542,141 @@ async def create_group_channels(guild: discord.Guild, groupe: str, role: discord
     await exam_channel.send(embed=exams_embed)
 
 
+async def finalize_registration(guild: discord.Guild, member: discord.Member, groupe: str, niveau: int = 1):
+    """
+    Finalise l'inscription Discord : crée le rôle, assigne, retire 'nouveau', crée les salons.
+    Appelé après que GroupManager a validé et enregistré l'utilisateur en DB.
+    """
+    user_id = member.id
+    username = member.name
+
+    # 1. Créer ou récupérer le rôle du groupe
+    group_role = discord.utils.get(guild.roles, name=f"Groupe {groupe}")
+    if not group_role:
+        group_role = await guild.create_role(
+            name=f"Groupe {groupe}",
+            color=discord.Color.green(),
+            mentionable=True,
+            hoist=True
+        )
+        print(f"✅ Rôle créé : {group_role.name}")
+
+    # 2. Attribuer le rôle du groupe
+    await member.add_roles(group_role)
+    print(f"✅ Rôle {group_role.name} attribué à {username}")
+
+    # 3. Retirer le rôle "nouveau"
+    nouveau_role = discord.utils.get(guild.roles, name="nouveau")
+    if nouveau_role and nouveau_role in member.roles:
+        await member.remove_roles(nouveau_role)
+        print(f"✅ Rôle 'nouveau' retiré de {username}")
+
+    # 4. Créer les salons si nécessaire
+    await create_group_channels(guild, groupe, group_role)
+
+    # 5. Auto-programmer un examen si d'autres groupes du même niveau en ont
+    await auto_schedule_exam_for_new_group(guild, groupe, niveau)
+
+
+class ConfirmRegistrationView(discord.ui.View):
+    """Vue de confirmation quand le temps de formation est insuffisant"""
+
+    def __init__(self, user_id: int, username: str, groupe: str, niveau: int, temps_restant: float, temps_minimum: float):
+        super().__init__(timeout=60)
+        self.user_id = user_id
+        self.username = username
+        self.groupe = groupe
+        self.niveau = niveau
+        self.temps_restant = temps_restant
+        self.temps_minimum = temps_minimum
+
+    @discord.ui.button(label="Oui, je m'inscris quand même", style=discord.ButtonStyle.success, emoji="✅")
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Ce bouton n'est pas pour toi.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        from db_connection import SessionLocal
+        from group_manager import GroupManager
+
+        db = SessionLocal()
+        try:
+            gm = GroupManager(db)
+            groupe = gm.confirm_registration_with_insufficient_time(
+                self.user_id, self.username, self.niveau, self.groupe
+            )
+
+            # Finaliser sur Discord
+            guild = interaction.guild
+            member = interaction.user
+            await finalize_registration(guild, member, groupe, self.niveau)
+
+            embed = discord.Embed(
+                title="✅ Inscription réussie !",
+                description=f"Bienvenue dans la formation, {member.mention} !",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="👥 Groupe", value=f"**{groupe}**", inline=True)
+            embed.add_field(name="📊 Niveau", value=f"**{self.niveau}**", inline=True)
+            embed.add_field(name="🆔 Ton ID", value=f"`{self.user_id}`", inline=True)
+            embed.add_field(
+                name="⚠️ Note",
+                value=f"Tu as rejoint avec seulement **{self.temps_restant:.1f}j** avant l'examen "
+                      f"(minimum recommandé : {self.temps_minimum}j). Révise bien !",
+                inline=False
+            )
+            embed.add_field(
+                name="🌐 Liens utiles",
+                value=(
+                    f"📚 Cours : http://localhost:5000/courses\n"
+                    f"📝 Examens : http://localhost:5000/exams\n"
+                    f"Utilise ton ID : `{self.user_id}`"
+                ),
+                inline=False
+            )
+            embed.set_footer(text="Tu recevras tes résultats automatiquement en MP après chaque examen !")
+
+            await interaction.edit_original_response(embed=embed, view=None)
+
+        except Exception as e:
+            print(f"❌ Erreur confirmation inscription: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(
+                "❌ Une erreur s'est produite. Contacte un administrateur.",
+                ephemeral=True
+            )
+        finally:
+            db.close()
+
+    @discord.ui.button(label="Attendre un meilleur moment", style=discord.ButtonStyle.secondary, emoji="⏳")
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Ce bouton n'est pas pour toi.", ephemeral=True)
+            return
+
+        await interaction.response.edit_message(
+            content="✅ Inscription annulée. Tu pourras retenter `/register` plus tard.",
+            embed=None,
+            view=None
+        )
+
+
 @bot.tree.command(name="register", description="S'inscrire dans le système")
 async def register(interaction: discord.Interaction):
     """
-    Inscription complète : assigne un groupe, crée les salons, retire le rôle 'nouveau'
+    Inscription complète via GroupManager :
+    - Vérifie le temps de formation avant examen
+    - Gère la waiting list si nécessaire
+    - Assigne un groupe, crée les salons, retire le rôle 'nouveau'
     """
     await interaction.response.defer(ephemeral=True)
 
     from db_connection import SessionLocal
-    from models import Utilisateur, Cohorte
+    from models import Utilisateur
+    from group_manager import GroupManager
 
     guild = interaction.guild
     member = interaction.user
@@ -361,14 +686,15 @@ async def register(interaction: discord.Interaction):
     db = SessionLocal()
 
     try:
-        # Vérifier si déjà inscrit
-        existing = db.query(Utilisateur).filter(Utilisateur.user_id == user_id).first()
+        gm = GroupManager(db)
+        groupe, info = gm.register_user(user_id, username, niveau=1)
 
-        if existing:
+        # CAS 1 : Déjà inscrit
+        if info['status'] == 'already_registered':
             await interaction.followup.send(
                 f"✅ **Déjà inscrit !**\n\n"
-                f"**Groupe** : {existing.groupe}\n"
-                f"**Niveau** : {existing.niveau_actuel}\n"
+                f"**Groupe** : {groupe}\n"
+                f"**Niveau** : 1\n"
                 f"**ID** : `{user_id}`\n\n"
                 f"🌐 Site des cours : http://localhost:5000/courses\n"
                 f"🌐 Site des examens : http://localhost:5000/exams",
@@ -376,108 +702,105 @@ async def register(interaction: discord.Interaction):
             )
             return
 
-        # 1. Trouver le groupe disponible au niveau 1
-        groupe = await get_available_group(guild, niveau=1)
-        print(f"📌 Groupe attribué à {username} : {groupe}")
+        # CAS 2 : Inscription directe (groupe disponible, temps suffisant)
+        elif info['status'] == 'direct':
+            print(f"📌 Groupe attribué à {username} : {groupe}")
 
-        # 2. Créer ou récupérer le rôle du groupe
-        group_role = discord.utils.get(guild.roles, name=f"Groupe {groupe}")
-        if not group_role:
-            group_role = await guild.create_role(
-                name=f"Groupe {groupe}",
-                color=discord.Color.green(),
-                mentionable=True,
-                hoist=True
+            # Finaliser sur Discord (rôle, salons, etc.)
+            await finalize_registration(guild, member, groupe, niveau=1)
+
+            embed = discord.Embed(
+                title="✅ Inscription réussie !",
+                description=f"Bienvenue dans la formation, {member.mention} !",
+                color=discord.Color.green()
             )
-            print(f"✅ Rôle créé : {group_role.name}")
-
-        # 3. Attribuer le rôle du groupe
-        await member.add_roles(group_role)
-        print(f"✅ Rôle {group_role.name} attribué à {username}")
-
-        # 4. Retirer le rôle "nouveau"
-        nouveau_role = discord.utils.get(guild.roles, name="nouveau")
-        if nouveau_role and nouveau_role in member.roles:
-            await member.remove_roles(nouveau_role)
-            print(f"✅ Rôle 'nouveau' retiré de {username}")
-
-        # 5. Créer les salons si nécessaire
-        await create_group_channels(guild, groupe, group_role)
-
-        # 6. Enregistrer en base de données
-        now = datetime.now()
-        month = now.strftime("%b").upper()
-        year = str(now.year)[-2:]
-        cohorte_id = f"{month}{year}-A"
-
-        cohorte = db.query(Cohorte).filter(Cohorte.id == cohorte_id).first()
-        if not cohorte:
-            cohorte = Cohorte(
-                id=cohorte_id,
-                date_creation=now,
-                date_premier_examen=now + timedelta(days=14),
-                niveau_actuel=1,
-                statut='active'
+            embed.add_field(name="👥 Groupe", value=f"**{groupe}**", inline=True)
+            embed.add_field(name="📊 Niveau", value="**1**", inline=True)
+            embed.add_field(name="🆔 Ton ID", value=f"`{user_id}`", inline=True)
+            embed.add_field(
+                name="🎯 Prochaines étapes",
+                value=(
+                    f"1️⃣ Va dans ta catégorie **📚 Groupe {groupe}**\n"
+                    "2️⃣ Consulte les ressources et le salon d'entraide\n"
+                    "3️⃣ Accède aux cours sur le site\n"
+                    "4️⃣ Prépare-toi pour l'examen du Niveau 1"
+                ),
+                inline=False
             )
-            db.add(cohorte)
-            db.flush()
+            embed.add_field(
+                name="🌐 Liens utiles",
+                value=(
+                    f"📚 Cours : http://localhost:5000/courses\n"
+                    f"📝 Examens : http://localhost:5000/exams\n"
+                    f"Utilise ton ID : `{user_id}`"
+                ),
+                inline=False
+            )
+            embed.set_footer(text="Tu recevras tes résultats automatiquement en MP après chaque examen !")
 
-        new_user = Utilisateur(
-            user_id=user_id,
-            username=username,
-            cohorte_id=cohorte_id,
-            niveau_actuel=1,
-            groupe=groupe,
-            examens_reussis=0,
-            date_inscription=now
-        )
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
-        db.add(new_user)
-        db.commit()
-        print(f"✅ Utilisateur {username} enregistré en DB")
+        # CAS 3 : Temps insuffisant avant examen → demander confirmation
+        elif info['status'] == 'needs_confirmation':
+            temps_restant = info['temps_restant_jours']
+            temps_minimum = info['temps_formation_minimum']
+            groupe_propose = info['groupe']
 
-        # 7. Réponse de confirmation
-        embed = discord.Embed(
-            title="✅ Inscription réussie !",
-            description=f"Bienvenue dans la formation, {member.mention} !",
-            color=discord.Color.green()
-        )
+            embed = discord.Embed(
+                title="⚠️ Temps de formation limité",
+                description=(
+                    f"Le groupe **{groupe_propose}** a un examen dans **{temps_restant:.1f} jour(s)**.\n"
+                    f"Le temps de formation recommandé est de **{temps_minimum} jour(s)**.\n\n"
+                    "Tu peux quand même t'inscrire, mais tu auras moins de temps pour te préparer."
+                ),
+                color=discord.Color.orange()
+            )
 
-        embed.add_field(name="👥 Groupe", value=f"**{groupe}**", inline=True)
-        embed.add_field(name="📊 Niveau", value="**1**", inline=True)
-        embed.add_field(name="🆔 Ton ID", value=f"`{user_id}`", inline=True)
+            view = ConfirmRegistrationView(
+                user_id=user_id,
+                username=username,
+                groupe=groupe_propose,
+                niveau=1,
+                temps_restant=temps_restant,
+                temps_minimum=temps_minimum
+            )
 
-        embed.add_field(
-            name="🎯 Prochaines étapes",
-            value=(
-                f"1️⃣ Va dans ta catégorie **📚 Groupe {groupe}**\n"
-                "2️⃣ Consulte les ressources et le salon d'entraide\n"
-                "3️⃣ Accède aux cours sur le site\n"
-                "4️⃣ Prépare-toi pour l'examen du Niveau 1"
-            ),
-            inline=False
-        )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
-        embed.add_field(
-            name="🌐 Liens utiles",
-            value=(
-                f"📚 Cours : http://localhost:5000/courses\n"
-                f"📝 Examens : http://localhost:5000/exams\n"
-                f"Utilise ton ID : `{user_id}`"
-            ),
-            inline=False
-        )
+        # CAS 4 : Waiting list (tous les groupes pleins)
+        elif info['status'] == 'waiting_list':
+            wl_type = info.get('waiting_list_type', 'groupe_plein')
 
-        embed.set_footer(text="Tu recevras tes résultats automatiquement en MP après chaque examen !")
+            embed = discord.Embed(
+                title="⏳ Ajouté à la liste d'attente",
+                description=(
+                    "Tous les groupes du Niveau 1 sont actuellement pleins.\n"
+                    "Tu as été ajouté à la **liste d'attente**."
+                ),
+                color=discord.Color.orange()
+            )
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
+            if wl_type == 'groupe_plein':
+                embed.add_field(
+                    name="📋 Que va-t-il se passer ?",
+                    value=(
+                        "- Dès qu'une place se libère, tu seras automatiquement assigné\n"
+                        "- Si **7 personnes ou plus** sont en attente, un nouveau groupe sera créé\n"
+                        "- Tu recevras un message quand tu seras assigné"
+                    ),
+                    inline=False
+                )
+
+            embed.set_footer(text="Patience, tu seras bientôt inscrit !")
+
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
     except Exception as e:
         print(f"❌ Erreur inscription: {e}")
         import traceback
         traceback.print_exc()
         await interaction.followup.send(
-            f"❌ Une erreur s'est produite lors de l'inscription. Contacte un administrateur.",
+            "❌ Une erreur s'est produite lors de l'inscription. Contacte un administrateur.",
             ephemeral=True
         )
 
@@ -945,129 +1268,152 @@ async def create_exam_period(
     start_time: str,
     duration_hours: int = 2
 ):
-    """Crée une période d'examen (fenêtre pendant laquelle les élèves peuvent passer l'examen)"""
+    """
+    Crée une période d'examen pour TOUS les groupes existants d'un niveau.
+    Ex: /create_exam_period group:1 → crée un ExamPeriod pour 1-A, 1-B, etc.
+    """
     await interaction.response.defer(ephemeral=True)
 
     from datetime import datetime, timedelta
     from db_connection import SessionLocal
-    from models import ExamPeriod
+    from models import ExamPeriod, Utilisateur
 
     try:
-        # Parser la date
         start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
         end = start + timedelta(hours=duration_hours)
-        vote_start = start - timedelta(days=1)  # Votes ouverts 24h avant
+        vote_start = start - timedelta(days=1)
 
-        # Générer l'ID
-        period_id = f"{start.strftime('%Y-%m-%d')}_group{group}"
-
-        # Créer la période
         db = SessionLocal()
         try:
-            # Vérifier si une période existe déjà
-            existing = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
-            if existing:
-                # Vérifier si la période est terminée
-                now = datetime.now()
-                if existing.end_time >= now:
-                    # Période encore active, on bloque
-                    await interaction.followup.send(
-                        f"⚠️ **Une période d'examen ACTIVE existe déjà !**\n\n"
-                        f"🆔 ID: `{period_id}`\n"
-                        f"📊 Groupe: Niveau {existing.group_number}\n"
-                        f"⏰ Début: {existing.start_time.strftime('%d/%m/%Y %H:%M')}\n"
-                        f"🏁 Fin: {existing.end_time.strftime('%d/%m/%Y %H:%M')}\n\n"
-                        f"💡 Pour créer une nouvelle période:\n"
-                        f"• Utilise une date différente, OU\n"
-                        f"• Attends la fin de la période actuelle, OU\n"
-                        f"• Supprime d'abord l'ancienne avec `/delete_exam_period {period_id}`",
-                        ephemeral=True
-                    )
-                    return
-                else:
-                    # Période terminée, on la supprime automatiquement
-                    print(f"🗑️ Suppression automatique de la période terminée {period_id}")
-                    db.delete(existing)
-                    db.commit()
+            # Trouver tous les groupes existants pour ce niveau (via la DB)
+            groupes_existants = db.query(Utilisateur.groupe).filter(
+                Utilisateur.niveau_actuel == group,
+                Utilisateur.in_rattrapage == False,
+                Utilisateur.groupe.like(f"{group}-%")
+            ).distinct().all()
 
-            period = ExamPeriod(
-                id=period_id,
-                group_number=group,
-                vote_start_time=vote_start,
-                start_time=start,
-                end_time=end,
-                votes_closed=False,
-                bonuses_applied=False
-            )
+            groupes = [g[0] for g in groupes_existants]
 
-            db.add(period)
+            # Si aucun groupe en DB, vérifier les rôles Discord
+            if not groupes:
+                guild = interaction.guild
+                if guild:
+                    for letter in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
+                        role = discord.utils.get(guild.roles, name=f"Groupe {group}-{letter}")
+                        if role and len(role.members) > 0:
+                            groupes.append(f"{group}-{letter}")
+
+            if not groupes:
+                await interaction.followup.send(
+                    f"⚠️ Aucun groupe trouvé pour le niveau {group}. "
+                    f"Les périodes d'examen seront créées automatiquement quand un groupe existera.",
+                    ephemeral=True
+                )
+                return
+
+            now = datetime.now()
+            created_periods = []
+            skipped = []
+
+            for groupe in groupes:
+                period_id = f"{start.strftime('%Y-%m-%d_%H%M')}_{groupe}"
+
+                # Vérifier si une période active existe déjà pour ce groupe
+                existing = db.query(ExamPeriod).filter(
+                    ExamPeriod.group_number == group,
+                    ExamPeriod.groupe == groupe,
+                    ExamPeriod.end_time >= now
+                ).first()
+
+                if existing:
+                    skipped.append(f"{groupe} (déjà actif: {existing.id})")
+                    continue
+
+                # Supprimer les anciennes périodes terminées pour ce groupe
+                old_periods = db.query(ExamPeriod).filter(
+                    ExamPeriod.group_number == group,
+                    ExamPeriod.groupe == groupe,
+                    ExamPeriod.end_time < now
+                ).all()
+                for old in old_periods:
+                    db.delete(old)
+
+                period = ExamPeriod(
+                    id=period_id,
+                    group_number=group,
+                    groupe=groupe,
+                    vote_start_time=vote_start,
+                    start_time=start,
+                    end_time=end,
+                    votes_closed=False,
+                    bonuses_applied=False
+                )
+
+                db.add(period)
+                created_periods.append(period)
+
             db.commit()
 
-            # Planifier automatiquement l'application des bonus à la fin de la période
-            schedule_bonus_application(bot, period)
+            # Planifier les bonus pour chaque période créée
+            for period in created_periods:
+                schedule_bonus_application(bot, period)
 
+            # Embed de confirmation
             embed = discord.Embed(
-                title="✅ Période d'Examen Créée",
+                title="✅ Périodes d'Examen Créées",
                 color=discord.Color.green()
             )
-
-            embed.add_field(name="🆔 ID", value=period_id, inline=False)
-            embed.add_field(name="📊 Groupe", value=f"Niveau {group}", inline=True)
+            embed.add_field(name="📊 Niveau", value=f"{group}", inline=True)
+            embed.add_field(name="📝 Groupes", value=", ".join([p.groupe for p in created_periods]) or "Aucun", inline=True)
             embed.add_field(name="🗳️ Votes ouverts", value=vote_start.strftime("%d/%m/%Y %H:%M"), inline=False)
             embed.add_field(name="⏰ Début examen", value=start.strftime("%d/%m/%Y %H:%M"), inline=True)
             embed.add_field(name="🏁 Fin examen", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
 
+            if skipped:
+                embed.add_field(
+                    name="⚠️ Ignorés (période active existante)",
+                    value="\n".join(skipped),
+                    inline=False
+                )
+
             await interaction.followup.send(embed=embed, ephemeral=True)
 
-            # Envoyer le lien d'examen dans le salon "mon-examen" du groupe
+            # Envoyer les notifications dans les salons d'examen de chaque groupe
             guild = interaction.guild
             if guild:
-                # Chercher le salon mon-examen pour ce groupe
-                # Format: groupe-X-y où X est le niveau et y une lettre
-                # On cherche tous les groupes du niveau concerné
-                possible_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
-
-                for letter in possible_letters:
-                    # Chercher la catégorie du groupe
-                    category_name = f"📚 Groupe {group}-{letter.upper()}"
+                for period in created_periods:
+                    category_name = f"📚 Groupe {period.groupe}"
                     category = discord.utils.get(guild.categories, name=category_name)
 
                     if category:
-                        # Chercher le salon mon-examen dans cette catégorie
                         exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
 
                         if exam_channel:
-                            # Créer l'embed pour les étudiants
                             exam_embed = discord.Embed(
                                 title="📝 Nouvelle Période d'Examen !",
-                                description=f"Une nouvelle période d'examen a été programmée pour le Groupe {group}.",
+                                description=f"Une nouvelle période d'examen a été programmée pour le **Groupe {period.groupe}**.",
                                 color=discord.Color.blue(),
                                 timestamp=datetime.now()
                             )
-
                             exam_embed.add_field(
                                 name="🗳️ Votes",
                                 value=f"Du {vote_start.strftime('%d/%m à %H:%M')} au {start.strftime('%d/%m à %H:%M')}",
                                 inline=False
                             )
-
                             exam_embed.add_field(
                                 name="📝 Fenêtre d'examen",
                                 value=f"Du {start.strftime('%d/%m à %H:%M')} au {end.strftime('%d/%m à %H:%M')}",
                                 inline=False
                             )
-
                             exam_embed.add_field(
                                 name="🔗 Lien vers l'examen",
                                 value="[Clique ici pour accéder à la page d'examen](http://localhost:5000/exams)\n\n"
                                       "⚠️ N'oublie pas de voter avant de passer l'examen !",
                                 inline=False
                             )
-
                             exam_embed.set_footer(text="Bonne chance ! 💪")
-
                             await exam_channel.send(embed=exam_embed)
-                            print(f"✅ Message envoyé dans {exam_channel.name}")
+                            print(f"✅ Notification envoyée dans {exam_channel.name} ({period.groupe})")
 
         finally:
             db.close()

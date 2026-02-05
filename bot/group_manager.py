@@ -184,12 +184,27 @@ class GroupManager:
         }
 
     def _get_next_exam_for_group(self, groupe: str, niveau: int) -> Optional[ExamPeriod]:
-        """Récupère le prochain examen programmé pour un groupe"""
+        """
+        Récupère le prochain examen programmé pour un groupe.
+        Cherche d'abord les périodes spécifiques au groupe,
+        puis les périodes legacy (sans groupe spécifique).
+        """
         now = datetime.utcnow()
 
-        return self.db.query(ExamPeriod).filter(
+        # 1. Chercher une période spécifique à ce groupe
+        period = self.db.query(ExamPeriod).filter(
             ExamPeriod.group_number == niveau,
             ExamPeriod.groupe == groupe,
+            ExamPeriod.start_time > now
+        ).order_by(ExamPeriod.start_time).first()
+
+        if period:
+            return period
+
+        # 2. Fallback : période legacy sans groupe spécifique
+        return self.db.query(ExamPeriod).filter(
+            ExamPeriod.group_number == niveau,
+            ExamPeriod.groupe == None,
             ExamPeriod.start_time > now
         ).order_by(ExamPeriod.start_time).first()
 
