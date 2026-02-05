@@ -24,6 +24,11 @@ LETTRES_GROUPES = [chr(i) for i in range(ord('A'), ord('Z') + 1)]  # A, B, C, ..
 DUREE_EXAMEN_NORMALE = 6  # heures
 DUREE_EXAMEN_RATTRAPAGE = 6  # heures
 
+# Pourcentage de supplément de temps pour les groupes auto-programmés
+# Ex: temps_minimum=2j, supplement=150% → exam dans 2 + (2*1.5) = 5 jours
+# Modifie cette valeur pour ajuster le délai d'examen des nouveaux groupes
+POURCENTAGE_SUPPLEMENT_FORMATION = 1.5  # 150% du temps minimum ajouté en supplément
+
 # Délais pour les rattrapages selon la note (fraction du temps de formation)
 DELAI_RATTRAPAGE = {
     'tres_faible': None,  # < 20% : waiting list

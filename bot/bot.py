@@ -310,62 +310,62 @@ async def get_available_group(guild: discord.Guild, niveau: int) -> str:
 
 async def auto_schedule_exam_for_new_group(guild: discord.Guild, groupe: str, niveau: int):
     """
-    Quand un nouveau groupe est créé, vérifie si d'autres groupes du même niveau
-    ont des examens programmés. Si oui, programme un examen pour ce groupe aussi.
+    Auto-programme un examen quand un NOUVEAU groupe est créé.
+    Les groupes -A sont programmés MANUELLEMENT par l'admin → on les ignore ici.
 
-    - Si l'examen existant est dans >= TEMPS_FORMATION_MINIMUM jours : même date
-    - Sinon : programmer à now + TEMPS_FORMATION_MINIMUM jours
+    Calcul de la date d'examen :
+      exam_date = maintenant + temps_minimum + (POURCENTAGE_SUPPLEMENT * temps_minimum)
+      Ex: niveau 1 (2j min, 150% supplement) → exam dans 2 + 3 = 5 jours
+
+    La durée de la fenêtre d'examen est copiée depuis le groupe -A du même niveau.
     """
     from db_connection import SessionLocal
     from models import ExamPeriod
-    from cohort_config import TEMPS_FORMATION_MINIMUM
+    from cohort_config import TEMPS_FORMATION_MINIMUM, POURCENTAGE_SUPPLEMENT_FORMATION, DUREE_EXAMEN_NORMALE
+
+    # Les groupes -A sont programmés manuellement par l'admin
+    if '-' in groupe:
+        letter = groupe.split('-')[1]
+        if letter == 'A':
+            print(f"ℹ️ Groupe {groupe} : pas d'auto-scheduling (groupe -A = programmation manuelle)")
+            return
 
     db = SessionLocal()
     try:
         now = datetime.utcnow()
-        temps_minimum = TEMPS_FORMATION_MINIMUM.get(niveau, 3)
 
-        # Chercher un examen à venir pour un autre groupe du même niveau
-        existing_exam = db.query(ExamPeriod).filter(
-            ExamPeriod.group_number == niveau,
-            ExamPeriod.end_time > now,
-            ExamPeriod.groupe != groupe,
-            ExamPeriod.groupe != None
-        ).order_by(ExamPeriod.start_time).first()
+        # Vérifier si un examen existe déjà pour ce groupe
+        existing = db.query(ExamPeriod).filter(
+            ExamPeriod.groupe == groupe,
+            ExamPeriod.end_time > now
+        ).first()
 
-        # Aussi vérifier les anciens ExamPeriod sans groupe spécifique (legacy)
-        if not existing_exam:
-            existing_exam = db.query(ExamPeriod).filter(
-                ExamPeriod.group_number == niveau,
-                ExamPeriod.end_time > now,
-                ExamPeriod.groupe == None
-            ).order_by(ExamPeriod.start_time).first()
-
-        if not existing_exam:
-            print(f"ℹ️ Pas d'examen existant pour le niveau {niveau}, pas d'auto-scheduling")
+        if existing:
+            print(f"ℹ️ Groupe {groupe} a déjà un examen programmé ({existing.id})")
             return
 
-        # Calculer la date de l'examen pour le nouveau groupe
-        temps_restant_jours = (existing_exam.start_time - now).total_seconds() / 86400
-        duration = existing_exam.end_time - existing_exam.start_time
+        # Calculer la date d'examen
+        temps_minimum = TEMPS_FORMATION_MINIMUM.get(niveau, 3)
+        supplement = temps_minimum * POURCENTAGE_SUPPLEMENT_FORMATION
+        total_jours = temps_minimum + supplement
 
-        if temps_restant_jours >= temps_minimum:
-            # Assez de temps → même date que les autres groupes
-            new_start = existing_exam.start_time
+        new_start = now + timedelta(days=total_jours)
+
+        # Récupérer la durée depuis l'examen du groupe -A (même niveau)
+        group_a_exam = db.query(ExamPeriod).filter(
+            ExamPeriod.groupe == f"{niveau}-A",
+            ExamPeriod.group_number == niveau
+        ).order_by(ExamPeriod.start_time.desc()).first()
+
+        if group_a_exam:
+            duration = group_a_exam.end_time - group_a_exam.start_time
         else:
-            # Pas assez de temps → programmer dans TEMPS_FORMATION_MINIMUM jours
-            new_start = now + timedelta(days=temps_minimum)
+            duration = timedelta(hours=DUREE_EXAMEN_NORMALE)
 
         new_end = new_start + duration
         vote_start = new_start - timedelta(days=1)
 
         period_id = f"{new_start.strftime('%Y-%m-%d_%H%M')}_{groupe}"
-
-        # Vérifier que la période n'existe pas déjà
-        existing = db.query(ExamPeriod).filter(ExamPeriod.id == period_id).first()
-        if existing:
-            print(f"ℹ️ Période {period_id} existe déjà")
-            return
 
         period = ExamPeriod(
             id=period_id,
@@ -380,7 +380,9 @@ async def auto_schedule_exam_for_new_group(guild: discord.Guild, groupe: str, ni
         db.add(period)
         db.commit()
 
-        print(f"✅ Examen auto-programmé pour {groupe} : {new_start.strftime('%d/%m/%Y %H:%M')} - {new_end.strftime('%d/%m/%Y %H:%M')}")
+        print(f"✅ Examen AUTO-programmé pour {groupe} :")
+        print(f"   📅 Date : {new_start.strftime('%d/%m/%Y %H:%M')} → {new_end.strftime('%d/%m/%Y %H:%M')}")
+        print(f"   📐 Calcul : {temps_minimum}j min + {supplement}j supplement ({POURCENTAGE_SUPPLEMENT_FORMATION*100}%) = {total_jours}j")
 
         # Envoyer notification dans le salon mon-examen du groupe
         category_name = f"📚 Groupe {groupe}"
@@ -389,7 +391,7 @@ async def auto_schedule_exam_for_new_group(guild: discord.Guild, groupe: str, ni
             exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
             if exam_channel:
                 exam_embed = discord.Embed(
-                    title="📝 Examen Programmé !",
+                    title="📝 Examen Auto-Programmé !",
                     description=f"Un examen a été automatiquement programmé pour le **Groupe {groupe}**.",
                     color=discord.Color.blue(),
                     timestamp=datetime.now()
@@ -412,6 +414,9 @@ async def auto_schedule_exam_for_new_group(guild: discord.Guild, groupe: str, ni
                 )
                 exam_embed.set_footer(text="Bonne chance ! 💪")
                 await exam_channel.send(embed=exam_embed)
+
+                # Planifier les bonus
+                schedule_bonus_application(bot, period)
 
     except Exception as e:
         print(f"❌ Erreur auto_schedule_exam: {e}")
@@ -1254,173 +1259,148 @@ async def vote(
 
 
 # ==================== COMMANDE /create_exam_period ====================
-@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen")
+@bot.tree.command(name="create_exam_period", description="[ADMIN] Créer une période d'examen pour un groupe")
 @app_commands.default_permissions(administrator=True)
 @commands.has_permissions(administrator=True)
 @app_commands.describe(
-    group="Niveau du groupe (1-5)",
+    groupe="Groupe cible (ex: 1-A, 2-B)",
     start_time="Date et heure de début (format: YYYY-MM-DD HH:MM)",
     duration_hours="Durée de la fenêtre d'examen en heures (défaut: 2)"
 )
 async def create_exam_period(
     interaction: discord.Interaction,
-    group: int,
+    groupe: str,
     start_time: str,
     duration_hours: int = 2
 ):
     """
-    Crée une période d'examen pour TOUS les groupes existants d'un niveau.
-    Ex: /create_exam_period group:1 → crée un ExamPeriod pour 1-A, 1-B, etc.
+    Crée UNE période d'examen pour UN groupe spécifique.
+    Usage principal : programmer manuellement l'examen du groupe -A.
+    Les autres groupes (-B, -C, etc.) sont auto-programmés à leur création.
     """
     await interaction.response.defer(ephemeral=True)
 
     from datetime import datetime, timedelta
     from db_connection import SessionLocal
-    from models import ExamPeriod, Utilisateur
+    from models import ExamPeriod
 
     try:
+        # Valider le format du groupe (ex: "1-A", "2-B")
+        if '-' not in groupe or len(groupe.split('-')) != 2:
+            await interaction.followup.send(
+                "❌ Format de groupe incorrect. Utilise : X-Y (ex: 1-A, 2-B)",
+                ephemeral=True
+            )
+            return
+
+        niveau = int(groupe.split('-')[0])
+
         start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
         end = start + timedelta(hours=duration_hours)
         vote_start = start - timedelta(days=1)
 
+        period_id = f"{start.strftime('%Y-%m-%d_%H%M')}_{groupe}"
+
         db = SessionLocal()
         try:
-            # Trouver tous les groupes existants pour ce niveau (via la DB)
-            groupes_existants = db.query(Utilisateur.groupe).filter(
-                Utilisateur.niveau_actuel == group,
-                Utilisateur.in_rattrapage == False,
-                Utilisateur.groupe.like(f"{group}-%")
-            ).distinct().all()
+            now = datetime.now()
 
-            groupes = [g[0] for g in groupes_existants]
+            # Vérifier si une période active existe déjà pour ce groupe
+            existing = db.query(ExamPeriod).filter(
+                ExamPeriod.groupe == groupe,
+                ExamPeriod.end_time >= now
+            ).first()
 
-            # Si aucun groupe en DB, vérifier les rôles Discord
-            if not groupes:
-                guild = interaction.guild
-                if guild:
-                    for letter in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
-                        role = discord.utils.get(guild.roles, name=f"Groupe {group}-{letter}")
-                        if role and len(role.members) > 0:
-                            groupes.append(f"{group}-{letter}")
-
-            if not groupes:
+            if existing:
                 await interaction.followup.send(
-                    f"⚠️ Aucun groupe trouvé pour le niveau {group}. "
-                    f"Les périodes d'examen seront créées automatiquement quand un groupe existera.",
+                    f"⚠️ **Une période d'examen ACTIVE existe déjà pour {groupe} !**\n\n"
+                    f"🆔 ID: `{existing.id}`\n"
+                    f"⏰ Début: {existing.start_time.strftime('%d/%m/%Y %H:%M')}\n"
+                    f"🏁 Fin: {existing.end_time.strftime('%d/%m/%Y %H:%M')}\n\n"
+                    f"💡 Supprime d'abord l'ancienne avec `/delete_exam_period {existing.id}`",
                     ephemeral=True
                 )
                 return
 
-            now = datetime.now()
-            created_periods = []
-            skipped = []
+            period = ExamPeriod(
+                id=period_id,
+                group_number=niveau,
+                groupe=groupe,
+                vote_start_time=vote_start,
+                start_time=start,
+                end_time=end,
+                votes_closed=False,
+                bonuses_applied=False
+            )
 
-            for groupe in groupes:
-                period_id = f"{start.strftime('%Y-%m-%d_%H%M')}_{groupe}"
-
-                # Vérifier si une période active existe déjà pour ce groupe
-                existing = db.query(ExamPeriod).filter(
-                    ExamPeriod.group_number == group,
-                    ExamPeriod.groupe == groupe,
-                    ExamPeriod.end_time >= now
-                ).first()
-
-                if existing:
-                    skipped.append(f"{groupe} (déjà actif: {existing.id})")
-                    continue
-
-                # Supprimer les anciennes périodes terminées pour ce groupe
-                old_periods = db.query(ExamPeriod).filter(
-                    ExamPeriod.group_number == group,
-                    ExamPeriod.groupe == groupe,
-                    ExamPeriod.end_time < now
-                ).all()
-                for old in old_periods:
-                    db.delete(old)
-
-                period = ExamPeriod(
-                    id=period_id,
-                    group_number=group,
-                    groupe=groupe,
-                    vote_start_time=vote_start,
-                    start_time=start,
-                    end_time=end,
-                    votes_closed=False,
-                    bonuses_applied=False
-                )
-
-                db.add(period)
-                created_periods.append(period)
-
+            db.add(period)
             db.commit()
 
-            # Planifier les bonus pour chaque période créée
-            for period in created_periods:
-                schedule_bonus_application(bot, period)
+            # Planifier les bonus
+            schedule_bonus_application(bot, period)
 
             # Embed de confirmation
             embed = discord.Embed(
-                title="✅ Périodes d'Examen Créées",
+                title="✅ Période d'Examen Créée",
                 color=discord.Color.green()
             )
-            embed.add_field(name="📊 Niveau", value=f"{group}", inline=True)
-            embed.add_field(name="📝 Groupes", value=", ".join([p.groupe for p in created_periods]) or "Aucun", inline=True)
+            embed.add_field(name="🆔 ID", value=period_id, inline=False)
+            embed.add_field(name="👥 Groupe", value=groupe, inline=True)
+            embed.add_field(name="📊 Niveau", value=str(niveau), inline=True)
             embed.add_field(name="🗳️ Votes ouverts", value=vote_start.strftime("%d/%m/%Y %H:%M"), inline=False)
             embed.add_field(name="⏰ Début examen", value=start.strftime("%d/%m/%Y %H:%M"), inline=True)
             embed.add_field(name="🏁 Fin examen", value=end.strftime("%d/%m/%Y %H:%M"), inline=True)
-
-            if skipped:
-                embed.add_field(
-                    name="⚠️ Ignorés (période active existante)",
-                    value="\n".join(skipped),
-                    inline=False
-                )
+            embed.add_field(
+                name="ℹ️ Note",
+                value="Les groupes -B, -C, etc. seront auto-programmés à leur création.",
+                inline=False
+            )
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 
-            # Envoyer les notifications dans les salons d'examen de chaque groupe
+            # Envoyer notification dans le salon d'examen du groupe
             guild = interaction.guild
             if guild:
-                for period in created_periods:
-                    category_name = f"📚 Groupe {period.groupe}"
-                    category = discord.utils.get(guild.categories, name=category_name)
+                category_name = f"📚 Groupe {groupe}"
+                category = discord.utils.get(guild.categories, name=category_name)
 
-                    if category:
-                        exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
+                if category:
+                    exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
 
-                        if exam_channel:
-                            exam_embed = discord.Embed(
-                                title="📝 Nouvelle Période d'Examen !",
-                                description=f"Une nouvelle période d'examen a été programmée pour le **Groupe {period.groupe}**.",
-                                color=discord.Color.blue(),
-                                timestamp=datetime.now()
-                            )
-                            exam_embed.add_field(
-                                name="🗳️ Votes",
-                                value=f"Du {vote_start.strftime('%d/%m à %H:%M')} au {start.strftime('%d/%m à %H:%M')}",
-                                inline=False
-                            )
-                            exam_embed.add_field(
-                                name="📝 Fenêtre d'examen",
-                                value=f"Du {start.strftime('%d/%m à %H:%M')} au {end.strftime('%d/%m à %H:%M')}",
-                                inline=False
-                            )
-                            exam_embed.add_field(
-                                name="🔗 Lien vers l'examen",
-                                value="[Clique ici pour accéder à la page d'examen](http://localhost:5000/exams)\n\n"
-                                      "⚠️ N'oublie pas de voter avant de passer l'examen !",
-                                inline=False
-                            )
-                            exam_embed.set_footer(text="Bonne chance ! 💪")
-                            await exam_channel.send(embed=exam_embed)
-                            print(f"✅ Notification envoyée dans {exam_channel.name} ({period.groupe})")
+                    if exam_channel:
+                        exam_embed = discord.Embed(
+                            title="📝 Nouvelle Période d'Examen !",
+                            description=f"Une période d'examen a été programmée pour le **Groupe {groupe}**.",
+                            color=discord.Color.blue(),
+                            timestamp=datetime.now()
+                        )
+                        exam_embed.add_field(
+                            name="🗳️ Votes",
+                            value=f"Du {vote_start.strftime('%d/%m à %H:%M')} au {start.strftime('%d/%m à %H:%M')}",
+                            inline=False
+                        )
+                        exam_embed.add_field(
+                            name="📝 Fenêtre d'examen",
+                            value=f"Du {start.strftime('%d/%m à %H:%M')} au {end.strftime('%d/%m à %H:%M')}",
+                            inline=False
+                        )
+                        exam_embed.add_field(
+                            name="🔗 Lien vers l'examen",
+                            value="[Clique ici pour accéder à la page d'examen](http://localhost:5000/exams)\n\n"
+                                  "⚠️ N'oublie pas de voter avant de passer l'examen !",
+                            inline=False
+                        )
+                        exam_embed.set_footer(text="Bonne chance ! 💪")
+                        await exam_channel.send(embed=exam_embed)
+                        print(f"✅ Notification envoyée dans {exam_channel.name} ({groupe})")
 
         finally:
             db.close()
 
     except ValueError:
         await interaction.followup.send(
-            "❌ Format de date incorrect. Utilise : YYYY-MM-DD HH:MM",
+            "❌ Format de date incorrect. Utilise : YYYY-MM-DD HH:MM\n"
+            "Format de groupe : X-Y (ex: 1-A)",
             ephemeral=True
         )
 

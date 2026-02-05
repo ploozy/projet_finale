@@ -121,20 +121,22 @@ class GroupManager:
 
     def _find_available_group(self, niveau: int) -> dict:
         """
-        Trouve un groupe disponible pour un niveau donné
+        Trouve un groupe disponible pour un niveau donné.
+
+        Parcourt TOUS les groupes de A à Z :
+        1. Si un groupe a de la place ET pas d'examen OU temps suffisant → direct
+        2. Si un groupe a de la place MAIS temps insuffisant → on le note comme fallback
+           et on continue de chercher un meilleur groupe
+        3. Si tous les groupes sont pleins → waiting_list
+        4. Si aucun groupe direct trouvé mais un fallback existe → needs_confirmation
 
         Returns:
-            dict avec :
-            - 'status': 'direct', 'needs_confirmation', ou 'waiting_list'
-            - 'groupe': nom du groupe (si direct ou needs_confirmation)
-            - 'temps_restant_jours': jours avant examen (si needs_confirmation)
-            - 'temps_formation_minimum': temps minimum requis (si needs_confirmation)
-            - 'waiting_list_type': type de waiting list (si waiting_list)
-            - 'target_group': groupe cible (si waiting_list pour nouveau groupe)
+            dict avec status: 'direct', 'needs_confirmation', ou 'waiting_list'
         """
         temps_minimum = TEMPS_FORMATION_MINIMUM.get(niveau, 3)
+        best_fallback = None  # Meilleur groupe avec temps insuffisant
 
-        # Parcourir toutes les lettres possibles
+        # Parcourir TOUS les groupes
         for lettre in LETTRES_GROUPES:
             groupe = f"{niveau}-{lettre}"
 
@@ -145,13 +147,13 @@ class GroupManager:
             ).count()
 
             if count >= MAX_MEMBRES_PAR_GROUPE:
-                continue  # Groupe plein
+                continue  # Groupe plein, passer au suivant
 
             # Groupe a de la place, vérifier le temps restant avant examen
             exam_period = self._get_next_exam_for_group(groupe, niveau)
 
             if not exam_period:
-                # Pas d'examen programmé, inscription directe
+                # Pas d'examen programmé → inscription directe
                 return {
                     'status': 'direct',
                     'groupe': groupe
@@ -159,24 +161,29 @@ class GroupManager:
 
             # Calculer le temps restant
             now = datetime.utcnow()
-            temps_restant = (exam_period.start_time - now).total_seconds() / 86400  # en jours
+            temps_restant = (exam_period.start_time - now).total_seconds() / 86400
 
             if temps_restant >= temps_minimum:
-                # Temps suffisant, inscription directe
+                # Temps suffisant → inscription directe
                 return {
                     'status': 'direct',
                     'groupe': groupe
                 }
             else:
-                # Temps insuffisant, demander confirmation
-                return {
-                    'status': 'needs_confirmation',
-                    'groupe': groupe,
-                    'temps_restant_jours': temps_restant,
-                    'temps_formation_minimum': temps_minimum
-                }
+                # Temps insuffisant → noter comme fallback, CONTINUER à chercher
+                if best_fallback is None or temps_restant > best_fallback['temps_restant_jours']:
+                    best_fallback = {
+                        'status': 'needs_confirmation',
+                        'groupe': groupe,
+                        'temps_restant_jours': temps_restant,
+                        'temps_formation_minimum': temps_minimum
+                    }
 
-        # Tous les groupes A-Z sont pleins → Waiting List générale
+        # Aucun groupe direct trouvé, vérifier le fallback
+        if best_fallback:
+            return best_fallback
+
+        # Tous les groupes A-Z sont pleins → Waiting List
         return {
             'status': 'waiting_list',
             'waiting_list_type': 'groupe_plein',
@@ -335,11 +342,13 @@ class GroupManager:
         # Trouver un groupe disponible au nouveau niveau
         groupe_info = self._find_available_group(new_niveau)
 
-        if groupe_info['status'] == 'direct':
+        if groupe_info['status'] in ('direct', 'needs_confirmation'):
+            # Pour les promotions : on accepte automatiquement même si le temps
+            # est insuffisant (l'élève a réussi, il doit avancer)
             user.niveau_actuel = new_niveau
             user.groupe = groupe_info['groupe']
             user.examens_reussis += 1
-            user.in_rattrapage = False  # Sortir du rattrapage si nécessaire
+            user.in_rattrapage = False
             self.db.commit()
 
             return old_groupe, groupe_info['groupe']
@@ -357,10 +366,6 @@ class GroupManager:
             self.db.commit()
 
             return old_groupe, f"Waiting List (Niveau {new_niveau})"
-
-        else:
-            # Ne devrait pas arriver
-            return old_groupe, old_groupe
 
     # ==================== RATTRAPAGE ====================
 
