@@ -142,8 +142,8 @@ async def on_ready():
 async def process_waiting_lists_task():
     """
     Tâche périodique qui vérifie les waiting lists tous les 5 minutes.
-    - Si 7+ personnes en attente pour un niveau → crée un nouveau groupe
-    - Si des places se libèrent → assigne les utilisateurs en attente
+    - Si MIN_PERSONNES+ en attente → crée un nouveau groupe et y assigne les utilisateurs
+    - Envoie MP aux utilisateurs assignés et crée les salons Discord
     """
     from db_connection import SessionLocal
     from group_manager import GroupManager
@@ -157,57 +157,74 @@ async def process_waiting_lists_task():
         niveaux_en_attente = db.query(WaitingList.niveau).distinct().all()
 
         for (niveau,) in niveaux_en_attente:
+            # AVANT traitement : sauvegarder les user_ids en attente
+            waiting_before = {w.user_id for w in db.query(WaitingList).filter(
+                WaitingList.niveau == niveau
+            ).all()}
+
+            if not waiting_before:
+                continue
+
             # Traiter la waiting list via GroupManager
             gm.check_and_process_waiting_lists(niveau)
 
-            # Après traitement, vérifier si des utilisateurs ont été assignés
-            # et leur envoyer un message + créer les salons Discord
-            assigned_users = db.query(Utilisateur).filter(
-                Utilisateur.niveau_actuel == niveau,
-                Utilisateur.groupe.like(f"{niveau}-%")
-            ).all()
+            # APRÈS traitement : trouver les user_ids qui ne sont plus en attente
+            waiting_after = {w.user_id for w in db.query(WaitingList).filter(
+                WaitingList.niveau == niveau
+            ).all()}
 
-            for user in assigned_users:
-                # Vérifier si cet utilisateur était en waiting list
-                still_waiting = db.query(WaitingList).filter(
-                    WaitingList.user_id == user.user_id
-                ).first()
+            # Utilisateurs nouvellement assignés = avant - après
+            newly_assigned_ids = waiting_before - waiting_after
 
-                if still_waiting:
-                    continue  # Toujours en attente
+            if not newly_assigned_ids:
+                continue
 
-                # L'utilisateur a été assigné, mettre à jour Discord
-                if bot.guilds:
-                    guild = bot.guilds[0]
-                    member = guild.get_member(user.user_id)
+            print(f"📋 Waiting list niveau {niveau} : {len(newly_assigned_ids)} utilisateur(s) assigné(s)")
 
-                    if member:
-                        try:
-                            await finalize_registration(guild, member, user.groupe, user.niveau_actuel)
+            # Finaliser chaque utilisateur nouvellement assigné sur Discord
+            if bot.guilds:
+                guild = bot.guilds[0]
 
-                            # Envoyer MP de notification
-                            embed = discord.Embed(
-                                title="🎉 Tu as été assigné à un groupe !",
-                                description=(
-                                    f"Bonne nouvelle ! Tu as été assigné au **Groupe {user.groupe}**.\n"
-                                    "Tu as maintenant accès à tes salons de groupe."
-                                ),
-                                color=discord.Color.green()
-                            )
-                            embed.add_field(name="👥 Groupe", value=user.groupe, inline=True)
-                            embed.add_field(name="📊 Niveau", value=str(user.niveau_actuel), inline=True)
-                            embed.add_field(
-                                name="🌐 Liens utiles",
-                                value=(
-                                    "📚 Cours : http://localhost:5000/courses\n"
-                                    "📝 Examens : http://localhost:5000/exams"
-                                ),
-                                inline=False
-                            )
-                            await member.send(embed=embed)
-                            print(f"✅ Waiting list : {user.username} assigné au groupe {user.groupe}")
-                        except Exception as e:
-                            print(f"⚠️ Erreur notification waiting list pour {user.user_id}: {e}")
+                for user_id in newly_assigned_ids:
+                    user = db.query(Utilisateur).filter(
+                        Utilisateur.user_id == user_id
+                    ).first()
+
+                    if not user:
+                        continue
+
+                    member = guild.get_member(user_id)
+                    if not member:
+                        continue
+
+                    try:
+                        # Créer rôle, salons, auto-schedule exam
+                        await finalize_registration(guild, member, user.groupe, user.niveau_actuel)
+
+                        # Envoyer MP de bienvenue
+                        embed = discord.Embed(
+                            title="🎉 Bienvenue dans ton groupe !",
+                            description=(
+                                f"Tu as été assigné au **Groupe {user.groupe}**.\n"
+                                "Tu as maintenant accès à tes salons de groupe."
+                            ),
+                            color=discord.Color.green()
+                        )
+                        embed.add_field(name="👥 Groupe", value=user.groupe, inline=True)
+                        embed.add_field(name="📊 Niveau", value=str(user.niveau_actuel), inline=True)
+                        embed.add_field(
+                            name="🌐 Liens utiles",
+                            value=(
+                                "📚 Cours : http://localhost:5000/courses\n"
+                                "📝 Examens : http://localhost:5000/exams"
+                            ),
+                            inline=False
+                        )
+                        await member.send(embed=embed)
+                        print(f"   ✅ {user.username} → {user.groupe}")
+
+                    except Exception as e:
+                        print(f"   ⚠️ Erreur pour {user_id}: {e}")
 
     except Exception as e:
         print(f"❌ Erreur process_waiting_lists_task: {e}")
@@ -391,25 +408,19 @@ async def auto_schedule_exam_for_new_group(guild: discord.Guild, groupe: str, ni
             exam_channel = discord.utils.get(category.text_channels, name="📝-mon-examen")
             if exam_channel:
                 exam_embed = discord.Embed(
-                    title="📝 Examen Auto-Programmé !",
-                    description=f"Un examen a été automatiquement programmé pour le **Groupe {groupe}**.",
+                    title="📝 Examen Programmé",
+                    description=f"Votre examen de **Niveau {niveau}** est programmé.",
                     color=discord.Color.blue(),
                     timestamp=datetime.now()
                 )
                 exam_embed.add_field(
-                    name="🗳️ Votes",
-                    value=f"Du {vote_start.strftime('%d/%m à %H:%M')} au {new_start.strftime('%d/%m à %H:%M')}",
+                    name="📅 Date",
+                    value=f"Du {new_start.strftime('%d/%m/%Y à %H:%M')} au {new_end.strftime('%d/%m/%Y à %H:%M')}",
                     inline=False
                 )
                 exam_embed.add_field(
-                    name="📝 Fenêtre d'examen",
-                    value=f"Du {new_start.strftime('%d/%m à %H:%M')} au {new_end.strftime('%d/%m à %H:%M')}",
-                    inline=False
-                )
-                exam_embed.add_field(
-                    name="🔗 Lien vers l'examen",
-                    value="[Clique ici pour accéder à la page d'examen](http://localhost:5000/exams)\n\n"
-                          "⚠️ N'oublie pas de voter avant de passer l'examen !",
+                    name="🔗 Accéder à l'examen",
+                    value="[Cliquez ici](http://localhost:5000/exams)",
                     inline=False
                 )
                 exam_embed.set_footer(text="Bonne chance ! 💪")
@@ -772,25 +783,44 @@ async def register(interaction: discord.Interaction):
 
             await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
-        # CAS 4 : Waiting list (tous les groupes pleins)
+        # CAS 4 : Waiting list
         elif info['status'] == 'waiting_list':
-            wl_type = info.get('waiting_list_type', 'groupe_plein')
+            wl_type = info.get('waiting_list_type', 'nouveau_groupe')
 
-            embed = discord.Embed(
-                title="⏳ Ajouté à la liste d'attente",
-                description=(
-                    "Tous les groupes du Niveau 1 sont actuellement pleins.\n"
-                    "Tu as été ajouté à la **liste d'attente**."
-                ),
-                color=discord.Color.orange()
-            )
+            from cohort_config import MIN_PERSONNES_NOUVEAU_GROUPE
 
-            if wl_type == 'groupe_plein':
+            if wl_type == 'nouveau_groupe':
+                embed = discord.Embed(
+                    title="⏳ Inscription en attente",
+                    description=(
+                        "Tu as été ajouté à la **liste d'attente**.\n"
+                        f"Un groupe sera créé dès que **{MIN_PERSONNES_NOUVEAU_GROUPE} personnes** seront inscrites."
+                    ),
+                    color=discord.Color.orange()
+                )
+                embed.add_field(
+                    name="📋 Comment ça marche ?",
+                    value=(
+                        f"1️⃣ Attends que {MIN_PERSONNES_NOUVEAU_GROUPE} personnes s'inscrivent\n"
+                        "2️⃣ Ton groupe sera créé automatiquement\n"
+                        "3️⃣ Tu recevras un message de confirmation"
+                    ),
+                    inline=False
+                )
+            else:
+                embed = discord.Embed(
+                    title="⏳ Groupe complet - Liste d'attente",
+                    description=(
+                        "Tous les groupes du Niveau 1 sont pleins.\n"
+                        "Tu as été ajouté à la **liste d'attente**."
+                    ),
+                    color=discord.Color.orange()
+                )
                 embed.add_field(
                     name="📋 Que va-t-il se passer ?",
                     value=(
-                        "- Dès qu'une place se libère, tu seras automatiquement assigné\n"
-                        "- Si **7 personnes ou plus** sont en attente, un nouveau groupe sera créé\n"
+                        "- Dès qu'une place se libère, tu seras assigné\n"
+                        f"- Si **{MIN_PERSONNES_NOUVEAU_GROUPE}+ personnes** attendent, un nouveau groupe sera créé\n"
                         "- Tu recevras un message quand tu seras assigné"
                     ),
                     inline=False

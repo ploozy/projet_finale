@@ -121,14 +121,10 @@ class GroupManager:
 
     def _find_available_group(self, niveau: int) -> dict:
         """
-        Trouve un groupe disponible pour un niveau donné.
+        Trouve un groupe EXISTANT disponible pour un niveau donné.
 
-        Parcourt TOUS les groupes de A à Z :
-        1. Si un groupe a de la place ET pas d'examen OU temps suffisant → direct
-        2. Si un groupe a de la place MAIS temps insuffisant → on le note comme fallback
-           et on continue de chercher un meilleur groupe
-        3. Si tous les groupes sont pleins → waiting_list
-        4. Si aucun groupe direct trouvé mais un fallback existe → needs_confirmation
+        IMPORTANT: Un groupe n'existe QUE s'il a des membres (créé via waiting list).
+        Les groupes avec 0 membres sont ignorés → waiting_list pour en créer un.
 
         Returns:
             dict avec status: 'direct', 'needs_confirmation', ou 'waiting_list'
@@ -136,7 +132,7 @@ class GroupManager:
         temps_minimum = TEMPS_FORMATION_MINIMUM.get(niveau, 3)
         best_fallback = None  # Meilleur groupe avec temps insuffisant
 
-        # Parcourir TOUS les groupes
+        # Parcourir les groupes EXISTANTS uniquement
         for lettre in LETTRES_GROUPES:
             groupe = f"{niveau}-{lettre}"
 
@@ -146,10 +142,15 @@ class GroupManager:
                 Utilisateur.in_rattrapage == False
             ).count()
 
+            # IMPORTANT: Un groupe avec 0 membres N'EXISTE PAS encore
+            # Il sera créé quand 7 personnes s'accumulent dans la waiting list
+            if count == 0:
+                continue  # Groupe n'existe pas, passer au suivant
+
             if count >= MAX_MEMBRES_PAR_GROUPE:
                 continue  # Groupe plein, passer au suivant
 
-            # Groupe a de la place, vérifier le temps restant avant examen
+            # Groupe EXISTE et a de la place, vérifier le temps restant avant examen
             exam_period = self._get_next_exam_for_group(groupe, niveau)
 
             if not exam_period:
@@ -179,15 +180,17 @@ class GroupManager:
                         'temps_formation_minimum': temps_minimum
                     }
 
-        # Aucun groupe direct trouvé, vérifier le fallback
+        # Aucun groupe EXISTANT trouvé avec temps suffisant
+        # → Waiting list (soit pour rejoindre un groupe existant, soit pour en créer un nouveau)
         if best_fallback:
+            # Il y a un groupe existant mais avec temps insuffisant
             return best_fallback
 
-        # Tous les groupes A-Z sont pleins → Waiting List
+        # Aucun groupe existant disponible → Waiting List pour créer un nouveau groupe
         return {
             'status': 'waiting_list',
-            'waiting_list_type': 'groupe_plein',
-            'raison': f'Tous les groupes du niveau {niveau} sont pleins (A-Z)'
+            'waiting_list_type': 'nouveau_groupe',
+            'raison': f'Aucun groupe existant pour le niveau {niveau} - en attente de création'
         }
 
     def _get_next_exam_for_group(self, groupe: str, niveau: int) -> Optional[ExamPeriod]:
