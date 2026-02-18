@@ -1620,28 +1620,35 @@ async def actualiser_exams(interaction: discord.Interaction):
                 # Créer les salons si nécessaire
                 await create_group_channels(guild, user_db.groupe, expected_role)
 
-                # Envoyer un MP de notification
-                try:
-                    embed = discord.Embed(
-                        title="🔄 Rôles Actualisés",
-                        description=f"Tes rôles Discord ont été mis à jour !",
-                        color=discord.Color.blue()
-                    )
-                    embed.add_field(
-                        name="📊 Groupe Actuel",
-                        value=f"**{user_db.groupe}** (Niveau {user_db.niveau_actuel})",
-                        inline=False
-                    )
-                    embed.add_field(
-                        name="💡 Info",
-                        value="Cette actualisation a été effectuée par un administrateur.",
-                        inline=False
-                    )
+                # Envoyer un MP uniquement si l'utilisateur a reçu un bonus
+                if user_db.bonus_points and user_db.bonus_points > 0:
+                    try:
+                        bonus_emoji = {
+                            'or': '🥇',
+                            'argent': '🥈',
+                            'bronze': '🥉'
+                        }.get(user_db.bonus_level, '🎁')
 
-                    await member.send(embed=embed)
-                    print(f"   ✅ MP envoyé")
-                except discord.Forbidden:
-                    print(f"   ⚠️ MP bloqués pour {member.name}")
+                        embed = discord.Embed(
+                            title=f"{bonus_emoji} Bonus d'Entraide Appliqué !",
+                            description="Tes camarades ont voté pour toi !",
+                            color=discord.Color.gold()
+                        )
+                        embed.add_field(
+                            name="📊 Bonus Obtenu",
+                            value=f"**+{user_db.bonus_points}%**",
+                            inline=True
+                        )
+                        if user_db.bonus_level:
+                            embed.add_field(
+                                name="🏆 Niveau",
+                                value=f"**{user_db.bonus_level.upper()}** {bonus_emoji}",
+                                inline=True
+                            )
+                        await member.send(embed=embed)
+                        print(f"   ✅ MP bonus envoyé à {member.name}")
+                    except discord.Forbidden:
+                        print(f"   ⚠️ MP bloqués pour {member.name}")
 
                 updated_count += 1
 
